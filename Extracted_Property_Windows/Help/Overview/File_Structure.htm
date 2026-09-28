@@ -1,0 +1,48 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>File Structure</title>
+<link rel="StyleSheet" href="../Overview.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+span.hcp1 { mso-spacerun:yes; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" size="4" color="#000080">File Structure</font></h1>
+<p class="header" style="margin-top: 0; margin-bottom: 0;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">Data for each model is stored 
+ in a Microsoft Access database.<span class="hcp1">&#160;</span>&#160;The 
+ database file for a model has a &quot;.sgd&quot; extension; whereas, the 
+ Visio drawing file has a &quot;.vsd&quot; extension.<span class="hcp1">&#160;</span>&#160;Each 
+ station type has a table in the database where all of the station data 
+ for each of the stations of that type are stored.<span class="hcp1">&#160;</span>&#160;For 
+ example, data for each centrifugal in a model is stored in the &quot;tblCentrifugal&quot; 
+ table of the Access database for the model.<span class="hcp1">&#160;</span>&#160;Each 
+ row in the table for a station type contains the data for one station 
+ in the model of the same station type.<span class="hcp1">&#160;</span>&#160;Each 
+ column in the table contains data for one of the properties of the station.<span class="hcp1">&#160;</span>&#160;All columns for each 
+ table are labeled as to their corresponding property on the station property 
+ window.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">All flow streams are stored 
+ in a separate table called &quot;tblFlows&quot;.<span class="hcp1">&#160;</span>&#160;Each 
+ row contains the data for each flow stream in a model and the columns 
+ contain the data fields for each flow stream.<span class="hcp1">&#160;</span>&#160;External 
+ flow streams (flows into the model from outside sources) have a &quot;0&quot; 
+ in the field for the &quot;StationFromNumber&quot; column.<span class="hcp1">&#160;</span>&#160;Internal 
+ flow streams (flows going between stations) that leave the model have 
+ a &quot;0&quot; in the field for the &quot;StationToNumber&quot; column.<span class="hcp1">&#160;</span>&#160;All columns are labeled 
+ to give the properties of the flow stream to correspond with the characteristics 
+ of the flow.<span class="hcp1">&#160;</span>&#160;For example, 
+ pressure, temperature, quantity, components, solubility coefficients, 
+ and color.</p>
+</body>
+</html>

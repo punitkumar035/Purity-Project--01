@@ -1,0 +1,767 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Theory</title>
+<link rel="StyleSheet" href="../Theory.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-left:4.50pt;
+margin-top:0.00pt;
+font-size:10pt; }
+p.hcp2 { margin-top:0.00pt;
+margin-left:5.8pt;
+font-size:10pt; }
+span.hcp3 { font-size:10pt; }
+p.hcp4 { margin-top:0.00pt;
+margin-left:5.8pt;
+font-weight:bold;
+font-size:11pt; }
+p.hcp5 { text-align:center;
+margin-top:0.00pt;
+font-size:10pt; }
+img.hcp6 { border:none; }
+p.hcp7 { margin-top:0.00pt;
+font-size:10pt; }
+p.hcp8 { text-align:center;
+margin-left:4.50pt;
+margin-top:0.00pt;
+font-size:10pt; }
+p.hcp9 { margin-left:45.00pt;
+margin-top:0.00pt;
+text-indent:-9.00pt;
+font-size:10pt; }
+font.hcp10 { vertical-align:sub;
+font-size:6pt; }
+p.hcp11 { margin-top:0.00pt;
+font-size:10pt;
+margin-left:5.8pt;
+text-align:center; }
+td.hcp12 { padding-right:10px;
+padding-left:10px; }
+p.hcp13 { font-size:10pt; }
+font.hcp14 { text-decoration:underline; }
+font.hcp15 { font-size:10pt; }
+span.hcp16 { mso-spacerun:yes; }
+p.hcp17 { margin-top:0.00pt;
+font-size:10pt;
+margin-left:5.8pt;
+margin-right:6.5pt; }
+tr.hcp18 { vertical-align:top; }
+p.hcp19 { font-size:10pt;
+margin-top:0px; }
+td.hcp20 { padding-right:10px;
+padding-left:10px;
+border-right-color:#000000; }
+p.hcp21 { font-size:10pt;
+margin-top:0px;
+margin-left:0px; }
+font.hcp22 { vertical-align:super;
+font-size:6pt; }
+-->
+</style>
+</head>
+
+<body>
+<h1 style="margin-bottom: 4.00pt; color: #000080; font-size: 12pt;"><a 
+	 name="Theory"></a>Theory</h1>
+<p class="hcp1">&#160;</p>
+<p class="hcp2">Many 
+ equations are used by Sugars to calculate the mass and energy balances 
+ for a flow diagram. All material balance calculations maintain conservation 
+ of the total mass flow into and out of each station. Conservation of sucrose, 
+ non-sucrose, total flow and energy is maintained for every station and 
+ for the total factory by using iteration techniques to balance the flow 
+ of all material and energy from station-to-station within the flow diagram 
+ and for the overall factory. Iterations are continued until a balance 
+ is obtained within a relative convergence accuracy specified by the user 
+ (typically 0.01%).</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2"><span class="hcp3"><a href="Theory.htm#Crystal_Content">Crystal 
+ Content</a></span></p>
+<p class="hcp2"><span class="hcp3"><a href="Theory.htm#Heat_Content">Heat Content</a></span></p>
+<p class="hcp2"><span class="hcp3"><a href="Theory.htm#Boiling_Point_Elevation">Boiling 
+ Point Elevation</a></span></p>
+<p class="hcp2"><span class="hcp3"><a href="Theory.htm#Centrifugal_Calculations">Centrifugal 
+ Calculations</a></span></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp4"><a name="Sucrose_Solubility642b3b9347ca42c9b00b820c00c373fa=1"></a><a 
+	 name="Sucrose_Solubility"></a>Sucrose Solubility</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ solubility of pure sucrose in water is calculated from the Vavrinecz equation 
+ that is the official equation adopted by the ICUMSA:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp5"><img src="SucroseSolubiliby-1.gif" alt="" width="461" height="25" border="0" class="hcp6"></p>
+<p class="hcp7">&#160;</p>
+<p style="margin-left: 45.00pt; margin-top: 0.00pt; text-indent: -12px; 
+	 font-size: 10pt;">&#160;Where:&#160;S = weight % of sucrose in solution 
+ at saturation</p>
+<p style="margin-left: 45.00pt; margin-top: 0.00pt; text-indent: 36px; 
+	 font-size: 10pt;">&#160;t = temperature (°C) of solution</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ saturation coefficient for a solution with impurities is calculated from 
+ the Vavrinecz function:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp8"><img src="SucroseSolubility-2.gif" alt="" width="224" height="25" border="0" class="hcp6"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp9">Where:&#160;NSW = non-sucrose to water ratio, and 
+ e = log base 2.71828...</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">And, 
+ 'a', 'b', and 'c' are coefficients that depend on the melassigenic substances 
+ in the flow stream being analyzed. Sugars uses the Vavrinecz saturation 
+ coefficient function for all calculations unless c = 0 is entered; in 
+ which case, the Wagnerowski equation is used:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp8"><img src="SucroseSolubility-3.gif" alt="" width="117" height="25" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ Wagnerowski equation is valid only in the range of 1.6 up to 3.5 non-sucrose-to-water 
+ ratio (NSW); hence, for low values of NSW, the Vavrinecz function is appropriate. 
+ As can be seen from the equations, the saturation coefficient is independent 
+ of temperature.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Supersaturation 
+ is defined by Van Hook's expression that is the official ICUMSA definition:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp8"><img src="SucroseSolubility-4.gif" alt="" width="217" height="48" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Where: 
+ <img src="SucroseSolubility-5.gif" alt="" width="153" height="27" border="0" class="hcp6"> is at the same temperature and with 
+ the same non-sucrose-to-water ratio as the sample being analyzed.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ sucrose-to-water ratio for a solution at saturation is:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp8"><img src="SucroseSolubility-6.gif" alt="" width="257" height="40" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">And,</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp8"><img src="SucroseSolubility-7.gif" alt="" width="210" height="40" border="0" class="hcp6"></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp9">Where:&#160;DS = dry substance of syrup, PU = purity 
+ of syrup</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">For 
+ massecuites, DS and PU are the dry substance and purity, respectively, 
+ of the mother liquor in the massecuite (called DSml and PUml). Thus, from 
+ the above:</p>
+<p class="hcp2">&#160;</p>
+<p style="text-align: center; margin-top: 0.00pt; font-size: 10pt; margin-left: 4.5pt;"><img src="SucroseSolubility-8.gif" alt="" width="198" height="40" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ non-sucrose to water ratio for any syrup is:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp8"><img src="SucroseSolubility-9.gif" alt="" width="139" height="40" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">If 
+ the flow being analyzed is a massecuite containing crystalline sucrose, 
+ then the non-sucrose to water ratio is also:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp5"><img src="SucroseSolubility-10.gif" alt="" width="175" height="40" border="0" class="hcp6"></p>
+<p class="hcp1">&#160;</p>
+<p style="margin-left: 76.50pt; margin-top: 0.00pt; text-indent: -40.50pt; 
+	 font-size: 10pt;">Where:&#160;DSmc = moisture free solids content 
+ of massecuite (i.e., DSmc = 1 - water fraction), and PUmc = purity of 
+ massecuite</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">In 
+ the above equations, and for all equations used by Sugars, DS (dry substance) 
+ values represent the total weight fraction of solids (sucrose and non-sucrose; 
+ that is, DS = 1 - water fraction), and purity values represent the true 
+ purity (that is, ratio of sucrose to total solids) in the flow stream.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">All 
+ of the equations given above are used for either beet, or cane sugar. 
+ The only difference is with the Vavrinecz saturation coefficient function. 
+ Beet sugar companies use the Vavrinecz saturation coefficient function 
+ as shown above and many researchers have reported values for the 'a', 
+ 'b' and 'c' coefficients. Many beet sugar factories make an evaluation 
+ of these coefficients during each campaign; however, for cane sugar, modifying 
+ the coefficients to include consideration for the reducing sugar-to-ash 
+ ratio is usually necessary. For example, the saturation coefficient function 
+ for cane sugar is simplified to be the same as the Wagnerowski relationship 
+ for beet; that is,</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp5"><img src="SucroseSolubility-11.gif" alt="" width="112" height="25" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">To 
+ consider the reducing sugar (RS) to ash (Ash) ratio, the 'a' and 'b' coefficients 
+ are modified to be:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp5"><img src="SucroseSolubility-12.gif" alt="" width="103" height="40" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">And,</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp5"><img src="SucroseSolubility-13.gif" alt="" width="134" height="40" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Values 
+ for B<font size="1" class="hcp10">0</font>, 
+ B<font size="1" class="hcp10">1</font> 
+ and B<font size="1" class="hcp10">2</font> 
+ can be found in the literature, or determined in the laboratory for the 
+ cane used in the factory being evaluated. Using the reactor station in 
+ Sugars, the process calculations can be adjusted for changes in the RS/Ash 
+ ratio as they occur in the process.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp8"><img src="SucroseSolubilitySatCurve.gif" alt="" width="551" height="412" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ above figure shows saturation coefficient curves that compare Grut saturation 
+ coefficient values for beets and typical cane saturation coefficients 
+ versus the non-sucrose to water ratio. As shown by the curve, the saturation 
+ coefficient for cane is lower than the beet Grut values at the same non-sugar 
+ to water ratio. Cane factories can obtain much lower molasses purity than 
+ beet factories because of this difference in solubility. The main reason 
+ for the lower saturation coefficient for cane is the higher invert content 
+ as compared with beet.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Also, 
+ as shown in the figure above, if ash is removed from cane juice, the saturation 
+ coefficient drops lower which will further reduce the molasses purity.</p>
+<p class="hcp2">&#160;</p>
+<p style="margin-left: 4.50pt; margin-top: 0.00pt;">&#160;</p>
+<p class="hcp4"><a name="Crystal_Content642b3b9347ca42c9b00b820c00c373fa=2"></a><a 
+	 name="Crystal_Content"></a>Crystal Content</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ sucrose solubility equations: NSW = f(DSmc, Pumc), S = f(t), Sc = f(NSW) 
+ &amp; Ss = f(DSml, PUml, Sc, S), can be used to find a relationship between 
+ the dry substance and purity of the mother liquor in the massecuite; however, 
+ an additional equation is required to find their values.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">From 
+ the above equation for supersaturation (Ss), an inverse relationship can 
+ be made between the mother liquor dry substance and purity that depends 
+ on the supersaturation (Ss), solubility coefficient (Sc) and saturation 
+ of a pure sucrose solution (S):</p>
+<p class="hcp11"><img src="CrystalContent-1.gif" alt="" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">A second 
+ equation for solution of the DSml and PUml values can be obtained from 
+ the conservation of mass equations for a massecuite:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp8"><img src="CrystalContent-2.gif" alt="" width="364" height="54" border="0" class="hcp6"></p>
+<p class="hcp1">&#160;</p>
+<p style="margin-top: 0.00pt; margin-left: 96px; text-indent: -48px; font-size: 10pt;">Where:&#160;W 
+ refers to weight flow rate and the subscripts 'mc', 'ml' and 'cs' refer 
+ to massecuite, mother liquor and crystalline sucrose, respectively.</p>
+<p style="margin-left: 76.50pt; margin-top: 0.00pt; text-indent: -36.00pt; 
+	 font-size: 10pt;">&#160;</p>
+<p class="hcp2">From 
+ the above equations, it can be shown that:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp5"><img src="CrystalContent-3.gif" alt="" border="0" class="hcp6"></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp7">Normally, it can be assumed 
+ that the dry substance and purity of a sucrose crystal = 1.00; i.e., it 
+ is 100% solid and pure sucrose. From equations (1) and (2), the mother 
+ liquor dry substance and purity can be calculated for any massecuite in 
+ which the dry substance, purity, temperature and supersaturation are known. 
+ After the values for mother liquor dry substance and purity have been 
+ determined, the percent crystals in the flow may be calculated from the 
+ following equation.</p>
+<p class="hcp7">&#160;</p>
+<p class="hcp5"><img src="CrystalContent-4.gif" alt="" width="241" height="42" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Conversely, 
+ if for any massecuite, the % Crystals are known, then the mother liquor 
+ dry substance and purity may be calculated from the following two equations.</p>
+<p class="hcp2">&#160;</p>
+<table cellspacing="0" align="center">
+	<col>
+	<col>
+	<col>
+	<tr style="vertical-align: middle;">
+		<td class="hcp12"><p class="hcp13"><img src="CrystalContent-5.gif" alt="" width="168" height="44" border="0" class="hcp6"></p></td>
+		<td class="hcp12"><p style="text-align: center; 
+			 font-size: 10pt;">and,</p></td>
+		<td class="hcp12"><p class="hcp13"><img src="CrystalContent-6.gif" alt="" width="250" height="46" border="0" class="hcp6"></p></td>
+	</tr>
+</table>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">All 
+ of the above equations are used by Sugars to calculate the crystal content 
+ and mother liquor dry substance and purity for each flow stream.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp4"><a name="Heat_Content642b3b9347ca42c9b00b820c00c373fa=3"></a><a 
+	 name="Heat_Content"></a>Heat Content</p>
+<p style="margin-top: 0; margin-bottom: 0; font-size: 10pt; margin-left: 5.8pt;">&#160;</p>
+<p class="hcp2">Conservation 
+ of energy is maintained for the factory calculations by doing a heat balance 
+ on each station. The heat content of all flow streams feeding into a station 
+ is determined by calculating the heat capacities of each component in 
+ the liquid, solid and gas phases and then summing up all of the values 
+ to obtain the total heat content of the flow. A similar calculation is 
+ done for all output flows from each station.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Specific 
+ heat capacity equations are used by Sugars for each flow component in 
+ the flow stream except the combination of water, sucrose and non-sugars 
+ that are considered in unison to be syrup. The heat capacity of water 
+ vapor includes the latent heat of vaporization.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Specific 
+ heat capacity (kJ/kg-K) at constant pressure for syrups and sucrose crystals 
+ is calculated from the <font class="hcp14">Sugar 
+ Technologists Manual<span style="text-decoration: none; ">, 8th edition,</span></font> 
+ published by Bartens. &#160;For syrups the equation (341/3) is:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="HeatContent-1.gif" alt="" width="361" height="25" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">And, 
+ for sucrose crystals the equation (311/2) is:</p>
+<p class="hcp2">&#160;</p>
+<p style="text-align: center; margin-top: 0.00pt;"><img src="HeatContent-2.gif" alt="" width="290" height="23" border="0" class="hcp6"></p>
+<p class="hcp1">&#160;</p>
+<p style="margin-left: 45.00pt; margin-top: 0.00pt; text-indent: -9.00pt;"><font size="2" class="hcp15">Where:&#160;</font><font size="2" class="hcp15">for both equations, t = temperature (°C)</font></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Curve 
+ fits have been made to the data for the specific heats of limestone and 
+ lime, as given in the book <font class="hcp14">Chemistry 
+ and Technology of Lime and Limestone</font>, by Robert S. Boynton.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Beet 
+ marc specific heat capacity is taken from the book <font class="hcp14">Physics 
+ and Chemistry of Sugar Beet in Sugar Manufacture</font>, by Konstantin 
+ Vukov.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Specific 
+ heat capacity algorithms for CO<font size="1" class="hcp10">2</font> and NH<font size="1" class="hcp10">3</font> gases 
+ have been taken from &quot;Correlation Constants for Chemical Compounds&quot;, 
+ as published in <font class="hcp14">Chemical Engineering</font>, 
+ August 16, 1976.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp4"><a name="Boiling_Point_Elevation642b3b9347ca42c9b00b820c00c373fa=4"></a><a 
+	 name="Boiling_Point_Elevation"></a>Boiling Point Elevation</p>
+<p class="hcp2">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">Boiling 
+ point elevation is calculated for all stations that have a vapor flow 
+ out (pans, evaporators, etc.) so that the heat content of the vapor may 
+ be calculated.<span class="hcp16">&#160;</span>&#160;An equation 
+ developed by Kadlec, Bretschneider and Dandor, and presented in the November 
+ 1978 paper entitled, &quot;Boiling Point Elevation of Sugar Solutions&quot;, 
+ is used for all boiling point elevation calculations.<span class="hcp16">&#160;</span>&#160;This 
+ equation was published in Vol. 97 of La Sucrerie Belge and it takes into 
+ consideration the dry substance, purity and ambient pressure of the solution 
+ being boiled.</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">Sugars uses 
+ an algorithm to solve for the ambient pressure of a vapor when its temperature 
+ is known. Therefore, if the temperature of the vapor out is known, the 
+ pressure can be calculated; or, if the temperature, dry substance and 
+ purity of the material flow out of the station is known, then Sugars uses 
+ iteration with the boiling point elevation equation to calculate the temperature 
+ and pressure of the vapor flow out of the station.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp4"><a name="Centrifugal_Calculations642b3b9347ca42c9b00b820c00c373fa=5"></a><a 
+	 name="Centrifugal_Calculations"></a>Centrifugal Calculations</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Centrifugal 
+ stations in the flow diagram are evaluated for: (1) their ability to purge 
+ centrifugal wash water and mother liquor; (2) the resultant loss of sugar 
+ crystals to the green (and wash for batch centrifugals) output flows; 
+ (3) the fraction of the crystal loss that is due to melting; and (4) the 
+ heat lost from each flow stream. Using procedures given in the previous 
+ Crystal Content discussion, Sugars will first determine the amount of 
+ mother liquor and sucrose crystals in the massecuite flowing to the centrifugal. 
+ Then from conservation of mass principles, the amount of mother liquor, 
+ sucrose crystals and wash water in the green and sugar output flow streams 
+ is determined. Next, the supersaturation of each output flow stream is 
+ determined. If the output flow stream is under saturated (Ss &lt; 1), 
+ the crystals contained in the flow stream are melted until the flow is 
+ saturation with sucrose (Ss = 1), or all of the crystals have been dissolved. 
+ If the output flow stream is supersaturated (Ss &gt; 1), the crystal content 
+ of the flow is not changed; that is, crystals are not grown in the centrifugal 
+ station. Finally, from the input values for the temperature of each output 
+ flow stream, the heat content is calculated and compared with the heat 
+ that flows to each output flow from the wash water, mother liquor and 
+ crystals purged to the respective output streams. A comparison between 
+ the two heat content values gives the heat loss for each output flow stream.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ resultant performance calculations provide an evaluation of the centrifugal 
+ used during simulations of the factory to predict how the station will 
+ process other massecuite at various flow rates and with different characteristics 
+ (e.g., with a different dry substance, purity, crystal content and temperature).</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ evaluation by Sugars and the results for 2-Output centrifugals can be 
+ verified by the following equations for wash flow in as water instead 
+ of syrup (3-Output centrifugals are discussed later in this section). 
+ Definitions of the variables are given first.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Definition 
+ of variables:</p>
+<p class="hcp17">&#160;</p>
+<table style="margin-left: 5.8pt; margin-right: 6.5pt;" cellspacing="0" 
+		 width="100%">
+	<col style="width: 9.512%;">
+	<col style="width: 4.838%;">
+	<col style="width: 85.65%;">
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">Cry</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">fraction 
+		 of crystals in the massecuite;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">R</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">weight 
+		 ratio of centrifugal wash water to massecuite flow;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">Pw</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">wash 
+		 purge ratio (wash water purged to total wash water used);</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">Pl</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">liquor 
+		 purge ratio (mother liquor purged to total mother liquor in massecuite);</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">Z</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">crystal 
+		 loss ratio (sucrose crystals lost to green to total sucrose crystals 
+		 in massecuite - crystal loss may be due to both screen and melting 
+		 losses);</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">DSmc</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">dry 
+		 substance of massecuite flowing into centrifugal;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">PUmc</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">purity 
+		 of massecuite flowing into centrifugal;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">DSml</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">dry 
+		 substance of mother liquor in massecuite;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">PUml</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">purity 
+		 of mother liquor in massecuite;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">DSw</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">dry 
+		 substance of wash flowing into centrifugal;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">PUw</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">purity 
+		 of wash flowing into centrifugal;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">DSg</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">dry 
+		 substance of green output flow;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">PUg</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">purity 
+		 of green output flow;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">DSs</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">dry 
+		 substance of sugar output flow;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">PUs</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">purity 
+		 of sugar output flow;</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">WRg</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">weight 
+		 ratio of green output flow rate to massecuite input flow rate 
+		 (kg/h);</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">WRs</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">weight 
+		 ratio of sugar output flow rate to massecuite input flow rate 
+		 (kg/h);</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">Wmc</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">weight 
+		 flow rate of massecuite to the centrifugal (kg/h);</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">Ww</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">weight 
+		 flow rate of wash to the centrifugal (kg/h);</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">Qw</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">wash 
+		 water flow rate (m<font size="1" class="hcp22">3</font>/h);</p></td>
+	</tr>
+	<tr class="hcp18">
+		<td style="width:9.512%;" class="hcp12"><p class="hcp19">Sgw</p></td>
+		<td style="width:4.838%;" class="hcp20"><p class="hcp19">=</p></td>
+		<td style="width:85.65%;" class="hcp12"><p class="hcp21">specific 
+		 weight of wash water (kg/m<font size="1" class="hcp22">3</font>).</p></td>
+	</tr>
+</table>
+<p style="margin-top: 0.00pt; text-indent: -31.50pt; font-size: 10pt; margin-right: 6.5pt; 
+	 margin-left: 5.8pt;">&#160;</p>
+<p class="hcp17">The 
+ centrifugal calculations do a material balance for the centrifugal using 
+ the dry substance and purity values that are entered on the performance 
+ evaluation screen. The material balance uses the following equations.</p>
+<p class="hcp17">&#160;</p>
+<p class="hcp17">Weight 
+ balance:</p>
+<p class="hcp17">&#160;</p>
+<p class="hcp11"><img src="Centrifugal-1.gif" alt="" width="149" height="20" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Dry 
+ substance balance:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal-2.gif" alt="" width="288" height="20" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Sucrose 
+ balance:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal-3.gif" alt="" width="434" height="20" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">If 
+ the wash is only water, then DSw = 0.0, and equations simplify to:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal-4.gif" alt="" width="329" height="60" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Now, 
+ dividing each of the above equations by Wmc, you get:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal-5.gif" alt="" width="306" height="60" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Where,</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal-6.gif" alt="" width="169" height="40" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Using 
+ the centrifugal performance calculation results:</p>
+<p class="hcp2">&#160;</p>
+<p style="text-align: center; margin-top: 0.00pt; margin-left: 5.8pt;"><img src="Centrifugal-7.gif" alt="" width="348" height="269" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">For 
+ example, consider the performance evaluation shown in the following three 
+ figures for a continuous centrifugal. The figure below shows the evaluation 
+ of massecuite flowing into the centrifugal. The massecuite characteristics 
+ are: supersaturation (Ss) equals 1.100, dry substance (DSmc) equals 93.00% 
+ (or .9300), purity (Pumc) equals 86.44% (or .8644) and temperature equals 
+ 81.0°C.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal_Scn-1.png" alt="" border="0" class="hcp6"></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp2">Results 
+ of the massecuite evaluation as shown above are: crystal content by weight 
+ (Cry) equals 47.44% (or .4744), mother liquor dry substance (DSml) equals 
+ 86.68% (or .8668) and the mother liquor purity (PUml) equals 72.32% (or 
+ .7232).</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Below 
+ is the entry window for entering the process data from the centrifugal.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal_Scn-2.png" alt="" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Data 
+ entry values shown on the window above are: green (or molasses) dry substance 
+ (DSg) equals 83.70% (.8370) and purity (PUg) equals 76.50% (.7650) and 
+ sugar dry substance (DSs) equals 97.60% (.9760) and purity (PUs) equals 
+ 96.90% (.9690). The centrifugal performance calculations are done from 
+ these entries and the temperatures of the green and sugar and the volume 
+ flow of massecuite and wash water into the centrifugal. The results of 
+ the performance calculations are shown below.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal_Scn-3.png" alt="" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Using 
+ the input data and results from the evaluation shown on the previous windows 
+ using the appropriate equations, the mother liquor dry substance and purity 
+ can be calculated (assume DScs = PUcs = 1):</p>
+<p class="hcp2">&#160;</p>
+<p style="text-align: center; margin-left: 4.50pt; margin-top: 0.00pt;"><img src="Centrifugal-8.gif" alt="" width="388" height="98" border="0" class="hcp6"></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp2">Or, 
+ the mother liquor % dry substance = 86.68, and % purity = 72.32 that agrees 
+ with the massecuite characteristics as calculated by Sugars. Thus,</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal-9.gif" alt="" width="561" height="407" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">All 
+ of the above manual calculations check with the results from Sugars; thus, 
+ the results of the performance evaluation are verified.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ resultant flows from the centrifugal will be calculated as shown above 
+ if a different massecuite is fed to the same centrifugal having the above 
+ performance values for R, Pw, Pl and Z. The values of Z, Pl and Pw are 
+ not chosen as the values to be held during the balance calculations for 
+ this centrifugal (see the unchecked check box next to &quot;Use Purge 
+ Data for Iterations&quot; on the window above). However, because the sugar 
+ flow out sucrose crystals, mother liquor and wash flow in values are chosen 
+ to be held during the balance calculations, the crystal loss ratio (Z) 
+ will be used to find the crystal content for the sugar flow out, but the 
+ values of Pw and Pl will not be used. Hence, the sugar flow out will be 
+ composed of sucrose crystals, mother liquor and wash flow in as given 
+ by the centrifugal evaluation results shown on the window above. The percentage 
+ of mother liquor and wash in the sugar flow out will be held for the centrifugal 
+ station.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">As 
+ can be seen from the previous example, the relationships between R, Pw, 
+ Pl and Z, for any given centrifugal station, are determined from actual 
+ observed operating results. These results are then used (if the check 
+ next to &quot;Use Purge Data for Iterations&quot; is checked) through 
+ the R, Pw, Pl and Z relationship to find new operating results for a centrifugal 
+ when processing different massecuites. Calculated values of R, Pw, Pl 
+ and Z can be plotted against each other and used as a guide to evaluate 
+ and rate each centrifugal in a factory and to compare them with other 
+ factories. For example, plots of Pl vs. Z at various values of R, and 
+ Pl and Z vs. R, provides very valuable information regarding how each 
+ centrifugal performs. Obviously, the characteristics of a massecuite will 
+ affect the centrifugal performance. Therefore, the best comparisons are 
+ obtained when the same massecuite is being processed by all centrifugals 
+ under evaluation.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Operating 
+ results for a factory with variable centrifugal wash water flow rates 
+ can be evaluated by Sugars if laboratory data has been taken and the centrifugal 
+ station has been analyzed for more than one wash water flow rate while 
+ the same massecuite is being processed. For instance, two sets of values 
+ for Pw, Pl, Z and R can be easily obtained by taking laboratory data when 
+ the wash water is set to a known value (Qw &gt; 0) and then taking a new 
+ set of data when the water is reduced to zero (Qw = 0). The variations 
+ of Pw, Pl and Z with R can be assumed as linear or additional data at 
+ various wash water flow rates can be taken to verify the actual relationships 
+ and graphs can be drawn similar to those shown below.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="CentrifugalPerfCurve.gif" alt="" width="559" height="189" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p style="margin-top: 0.00pt; margin-left: 5.8pt;"><font size="2" class="hcp15">Using 
+ these graphs, new values can be determined for Pw, Pl and Z when the wash 
+ water flow (R) is varied. The new values are then entered into Sugars 
+ for the centrifugal being evaluated</font> <font size="2" class="hcp15">by using 
+ the &quot;F3=Edit feature of the centrifugal performance evaluation. Sugars 
+ will then calculate new values for DSg, PUg, DSs and PUs. Next, enter 
+ the new wash water flow rate on the centrifugal data entry</font> <font size="2" class="hcp15">window</font> <font size="2" class="hcp15">with 
+ the new values of DSg, PUg, DSs and PUs. Enter 0.0 for either the green 
+ %DS, or sugar %DS, and accept the new values by clicking on the</font> 
+ <font style="font-size: 10pt; text-decoration: underline; " size="2">O</font><font size="2" class="hcp15">K button. Sugars will calculate 
+ the %DS value that was not selected. Or, if an error is given by Sugars, 
+ revising the %DS value entered for either the green, or sugar, may be 
+ necessary until Sugars can calculate the other %DS at the new wash water 
+ flow rate. After the green and sugar %DS values are calculated at the 
+ new wash water flow rate, Sugars will calculate and display the new centrifugal 
+ performance. If the calculated centrifugal performance does not agree 
+ with the values from the curves, repeating the entry of centrifugal performance 
+ values and green and sugar %DS values may be necessary until agreement 
+ is reached.</font></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ balance calculations can be redone by Sugars after the new centrifugal 
+ performance values are entered for the new wash water flow. The results 
+ from the Sugars calculations can then show the effect on the process from 
+ changing wash water flow rates in any of the centrifugal stations by using 
+ the above technique.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Wash 
+ flow into the centrifugal can be syrup instead of water and the same procedures 
+ as described above can be used to evaluate the effect of different syrups 
+ on the performance of a centrifugal station. Graphs similar to those shown 
+ above can be created from actual test results at different syrup flow 
+ rates and characteristics and these graphs can then be used to evaluate 
+ how different syrup flows would affect the operation of the process.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">3-Output 
+ (batch) centrifugals with green, wash and sugar output flows are evaluated 
+ in exactly the same manner as previously discussed for 2-Output (continuous) 
+ centrifugals except that an additional evaluation is made for the split 
+ between the green and wash flows. For example, consider the 3-Output centrifugal 
+ input data and performance evaluation shown below.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal_Scn-4.png" alt="" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ above window shows the massecuite evaluation for a 3-Output (batch) centrifugal 
+ that is the same evaluation as is done for a 2-Output (continuous) centrifugal. 
+ Next, the centrifugal data is input as shown in the figure below. Data 
+ is entered for three output flows are; i.e., &quot;green&quot;, &quot;wash&quot; 
+ and &quot;sugar&quot;.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal_Scn-5.png" alt="" border="0" class="hcp6"></p>
+<p style="margin-left: 5.8pt; font-size: 10pt;">&#160;</p>
+<p class="hcp2">Performance 
+ calculations are shown for the 3-Output centrifugal in the figure below. 
+ The performance evaluation results for the 3-Output centrifugal are the 
+ same as for the 2-Output centrifugal except for the additional wash output 
+ flow stream and the green/wash split that occurs between the green and 
+ wash flows. The green wash split can be edited as shown in the 3-Output 
+ Centrifugal Evaluation section.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal_Scn-6.png" alt="" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">Equations 
+ for the green and wash flows are:</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp11"><img src="Centrifugal-10.gif" alt="" width="421" height="57" border="0" class="hcp6"></p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">The 
+ Green/Wash Split, wt. % values are represented by the Zg, Plg and Pwg 
+ values from the centrifugal evaluation as shown on the above window. Similar 
+ equations to those shown above can be developed for the dry substance 
+ and purity of the green and wash flows.</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2">&#160;</p>
+<p class="hcp2"><a 
+	 href="#Theory">Theory</a></p>
+<p class="hcp2"><a 
+	 href="Theory.htm#Sucrose_Solubility">Sucrose Solubility</a></p>
+<p class="hcp2"><a 
+	 href="Theory.htm#Crystal_Content">Crystal Content</a></p>
+<p class="hcp2"><a 
+	 href="Theory.htm#Heat_Content">Heat Content</a></p>
+<p class="hcp2"><a 
+	 href="Theory.htm#Boiling_Point_Elevation">Boiling Point Elevation</a></p>
+<p class="hcp2"><a 
+	 href="Theory.htm#Centrifugal_Calculations">Centrifugal Calculations</a></p>
+</body>
+</html>

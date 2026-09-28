@@ -1,0 +1,119 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Flash Tank Properties</title>
+<link rel="StyleSheet" href="../Flash_Tank.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt; }
+font.hcp2 { font-size:11pt;
+font-weight:bold; }
+font.hcp3 { font-size:10pt;
+font-weight:bold; }
+font.hcp4 { font-size:10pt; }
+p.hcp5 { margin-left:36.00pt;
+margin-bottom:0.00pt; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Flash Tank 
+ Properties</font></h1>
+<p class="header" style="margin-bottom: 0.00pt;">&#160;</p>
+<p style="margin-bottom: 0.00pt; text-align: center;"><img src="Images/FlashTankProperties_Scn-1.png" alt="" style="border: none;" border="0"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Equipment </font><font size="2" class="hcp2">ID</font><font size="2" class="hcp3"> </font><font size="2" class="hcp4">An equipment </font><font size="2" class="hcp4">ID</font><font size="2" class="hcp4"> of up to 
+ 11 characters can be used to identify the station with an actual station 
+ in the process. Any combination of numbers and letters that are used in 
+ the factory/refinery to identify equipment can be entered. For example, 
+ Equipment </font><font size="2" class="hcp4">ID</font><font size="2" class="hcp4"> = </font><font size="2" class="hcp3">123.456A</font><font size="2" class="hcp4">. It is not necessary to make an 
+ entry in the Equipment </font><font size="2" class="hcp4">ID</font><font size="2" class="hcp4"> field if the station in the model 
+ does not have a corresponding station in the factory/refinery.</font><font 
+	 style="font-size: 9pt;" size="2"> </font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Station Name</font><font size="2" class="hcp3"> </font><font size="2" class="hcp4">A name of up to 20 characters must 
+ be entered for the station. For example, Station Name = </font><font size="2" class="hcp3">3rd Cond. Flash Tank</font><font size="2" class="hcp4">. </font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp4">F</font><font size="2" class="hcp4">lashing </font><font size="2" class="hcp4">will</font><font size="2" class="hcp4"> occur</font><font size="2" class="hcp4"> 
+ if</font><font size="2" class="hcp4"> the temperature of the 
+ output flow </font><font size="2" class="hcp4">is</font><font size="2" class="hcp4"> less than the input flow. If a 
+ Vapor Out </font><font size="2" class="hcp4">Pressure</font><font size="2" class="hcp4"> (or Saturation </font><font size="2" class="hcp4">Temperature</font><font size="2" class="hcp4">) 
+ is entered, Sugars will calculate the temperature of the output flow with 
+ consideration given to the boiling point elevation, if any. Sugars will 
+ give an error message if this calculation results in an output flow temperature 
+ that is greater than the input flow temperature, or if the entered value 
+ for the Output Flow Temperature is greater than the temperature of the 
+ flow into the flash tank. Hence, entering a value for the Output Flow 
+ Temperature, or a Vapor Out Saturation Temperature, will result in water 
+ vapor flashing if the input flow temperature is either greater than the 
+ output flow temperature, or greater than the vapor out temperature plus 
+ boiling point elevation. </font><font size="2" class="hcp4">Sugars 
+ will give an error message if the pressure of the flow into the flash 
+ tank is less than the pressure of the vapor out. </font><font size="2" class="hcp4">No heating occurs, or is considered, in a flash tank station.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Vapor Out </font><font size="2" class="hcp4">An entry can be made for either 
+ the Vapor Out Pressure (or Saturation Temperature), Pressure Feedback, 
+ or for the Output Flow Temperature. The borders of these entry fields 
+ are in </font><font color="#FF00FF" size="2" class="hcp4">magenta</font><font size="2" class="hcp4"> color to indicate that only one 
+ of them can be selected. If Pressure Feedback is selected, the vapor flow 
+ out will be a pressure feedback flow and the pressure of both the vapor 
+ and process flows out will be at the feedback pressure. The feedback pressure 
+ will be at atmospheric pressure if the vapor flow leaves the model.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp5"><font size="2" class="hcp3">Pressure</font><font size="2" class="hcp4"> Left 
+ click the check box next to the Pressure field to select the Vapor Out 
+ Pressure and Saturation Temperature instead of the Output Flow Temperature. 
+ Vapor Out Saturation Temperature may be entered instead of Pressure when 
+ the check box next to the Pressure field is selected. The drop-down box 
+ next to the Pressure field can be used to select the pressure units for 
+ entry. The Saturation Temperature will be calculated and displayed by 
+ Sugars when an entry is made for the Pressure. For example, Pressure = 
+ </font><font size="2" class="hcp3">0.5</font><font size="2" class="hcp4"> bar gives 81.3°C. If &quot;mm Hg&quot; 
+ or &quot;in Hg&quot; units are used for the Pressure, the entered value 
+ should be &lt; 0.0 if the pressure is below standard atmospheric pressure.</font></p>
+<p class="hcp5">&#160;</p>
+<p class="hcp5"><font size="2" class="hcp3">Saturation Temperature </font><font size="2" class="hcp4">Enter the saturation temperature of the vapor flow out of 
+ the flash tank. Sugars will calculate a value for the pressure of the 
+ vapor leaving the flash tank when the cursor is indexed to another field.</font><font size="2" class="hcp4"> For example, Saturation Temperature 
+ = </font><font size="2" class="hcp3">85.00</font><font size="2" class="hcp4"> °C gives 57.9 kPa.</font></p>
+<p class="hcp5">&#160;</p>
+<p class="hcp5"><font size="2" class="hcp3">Entrainment Sugar Loss </font><font size="2" class="hcp4">Enter entrained sugar loss to vapor out as parts-per-million 
+ (PPM) of sugar in vapor excluding any non-condensable gases in the vapor 
+ flow (e.g., CO2, NH3, etc.). Sugar loss is measured by the parts-per-million 
+ of sugar in the condensed vapor. Also, this parameter allows for entrainment 
+ of sucrose and non-sucrose material in the vapor flow. The input parameter 
+ is for the sugar loss; however, Sugars will consider the droplets entrained 
+ with the vapor to have the same %DS and Purity as the syrup (or, mother 
+ liquor if the flow contains crystals) leaving the flash tank. Because 
+ Sugars considers the entrained droplets to have both sucrose and non-sucrose, 
+ the Sugar Loss parameter will give a non-sucrose loss if the i</font><font size="2" class="hcp4">nput flow purity is </font><font size="2" class="hcp4">l</font><font size="2" class="hcp4">ess than 
+ 100%.</font><font size="2" class="hcp4"> For example, Entrainment 
+ Sugar Loss = </font><font size="2" class="hcp3">80</font><font size="2" class="hcp4"> ppm.</font></p>
+<p class="hcp5">&#160;</p>
+<p style="margin-left: 36.00pt; margin-bottom: 0.00pt; font-size: 10pt;"><font 
+	 style="font-weight: bold;">Pressure Feedback</font> Left click the 
+ check box to use pressure feedback to define the pressure of the vapor 
+ leaving the flash tank. For example, if the vapor out goes to a receiver, 
+ the output pressure of the receiver will be fed back to the flash tank 
+ as the vapor out pressure. The output pressure of a receiver will be the 
+ minimum pressure of all the flows into the receiver that are not pressure 
+ feedback flows. If the vapor flow out goes out of the model and pressure 
+ feedback is used, the atmospheric pressure for the model (see <a href="../Overview/Program_Overview.htm">Program 
+ Overview &gt; User Interface</a>) will be used as the feedback pressure.</p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Output Flow Temperature</font><font size="2" class="hcp3"> </font><font size="2" class="hcp4">Left click the check box next to 
+ the Output Flow Temperature field to select the process flow out temperature 
+ instead of Vapor Out </font><font size="2" class="hcp4">Pressure</font><font size="2" class="hcp4"> or Pressure Feedback</font><font size="2" class="hcp4">. Only one of these t</font><font size="2" class="hcp4">hree options</font><font size="2" class="hcp4"> can be </font><font size="2" class="hcp4">selected</font><font size="2" class="hcp4">. For example,</font><font size="2" class="hcp4"> Output</font><font size="2" class="hcp4"> Flow 
+ Temperature = </font><font size="2" class="hcp3">103.5</font><font size="2" class="hcp4">°C</font><font size="2" class="hcp4">. </font></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><a href="Flash_Tank_Features.htm"><font size="2" class="hcp4">Flash Tank Features</font></a><font size="2" class="hcp4"> </font></p>
+<p class="hcp1"><a href="Flash_Tank_Examples.htm"><font size="2" class="hcp4">Flash Tank Examples</font></a><font size="2" class="hcp4"> </font></p>
+</body>
+</html>

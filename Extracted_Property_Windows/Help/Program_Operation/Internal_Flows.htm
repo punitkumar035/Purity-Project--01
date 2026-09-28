@@ -1,0 +1,87 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Internal Flows</title>
+<link rel="StyleSheet" href="../Program_Operation.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-top:0.00pt; }
+font.hcp2 { font-size:10pt; }
+p.hcp3 { margin-top:0.00pt;
+text-align:center; }
+img.hcp4 { border:none; }
+p.hcp5 { margin-top:0.00pt;
+font-size:10pt; }
+span.hcp6 { mso-spacerun:yes; }
+span.hcp7 { font-size:10pt; }
+b.hcp8 { mso-bidi-font-weight:normal; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Internal Flows</font></h1>
+<p class="header" style="margin-top: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Internal 
+ flows are flows that connect stations, or that go out of the model. The 
+ characteristics of all internal flows are calculated by Sugars. Double 
+ click on any internal flow to get the Internal Flow Properties </font><font size="2" class="hcp2">window</font><font size="2" class="hcp2"> 
+ as shown below. All of the internal flows in a model can be viewed using 
+ the scroll window and the data for each one can be reviewed by simply 
+ highlighting </font><font size="2" class="hcp2">the flow in 
+ the scroll window.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Internal_Flow_Scn-1.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp5">Properties for the internal 
+ flow include the station number of the station where the internal flow 
+ originates and the input port and station number of where the flow goes.<span class="hcp6">&#160;</span>&#160;Next, the pressure, 
+ temperature and flow rate quantity (weight units per hour) are given.<span class="hcp6">&#160;</span>&#160;The line below the pressure, 
+ temperature and flow values gives the values for: Tons/h = flow rate in 
+ tons per hour, TDM = % total dry matter, Sugar = % sugar (both dissolved 
+ and crystalline), DS = % dry substance (includes sucrose crystals, if 
+ any), Purity = purity including both dissolved and sucrose crystals (if 
+ any), Crystals = % sucrose crystals, ISNS = % insoluble solid non-sugars 
+ and Gas = % gas.<span class="hcp6">&#160;</span>&#160;The 
+ liquid, solid and gas phase components are listed next and then the color 
+ and solubility coefficients for the flow are displayed.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><span class="hcp7">A <b class="hcp8"><u>D</u>S 
+ and Purity</b> button in the liquid phase block can be used to display 
+ the % dry substance and purity of the liquid portion of the flow.</span><span class="hcp6">&#160;</span><span class="hcp7">&#160;For 
+ example, if the flow is a massecuite, left clicking the mouse on the button 
+ will cause Sugars to display the % dry substance and purity of the mother 
+ liquor.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><span class="hcp7">The <b class="hcp8"><u>R</u>eset</b> 
+ button is used to reset all values to 0.0 for the internal flow being 
+ displayed.</span><span class="hcp6">&#160;</span><span class="hcp7">&#160;This 
+ is helpful if the model has a loop that causes the flow stream quantity 
+ to increase with each iteration until the quantity is out of range.</span><span class="hcp6">&#160;</span><span class="hcp7">&#160;The 
+ reset button allows the flow to be set back to 0.0 and then a change can 
+ be made to the model to prevent a reoccurrence of the problem. </span><span 
+	 style="mso-spacerun: yes; font-weight: bold;">&#160;</span><span style="font-size: 10pt; 
+	 font-weight: bold;">It is not necessary to reset all flows in a model 
+ that are out of range because Sugars will automatically reset out of range 
+ flows during the next iteration; however, the cause of the out of range 
+ problem will need to be corrected before the model will balance.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp5">The <b class="hcp8">P<u>a</u>rameters</b> 
+ button is used to display other characteristics of the flow as shown in 
+ the diagram below.</p>
+<p class="footnote_text" style="margin-top: 0.00pt;">&#160;</p>
+<p class="hcp3"><img src="Images/Internal_Flow_Scn-2.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><span class="hcp7">When the 
+ parameters are being displayed, the <b class="hcp8"><u>F</u>ractions</b> 
+ button is used to change the display back to show the flow stream component 
+ fractions.</span><span class="hcp6">&#160;</span><span class="hcp7">&#160;Parameters 
+ and flow stream component fractions are available for every flow stream 
+ in the model.</span></p>
+</body>
+</html>

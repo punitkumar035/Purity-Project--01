@@ -1,0 +1,192 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Evaporator Examples</title>
+<link rel="StyleSheet" href="../Evaporator.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt; }
+font.hcp2 { font-size:10pt; }
+p.hcp3 { margin-bottom:0.00pt;
+text-align:center; }
+img.hcp4 { border:none; }
+p.hcp5 { margin-bottom:0.00pt;
+font-size:10pt; }
+span.hcp6 { font-weight:bold; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" size="4" color="#000080">Evaporator 
+ Examples</font></h1>
+<p class="header" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Specifying 
+ a Total Solids</font><font size="2" class="hcp2"> (%)</font><font size="2" class="hcp2"> for any one body in a </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> will cause the steam flow into the 1st effect of the multiple 
+ to become a required flow. If the input steam quantity isn't known, one 
+ body in the </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> must have the &quot;Total Solids</font><font size="2" class="hcp2"> (%)</font><font size="2" class="hcp2">&quot; 
+ specified for the output flow from that body. Sugars will calculate the 
+ quantity of steam used by the </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> to give an output syrup flow having 
+ the Total Solids</font><font size="2" class="hcp2"> (%)</font><font size="2" class="hcp2"> for the effect specified. If a 
+ Total Solids</font><font size="2" class="hcp2"> (%)</font><font size="2" class="hcp2"> is not specified for any effect 
+ in the multiple, then the quantity of steam to the multiple must be specified 
+ for Sugars to calculate the Total Solids</font><font size="2" class="hcp2"> (%)</font><font size="2" class="hcp2"> in the syrup leaving the multiple.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/EvaporatorExamples_Fig-1.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp3">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">It 
+ is possible to have a multiple-effect that uses &quot;1 - First Effect&quot; 
+ for each of the effects. To use this approach, the quantity of steam into 
+ the 1st body, or the &quot;Total Solids (%)&quot; of the output flow from 
+ the 1st body of the multiple-effect station must be given to Sugars. Each 
+ additional body in the multiple-effect may have a value entered for the 
+ &quot;Total Solids (%)&quot; in the output flow from the body; or instead, 
+ the quantity of vapor from a previous effect will be used to find the 
+ evaporation that occurs in the station. Distributor stations must be used 
+ for the vapor flow between each effect if the &quot;Total Solids (%)&quot; 
+ is being specified for each body when all effects in the multiple-effect 
+ station are given &quot;1 - First Effect&quot;; otherwise, the vapor flow 
+ leaving one body may not equal the required steam flow into the next body 
+ and a balance will not be achieved by Sugars. If the quantity of steam 
+ from a previous effect is not sufficient to satisfy the needs of a subsequent 
+ effect for the Total Solids (%) specified, Sugars will give an error message 
+ and the Total Solids (%) values for the effects should be revised.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">It 
+ is necessary that the driving, or motive, steam for a </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2">, 
+ flow into the first effect; however, the juice (material) flow does not 
+ have to flow into the first body initially and more than one juice flow 
+ can go to the multiple. Also, having additional steam flowing into an 
+ effect is possible other than the first effect, if the quantity of the 
+ additional steam is known. Sugars will only adjust the steam flowing into 
+ the first effect when it is doing the balance calculations to arrive at 
+ a specified &quot;Total Solids</font><font size="2" class="hcp2"> 
+ (%)</font><font size="2" class="hcp2">&quot; for one body 
+ in the </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> station. </font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">The 
+ material, or juice, flow out of an evaporator station can be made a required 
+ flow if, for example, a quantity of juice is required by another station, 
+ or for another specified purpose; however, neither the vapor, nor condensate, 
+ leaving an evaporator station can be made required. Sugars will give an 
+ error message if a model is built that causes either the vapor, or condensate, 
+ to become required. A balance for the model may not be possible if either 
+ one of these flows is required because the model is over specified with 
+ more conditions to satisfy than are possible. The model is over specified 
+ because the performance parameters for the evaporator control the quantity 
+ of vapor and condensate that leave the evaporator. If another station 
+ requires a certain quantity of vapor, or condensate, from the evaporator, 
+ the performance parameters for the evaporator will be in conflict with 
+ the station that is requiring a quantity of vapor, or condensate, from 
+ the evaporator.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/EvaporatorExamples_Fig-2.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">If 
+ the syrup out flow leaving a multiple-effect evaporator is made required 
+ by another station, the juice flow into the first effect would become 
+ a required flow. This feature is useful for cases when a quantity of syrup 
+ is needed to satisfy another station in a model and the quantity of juice 
+ into the multiple has to be calculated to produce the needed syrup. By 
+ making the syrup, or juice, flow out of the multiple-effect evaporator 
+ required, Sugars will automatically calculate the quantity of juice into 
+ the multiple-effect that is necessary to satisfy the syrup needs of the 
+ other station. </font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Normally, 
+ when modeling </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> evaporator stations in a factory, 
+ the model of the </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> is built and data is entered into 
+ Sugars for all measurable parameters. For example, the heating surface 
+ area is usually known, a heat loss for each effect can be estimated, or 
+ calculated, a color rise across each effect can be measured, or estimated, 
+ the sugar loss due to entrainment can be measured from the condensates, 
+ and the vapor temperature out of each effect can be measured, or calculated 
+ from the vapor pressures for each effect (or instead, the juice temperature 
+ out of each effect can be measured). This data is then entered into the 
+ Evaporator P</font><font size="2" class="hcp2">roperties</font><font size="2" class="hcp2"> </font><font size="2" class="hcp2">window</font><font size="2" class="hcp2"> for each effect and a balance is 
+ done by Sugars for the multiple. After the balance is completed and verified 
+ to represent the </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> being analyzed, the heat transfer 
+ coefficients are calculated by entering &quot;Calculate&quot; which will 
+ give the Heat Transfer Coefficient </font><font size="2" class="hcp2">Window</font><font size="2" class="hcp2">. The Heat Transfer Coefficient 
+ &amp; Heating Surface Calculation </font><font size="2" class="hcp2">window</font><font size="2" class="hcp2"> is used to calculate the heat transfer 
+ coefficient for the effect using the heating surface.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Calculation 
+ of the heat transfer coefficient is based on the results from the balance 
+ calculations done by Sugars using the temperature data. Details of the 
+ calculations are shown on the </font><font size="2" class="hcp2">window</font><font size="2" class="hcp2">.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp5">Different heat transfer 
+ coefficient values can be entered. The heating surface calculated by entering 
+ a new value for the Heat Transfer Coefficient and clicking the left mouse 
+ button on the <span class="hcp6">Calculate Surface</span> 
+ button below the Heating Surface window.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp5">After a new value is 
+ calculated for the Heat Transfer Coefficient, or for the Heating Surface 
+ using an entered value for the Heat Transfer Coefficient, click the left 
+ mouse button on the <span class="hcp6"><font style="font-weight: bold; 
+															 text-decoration: underline; ">O</font>K</span> 
+ button and Sugars will replace the temperature entry on the Evaporator 
+ Properties window with the new heat transfer coefficient (and heating 
+ surface, if it was changed).</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Evaporator 
+ bodies that use a heat transfer coefficient and heating surface instead 
+ of temperatures will have different pressure and temperature results for 
+ the vapor and juice flows out of the effect when the balance calculations 
+ are done if the demands on the body change. That is, the temperature and 
+ pressure values will float based on the juice and vapor flow quantities 
+ and temperatures into the effect. For a complete </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> 
+ evaporator station, the bleed vapor temperatures will fluctuate as the 
+ load to the </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> changes from variations in the 
+ vapor usage, or the quantity of juice flow into the multiple from changes 
+ in beet slice, or cane grind, rate.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Sugars 
+ calculates the complete heat balance for each effect during the overall 
+ balance calculations; i.e., the heat (enthalpy) in the steam and liquid 
+ flows into each effect will equal the enthalpy in the liquid, vapor and 
+ condensate flows out less any heat loss that occurs in the effect. The 
+ boiling point elevation is calculated for the difference in temperatures 
+ between the liquid and vapor flows out. The boiling point elevation depends 
+ on the %DS, purity and vapor pressure of the liquid flow steam in the 
+ effect. Any entrainment loss in the vapor flow out is considered in the 
+ calculations, and the iterations are continued until all specified values 
+ are satisfied and the energy and mass balance is achieved. Juice flow 
+ into the evaporator will flash if the juice temperature is greater than 
+ the temperature of the juice flow out.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">When 
+ the vapor, or liquid, flow out temperature is specified for an effect, 
+ the heat flow into the liquid from the steam flowing into the effect is 
+ calculated and then an iteration is done until the heat into the liquid 
+ equals the heat leaving with the vapor and liquid output flows while maintaining 
+ the boiling point elevation between the liquid and vapor output flows. 
+ When the heat transfer coefficient and heating surface parameters are 
+ specified, the heat transferred to the liquid flow is calculated by first 
+ assuming the temperature of the liquid flow out of the effect. The enthalpy 
+ of the vapor and liquid flows leaving the effect is balanced with the 
+ enthalpy of the liquid flow in and the heat transferred into the liquid 
+ from the vapor flow in. Iterations are continued until the heat transferred 
+ equals the heat leaving the body in the vapor and liquid flow streams 
+ while maintaining the boiling point elevation between the liquid and vapor 
+ output flows. If the vapor flow into the effect contains more heat than 
+ can be used, 100% condensation will not occur and the condensate leaving 
+ the body will still contain vapor.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">See 
+ the </font><a href="../Examples/Examples.htm"><font size="2" class="hcp2">Examples</font></a><font size="2" class="hcp2"> section for further illustrations 
+ of </font><font size="2" class="hcp2">multiple-effect</font><font size="2" class="hcp2"> models.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><a href="Evaporator_Features.htm"><font size="2" class="hcp2">Evaporator Features</font></a><font size="2" class="hcp2"> </font></p>
+<p class="hcp1"><a href="Evaporator_Properties.htm"><font size="2" class="hcp2">Evaporator Properties</font></a><font size="2" class="hcp2"> </font></p>
+</body>
+</html>

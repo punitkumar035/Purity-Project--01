@@ -1,0 +1,247 @@
+{
+  "source": "Help/sugars.chm",
+  "station_count": 24,
+  "property_screenshots": [
+    {
+      "station": "Blender",
+      "image": "Station_Screens/Blender/BlenderProperties_Scn-1.png",
+      "documentation": "Help/Blender/Blender_Properties.htm",
+      "source_image": "Help/Blender/Images/BlenderProperties_Scn-1.png"
+    },
+    {
+      "station": "Centrifugal",
+      "image": "Station_Screens/Centrifugal/Centrifugal2-OutputProperties_Scn-1.png",
+      "documentation": "Help/Centrifugal/2-Output_Centrifugal_Properties.htm",
+      "source_image": "Help/Centrifugal/Images/Centrifugal2-OutputProperties_Scn-1.png"
+    },
+    {
+      "station": "Centrifugal",
+      "image": "Station_Screens/Centrifugal/Centrifugal3-OutputProperties_Scn-1.png",
+      "documentation": "Help/Centrifugal/3-Output_Centrifugal_Properties.htm",
+      "source_image": "Help/Centrifugal/Images/Centrifugal3-OutputProperties_Scn-1.png"
+    },
+    {
+      "station": "Compressor",
+      "image": "Station_Screens/Compressor/CompressorProperties_Scn-1.png",
+      "documentation": "Help/Compressor/Compressor_Properties.htm",
+      "source_image": "Help/Compressor/Images/CompressorProperties_Scn-1.png"
+    },
+    {
+      "station": "Contact Condenser",
+      "image": "Station_Screens/Contact_Condenser/ContactCondenserProperties_Scn-1.png",
+      "documentation": "Help/Contact_Condenser/Contact_Condenser_Properties.htm",
+      "source_image": "Help/Contact_Condenser/Images/ContactCondenserProperties_Scn-1.png"
+    },
+    {
+      "station": "Cooler",
+      "image": "Station_Screens/Cooler/CoolerProperties_Scn-1.png",
+      "documentation": "Help/Cooler/Cooler_Properties.htm",
+      "source_image": "Help/Cooler/Images/CoolerProperties_Scn-1.png"
+    },
+    {
+      "station": "Crystallizer",
+      "image": "Station_Screens/Crystallizer/CrystallizerProperties_Scn-1.png",
+      "documentation": "Help/Crystallizer/Crystallizer_Properties.htm",
+      "source_image": "Help/Crystallizer/Images/CrystallizerProperties_Scn-1.png"
+    },
+    {
+      "station": "Crystallizer",
+      "image": "Station_Screens/Crystallizer/SucroseSolubility-4.gif",
+      "documentation": "Help/Crystallizer/Crystallizer_Properties.htm",
+      "source_image": "Help/Theory/SucroseSolubility-4.gif"
+    },
+    {
+      "station": "Crystallizer",
+      "image": "Station_Screens/Crystallizer/SucroseSolubility-5.gif",
+      "documentation": "Help/Crystallizer/Crystallizer_Properties.htm",
+      "source_image": "Help/Theory/SucroseSolubility-5.gif"
+    },
+    {
+      "station": "Crystallizer",
+      "image": "Station_Screens/Crystallizer/CrystallizerProperties_Scn-2.png",
+      "documentation": "Help/Crystallizer/Crystallizer_Properties.htm",
+      "source_image": "Help/Crystallizer/Images/CrystallizerProperties_Scn-2.png"
+    },
+    {
+      "station": "Distributor",
+      "image": "Station_Screens/Distributor/DistributorProperties_Scn-1.png",
+      "documentation": "Help/Distributor/Distributor_Properties.htm",
+      "source_image": "Help/Distributor/Images/DistributorProperties_Scn-1.png"
+    },
+    {
+      "station": "Distributor",
+      "image": "Station_Screens/Distributor/DistributorProperties_Scn-2.png",
+      "documentation": "Help/Distributor/Distributor_Properties.htm",
+      "source_image": "Help/Distributor/Images/DistributorProperties_Scn-2.png"
+    },
+    {
+      "station": "Dryer",
+      "image": "Station_Screens/Dryer/DryerProperties_Scn-1.png",
+      "documentation": "Help/Dryer/Dryer_Properties.htm",
+      "source_image": "Help/Dryer/Images/DryerProperties_Scn-1.png"
+    },
+    {
+      "station": "Evaporator",
+      "image": "Station_Screens/Evaporator/EvaporatorProperties_Scn-1.png",
+      "documentation": "Help/Evaporator/Evaporator_Properties.htm",
+      "source_image": "Help/Evaporator/Images/EvaporatorProperties_Scn-1.png"
+    },
+    {
+      "station": "Evaporator",
+      "image": "Station_Screens/Evaporator/EvaporatorProperties_Scn-2.png",
+      "documentation": "Help/Evaporator/Evaporator_Properties.htm",
+      "source_image": "Help/Evaporator/Images/EvaporatorProperties_Scn-2.png"
+    },
+    {
+      "station": "Flash Tank",
+      "image": "Station_Screens/Flash_Tank/FlashTankProperties_Scn-1.png",
+      "documentation": "Help/Flash_Tank/Flash_Tank_Properties.htm",
+      "source_image": "Help/Flash_Tank/Images/FlashTankProperties_Scn-1.png"
+    },
+    {
+      "station": "Heat Exchanger",
+      "image": "Station_Screens/Heat_Exchanger/HeatExchangerProperties_Scn-1.png",
+      "documentation": "Help/Heat_Exchanger/Heat_Exchanger_Properties.htm",
+      "source_image": "Help/Heat_Exchanger/Images/HeatExchangerProperties_Scn-1.png"
+    },
+    {
+      "station": "Injection Heater",
+      "image": "Station_Screens/Injection_Heater/InjectionHeaterProperties_Scn-1.png",
+      "documentation": "Help/Injection_Heater/Injection_Heater_Properties.htm",
+      "source_image": "Help/Injection_Heater/Images/InjectionHeaterProperties_Scn-1.png"
+    },
+    {
+      "station": "Melter",
+      "image": "Station_Screens/Melter/MelterProperties_Scn-1.png",
+      "documentation": "Help/Melter/Melter_Properties.htm",
+      "source_image": "Help/Melter/Images/MelterProperties_Scn-1.png"
+    },
+    {
+      "station": "Melter",
+      "image": "Station_Screens/Melter/MelterProperties_Scn-2.png",
+      "documentation": "Help/Melter/Melter_Properties.htm",
+      "source_image": "Help/Melter/Images/MelterProperties_Scn-2.png"
+    },
+    {
+      "station": "Pan",
+      "image": "Station_Screens/Pan/PanProperties_Scn-1.png",
+      "documentation": "Help/Pan/Pan_Properties.htm",
+      "source_image": "Help/Pan/Images/PanProperties_Scn-1.png"
+    },
+    {
+      "station": "Pan",
+      "image": "Station_Screens/Pan/SucroseSolubility-4.gif",
+      "documentation": "Help/Pan/Pan_Properties.htm",
+      "source_image": "Help/Theory/SucroseSolubility-4.gif"
+    },
+    {
+      "station": "Pan",
+      "image": "Station_Screens/Pan/VavrineczEqn.gif",
+      "documentation": "Help/Pan/Pan_Properties.htm",
+      "source_image": "Help/Pan/Images/VavrineczEqn.gif"
+    },
+    {
+      "station": "Pressure Reducer",
+      "image": "Station_Screens/Pressure_Reducer/PressureReducerProperties_Scn-1.png",
+      "documentation": "Help/Pressure_Reducer/Pressure_Reducer_Properties.htm",
+      "source_image": "Help/Pressure_Reducer/Images/PressureReducerProperties_Scn-1.png"
+    },
+    {
+      "station": "Pump",
+      "image": "Station_Screens/Pump/PumpProperties_Scn-1.png",
+      "documentation": "Help/Pump/Pump_Properties.htm",
+      "source_image": "Help/Pump/Images/PumpProperties_Scn-1.png"
+    },
+    {
+      "station": "Reactor",
+      "image": "Station_Screens/Reactor/ReactorProperties_Scn-1.png",
+      "documentation": "Help/Reactor/Reactor_Properties.htm",
+      "source_image": "Help/Reactor/Images/ReactorProperties_Scn-1.png"
+    },
+    {
+      "station": "Reactor",
+      "image": "Station_Screens/Reactor/VavrineczEqn.gif",
+      "documentation": "Help/Reactor/Reactor_Properties.htm",
+      "source_image": "Help/Reactor/Images/VavrineczEqn.gif"
+    },
+    {
+      "station": "Receiver",
+      "image": "Station_Screens/Receiver/ReceiverProperties_Scn-1.png",
+      "documentation": "Help/Receiver/Receiver_Properties.htm",
+      "source_image": "Help/Receiver/Images/ReceiverProperties_Scn-1.png"
+    },
+    {
+      "station": "Receiver",
+      "image": "Station_Screens/Receiver/ReceiverProperties_Scn-2.png",
+      "documentation": "Help/Receiver/Receiver_Properties.htm",
+      "source_image": "Help/Receiver/Images/ReceiverProperties_Scn-2.png"
+    },
+    {
+      "station": "Separator Filter",
+      "image": "Station_Screens/Separator_Filter/SeparatorProperties_Scn-1.png",
+      "documentation": "Help/Separator_Filter/Separator_Filter_Properties.htm",
+      "source_image": "Help/Separator_Filter/Images/SeparatorProperties_Scn-1.png"
+    },
+    {
+      "station": "Surface Condenser",
+      "image": "Station_Screens/Surface_Condenser/SurfaceCondenserProperties_Scn-1.png",
+      "documentation": "Help/Surface_Condenser/Surface_Condenser_Properties.htm",
+      "source_image": "Help/Surface_Condenser/Images/SurfaceCondenserProperties_Scn-1.png"
+    },
+    {
+      "station": "Tank",
+      "image": "Station_Screens/Tank/TankProperties_Scn-1.png",
+      "documentation": "Help/Tank/Tank_Properties.htm",
+      "source_image": "Help/Tank/Images/TankProperties_Scn-1.png"
+    },
+    {
+      "station": "Tank",
+      "image": "Station_Screens/Tank/TankProperties_Scn-2.png",
+      "documentation": "Help/Tank/Tank_Properties.htm",
+      "source_image": "Help/Tank/Images/TankProperties_Scn-2.png"
+    },
+    {
+      "station": "Thermocompressor",
+      "image": "Station_Screens/Thermocompressor/ThermocompressorProperties_Scn-1.png",
+      "documentation": "Help/Thermocompressor/Thermocompressor_Properties.htm",
+      "source_image": "Help/Thermocompressor/Images/ThermocompressorProperties_Scn-1.png"
+    },
+    {
+      "station": "Turbine",
+      "image": "Station_Screens/Turbine/TurbineProperties_Scn-1.png",
+      "documentation": "Help/Turbine/Turbine_Properties.htm",
+      "source_image": "Help/Turbine/Images/TurbineProperties_Scn-1.png"
+    },
+    {
+      "station": "Turbo Alternator",
+      "image": "Station_Screens/Turbo_Alternator/TurboAlternatorProperties_Scn-1.png",
+      "documentation": "Help/Turbo_Alternator/Turbo_Alternator_Properties.htm",
+      "source_image": "Help/Turbo_Alternator/Images/TurboAlternatorProperties_Scn-1.png"
+    }
+  ],
+  "additional_screenshots": [
+    "Additional_Station_Screens/Blender/BlenderExamples_Scn-1.png",
+    "Additional_Station_Screens/Centrifugal/Centrifugal2-OutputEvaluation_Scn-1.png",
+    "Additional_Station_Screens/Centrifugal/Centrifugal3-OutputEvaluation_Scn-1.png",
+    "Additional_Station_Screens/Centrifugal/CentrifugalEvaluation_Scn-1.png",
+    "Additional_Station_Screens/Centrifugal/CentrifugalEvaluation_Scn-2.png",
+    "Additional_Station_Screens/Centrifugal/CentrifugalEvaluation_Scn-3.png",
+    "Additional_Station_Screens/Contact_Condenser/ContactCondenserExamples_Scn-1.png",
+    "Additional_Station_Screens/Crystallizer/CrystallizerExamples_Scn-1.png",
+    "Additional_Station_Screens/Heat_Exchanger/HeatExchangerExamples_Scn-1.png",
+    "Additional_Station_Screens/Heat_Exchanger/HeatExchangerExamples_Scn-2.png",
+    "Additional_Station_Screens/Injection_Heater/InjectionHeaterExamples_Scn-1.png",
+    "Additional_Station_Screens/Melter/MelterExamples_Scn-1.png",
+    "Additional_Station_Screens/Melter/MelterExamples_Scn-2.png",
+    "Additional_Station_Screens/Reactor/ReactorExamples_Scn-1.png",
+    "Additional_Station_Screens/Receiver/ReceiverExamples_Scn-1.png",
+    "Additional_Station_Screens/Separator_Filter/SeparatorExamples_Scn-1.png",
+    "Additional_Station_Screens/Surface_Condenser/SurfaceCondenserExamples_Scn-1.png",
+    "Additional_Station_Screens/Surface_Condenser/SurfaceCondenserExamples_Scn-2.png",
+    "Additional_Station_Screens/Tank/TankExamples_Scn-1.png",
+    "Additional_Station_Screens/Turbine/TurbineExamples_Scn-1.png",
+    "Additional_Station_Screens/Turbine/TurbineExamples_Scn-2.png",
+    "Additional_Station_Screens/Turbo_Alternator/TurboAlternatorExamples_Scn-1.png",
+    "Additional_Station_Screens/Turbo_Alternator/TurboAlternatorExamples_Scn-2.png"
+  ]
+}

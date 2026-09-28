@@ -1,0 +1,76 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Compressor Examples</title>
+<link rel="StyleSheet" href="../compressor.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-top:0.00pt;
+text-align:justify; }
+font.hcp2 { font-size:10pt; }
+p.hcp3 { text-align:center; }
+img.hcp4 { border:none; }
+p.hcp5 { margin-top:0.00pt; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Compressor 
+ Examples</font></h1>
+<p class="header" style="margin-top: 0.00pt; margin-bottom: 2.40pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">The 
+ figure below shows a mechanical vapor re-compressor (MVR) compressing 
+ pan vapors. </font></p>
+<p style="text-align: justify;">&#160;</p>
+<p class="hcp3"><img src="Images/CompressorExamples_Fig-1.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp3">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">The 
+ output flow from the MVR is a pressure feedback flow with the pressure 
+ value set by the pressure of the steam flow into receiver station no. 
+ 600. In this case, the quantity of vapor flow to the MVR must be specified 
+ in the distributor station, or Sugars will send either all, or none, of 
+ the vapor flow from the pan to the MVR. All of the vapor flow out of the 
+ pan will go to the MVR if the MVR is connected to the lowest output port 
+ number of the distributor station. In the above diagram, only two vapor 
+ flows leave the distributor and the vapor flow that does not go to the 
+ MVR leaves the model, but the vapor flow from the distributor to the MVR 
+ is on distributor output port 1 and the flow leaving the model is on distributor 
+ output port 7; hence, all of the vapor from the pan will go out to the 
+ MVR and none of it will leave the model unless the quantity of vapor to 
+ the MVR is specified in distributor station no. 612. </font><font style="font-size: 10pt; 
+	 font-weight: bold;" size="2">Thus, be sure to specify a quantity for 
+ vapor flow to a compressor station if the flow to the compressor is from 
+ a distributor station and the quantity of flow isn't required; otherwise, 
+ Sugars will not know how much vapor flow should go to the compressor</font><font size="2" class="hcp2">.</font></p>
+<p class="hcp1">&#160;</p>
+<p style="margin-top: 0.00pt; text-align: center;"><img src="Images/CompressorExamples_Fig-2.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="Block_Text">The above figure shows an evaporator station with 
+ an MVR recompressing vapor from the evaporator. In this example, the quantity 
+ of vapor flow to the MVR is controlled by the quantity of steam demanded 
+ by the evaporator station no. 610 (see the 'R' in 'PR' on the vapor line 
+ from the MVR). Receiver station no. 600 uses recompressed vapor from the 
+ MVR to satisfy its required output flow needs (see the &quot;R&quot; in 
+ the flow line between station no. 600 and 610). Pressure feedback is used 
+ to set the pressure of the recompressed vapor leaving the MVR (see the 
+ &quot;P&quot; in &quot;PR&quot; on the vapor line from the MVR). Specifying 
+ a small quantity of steam into receiver station no. 600 will set the discharge 
+ pressure for vapor leaving the MVR, and specifying percent total solids 
+ for syrup flow out of the evaporator will determine the quantity of vapor 
+ flow that goes to the compressor (MVR). Any excess vapor not used by the 
+ MVR will leave the model at distributor station no. 612. The only data 
+ that needs to be entered for the compressor station no. 603 is the name 
+ of the station and the discharge temperature because pressure feedback 
+ from receiver station no. 600 sets the discharge pressure for the compressor.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp5"><a href="Compressor_Features.htm"><font size="2" class="hcp2">Compressor Features</font></a><font size="2" class="hcp2"> </font></p>
+<p class="hcp5"><a href="Compressor_Properties.htm"><font size="2" class="hcp2">Compressor Properties</font></a><font size="2" class="hcp2"> </font></p>
+</body>
+</html>

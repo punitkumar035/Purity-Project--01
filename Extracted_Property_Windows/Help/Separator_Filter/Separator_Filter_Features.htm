@@ -1,0 +1,56 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Separator/Filter Features</title>
+<link rel="StyleSheet" href="../Separator-Filter.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript">
+</script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt; }
+font.hcp2 { font-size:10pt; }
+font.hcp3 { font-size:11pt;
+font-weight:bold; }
+p.hcp4 { margin-bottom:0.00pt;
+text-align:center; }
+img.hcp5 { border:none; }
+p.hcp6 { margin-bottom:0.00pt;
+text-align:justify; }
+span.hcp7 { font-size:10pt; }
+span.hcp8 { mso-spacerun:yes;
+font-size:10pt; }
+p.hcp9 { margin-bottom:0.00pt;
+font-size:10pt; }
+span.hcp10 { mso-bidi-font-weight:bold; }
+span.hcp11 { mso-spacerun:yes; }
+-->
+</style>
+</head>
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Separator/Filter Features</font></h1>
+<p class="header" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">The separator/filter station is used to split a material flow stream into two output flow streams with different flow stream components. Two separator/filter stations are provided with Sugars: (1) with a diluent or wash flow, and (2) without a diluent or wash flow.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp3">Separator/Filter Station with Diluent Flow</font> <font style="font-size: 11pt;" size="2">&#160;</font><font size="2" class="hcp2">Separation of the input flow into two output flows with different components is done using a diluent or wash flow to assist the separation.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp4"><img src="Images/SeparatorFeatures_Fig-1.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp6"><font size="2" class="hcp3">Separator/Filter Station without Diluent Flow</font> <font size="2" class="hcp2">&#160;Separation of the input flow into two output flows with different components is done without the use of a diluent or wash flow.</font></p>
+<p class="hcp6">&#160;</p>
+<p class="hcp4"><img src="Images/SeparatorFeatures_Fig-2.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp6">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp3">General Features</font> <font size="2" class="hcp2">&#160;</font><span class="hcp7">Separator/filter stations are used to split a process flow stream that goes into port 0 into two output flow streams that have different weight flow rates and compositions.</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;If a diluent or wash flow is used, it goes into port 1 and it can be either a required flow (that is, Sugars will calculate the quantity of the diluent flow based on the input parameters used in the station) or a not required flow depending on the settings for the separator.</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;Whereas, a distributor station is used to split a flow stream into any number of different flow streams all having the same composition, a separator station allows selective separation of the flow components.</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;A diluent flow is allowed for making the separation, but it isn't necessary.</span></p>
+<p class="hcp9">&#160;</p>
+<p class="hcp9"><span class="hcp10">The output flows from a separator without a diluent flow will have the same temperature as the input flow unless the output flows have condensable vapors.</span><span class="hcp11">&#160;</span><span class="hcp10">&#160;If a diluent flow is used, then the energy of the output flows will include the diluent portion that flows to each of the outputs and their temperatures will reflect the diluent that is in each flow.</span><span class="hcp11">&#160;</span><span class="hcp10">&#160;Flows that have condensable vapors will have their temperatures set to the saturation temperature corresponding to the pressure of the flow and the flow components (i.e., water vapor or ethanol-water vapor mixture).</span><span class="hcp11">&#160;</span><span class="hcp10">&#160;An energy balance is done by Sugars with these temperatures and if the energy content of the flow(s) into the separator is larger than the energy content of the flows out, then the excess energy is applied to the output flow with the lowest temperature.</span><span class="hcp11">&#160;</span><span class="hcp10">&#160;However, the excess energy will be apportioned to each output flow in a ratio to their energy flow rate if the output flows have the same temperature.</span><span class="hcp11">&#160;</span><span class="hcp10">&#160;There may be phase changes that occur in the output flows after the excess energy is applied to them and the temperatures may then be different.</span><span class="hcp11">&#160;</span><span class="hcp10">&#160;Conversely, if the energy balance of the input and output flows with their initial temperatures results in insufficient energy from the input flows to satisfy the output flows energy content, then this energy deficiency is assumed to come from an external source that is necessary to make the separation.</span></p>
+<p class="hcp9">&#160;</p>
+<p class="hcp9">Separator stations are used to model filters, clarifiers, thickeners, presses, ion e<span class="hcp7">xchange, chromatographic separation, etc.</span><span class="hcp11">&#160;</span><span class="hcp7">&#160;See the</span> <span style="color: #008000; font-size: 10pt;"><a href="Separator_Filter_Examples.htm">Separator/Filter Examples</a></span> <span class="hcp7">section for techniques on using separators to model different processes and equipment.</span></p>
+<p class="hcp6">&#160;</p>
+<p class="hcp6">&#160;</p>
+<p class="hcp6"><a href="Separator_Filter_Properties.htm"><font size="2" class="hcp2">Separator/Filter Properties</font></a></p>
+<p class="hcp6"><a href="Separator_Filter_Examples.htm"><font size="2" class="hcp2">Separator/Filter Examples</font></a></p>
+</body>
+</html>

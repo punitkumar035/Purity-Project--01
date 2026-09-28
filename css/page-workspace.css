@@ -1,0 +1,305 @@
+/* Visio-Style Bottom Page-Tab Navigation Bar */
+  .page-tab-bar {
+    height: 34px;
+    background: #e9f0f5;
+    border-top: 1px solid #c9d8e4;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    gap: 6px;
+    user-select: none;
+    z-index: 10;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+  .page-nav-arrows {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .page-nav-arrow {
+    width: 22px;
+    height: 22px;
+    border-radius: 3px;
+    border: 1px solid #b8ccd9;
+    background: #f7fafc;
+    color: #1e3a52;
+    font-size: 10px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+  }
+  .page-nav-arrow:hover {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+  }
+  .page-tabs-scroll {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 100%;
+    scrollbar-width: thin;
+    padding-bottom: 2px;
+  }
+  .page-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    background: #dce7f0;
+    border: 1px solid #b3c8d7;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    color: #294760;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.12s ease;
+  }
+  .page-tab:hover {
+    background: #f2f7fb;
+    color: #0c263c;
+  }
+  .page-tab.active {
+    background: #ffffff;
+    border-color: #b3c8d7;
+    border-top: 2px solid #0284c7;
+    color: #0284c7;
+    font-weight: 800;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.04);
+  }
+  .page-tab-badge {
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #cbd8e4;
+    color: #3b556e;
+  }
+  .page-tab.active .page-tab-badge {
+    background: #e0f2fe;
+    color: #0284c7;
+  }
+  .page-tab-close {
+    font-size: 13px;
+    line-height: 1;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    color: #64748b;
+    margin-left: 2px;
+    opacity: 0.6;
+  }
+  .page-tab-close:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    opacity: 1;
+  }
+  .page-tab-add-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid #b0c6d6;
+    background: #f0f6fa;
+    color: #0b4f7a;
+    font-size: 16px;
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    line-height: 1;
+  }
+  .page-tab-add-btn:hover {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+  }
+  .page-bar-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: #557085;
+    font-weight: 700;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .page-bar-pill {
+    padding: 3px 9px;
+    background: #ffffff;
+    border: 1px solid #cbd8e3;
+    border-radius: 12px;
+    color: #1e3549;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+  }
+  .page-setup-quick-btn {
+    padding: 3px 8px;
+    background: #f0f6fa;
+    border: 1px solid #b8ccd9;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #1e425e;
+    cursor: pointer;
+  }
+  .page-setup-quick-btn:hover {
+    background: #e0f2fe;
+    border-color: #0284c7;
+    color: #0284c7;
+  }
+
+  /* Sheet Outline & CAD Title Block */
+  .sheet-frame {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    width: 1980px;
+    height: 1260px;
+    pointer-events: none;
+    box-sizing: border-box;
+    border: 2px solid #8ca2b5;
+    outline: 1px solid #cbd8e3;
+    outline-offset: -8px;
+    transition: width 0.2s ease, height 0.2s ease;
+  }
+  .sheet-titleblock {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 380px;
+    border: 1.5px solid #57758d;
+    background: rgba(255, 255, 255, 0.95);
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 9px;
+    color: #1e293b;
+    display: grid;
+    grid-template-columns: 95px 1fr;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(4px);
+    pointer-events: auto;
+  }
+  .sheet-tb-cell {
+    padding: 3px 6px;
+    border-right: 1px solid #cbd8e3;
+    border-bottom: 1px solid #cbd8e3;
+  }
+  .sheet-tb-cell:nth-child(2n) {
+    border-right: none;
+  }
+  .sheet-tb-lbl {
+    font-size: 7px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .sheet-tb-val {
+    font-size: 9px;
+    font-weight: 800;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Page Setup Modal */
+  .page-setup-dialog {
+    position: fixed;
+    z-index: 17000;
+    inset: 0;
+    background: rgba(15, 30, 45, 0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  .page-setup-dialog.show {
+    display: flex;
+  }
+  .page-setup-box {
+    width: min(520px, 94vw);
+    background: #ffffff;
+    border: 1px solid #94a3b8;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+  .page-setup-head {
+    background: linear-gradient(180deg, #f0f6fa, #e2edf6);
+    border-bottom: 1px solid #c9d8e4;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .page-setup-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #123851;
+  }
+  .page-setup-close {
+    border: 1px solid #b8ccd9;
+    background: #fff;
+    border-radius: 4px;
+    padding: 3px 8px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  .page-setup-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .page-setup-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .page-setup-field label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #334e68;
+  }
+  .page-setup-field input, .page-setup-field select {
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .page-setup-actions {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  @media print {
+    .topbar, .sidebar, .props, .page-tab-bar, .canvas-top, .rb-dialog, .centrifugal-dialog, .page-setup-dialog {
+      display: none !important;
+    }
+    .canvas-shell, .viewport, .world-wrap, .world {
+      width: 100% !important;
+      height: 100% !important;
+      overflow: visible !important;
+      background: white !important;
+    }
+  }

@@ -1,0 +1,184 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Designing Your Own Shapes</title>
+<link rel="StyleSheet" href="../Station_Modules.css" type="text/css">
+<script type="text/javascript" language="javascript" src="../ehlpdhtm.js"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { font-size:10pt;
+margin-bottom:0pt; }
+span.hcp2 { font-weight:bold; }
+p.hcp3 { margin-bottom:0pt; }
+p.hcp4 { text-align:center;
+font-size:10pt;
+margin-bottom:0pt; }
+img.hcp5 { border:none; }
+span.hcp6 { mso-spacerun:yes; }
+b.hcp7 { mso-bidi-font-weight:normal; }
+p.hcp8 { text-align:center;
+margin-bottom:0pt; }
+span.hcp9 { mso-bidi-font-weight:bold; }
+-->
+</style>
+</head>
+
+<body>
+<h1 style="color: #000080;">Designing Your Own Shapes</h1>
+<p>&#160;</p>
+<p class="hcp1">Visio Developer Mode is 
+ necessary to design shapes for use with Sugars.&#160;&#160;Activate Developer 
+ Mode by clicking <span class="hcp2">FILE</span> &gt; <span class="hcp2">Options</span>&#160;&gt; <span class="hcp2">Advanced</span> 
+ and then click the box for &quot;Run in developer mode&quot; (see screen 
+ below). &#160;Click the <span class="hcp2">OK</span> button 
+ to return to the drawing window.</p>
+<p class="hcp3">&#160;</p>
+<p class="hcp4"><img src="Images/Designing_Shapes_Scn-1.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Custom shapes of Sugars 
+ stations can be designed using the Visio Drawing Tools. Open the Blank 
+ drawing in the &quot;C:\Program Files\Sugars\Examples&quot; sub-directory.<span class="hcp6">&#160;</span>&#160;Create the shape and 
+ use the Group selection on the <b class="hcp7">DEVELOPER</b> 
+ tab to group all of the shape's elements into one grouped assembly.<span class="hcp6">&#160;</span>&#160;After the shape is drawn 
+ and grouped, use the Connection Point Tool on the Visio Drawing Toolbar 
+ as shown on the screen below to make the input and output connections. 
+ Make sure the shape is highlighted with a border around it and click the 
+ left mouse button on the connection tool.<span class="hcp6">&#160;</span>&#160;Hold 
+ the Control key down and position the cursor at the points on the shape 
+ where the connections are to be added. Click the left mouse button at 
+ each point and a magenta colored <span style="color: #FF66FF;">&#9632;</span> 
+ should appear as each new connection point is added.<span class="hcp6">&#160;</span>&#160;The 
+ connections should be made in the order of the ports; i.e., for the pan 
+ station shown in the figure below, input port 0 first, input port 1 next, 
+ then output port 0, output port 1, and output port 2 last.</p>
+<p class="hcp3">&#160;</p>
+<p class="hcp8"><img src="Images/Designing_Shapes_Scn-2.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp3">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt;">A text field must be added 
+ that Sugars can use to assign a station number to the shape as it is added 
+ to a flow diagram. The Visio SmartShape Wizard can be used to create the 
+ text box.<span class="hcp6">&#160;</span>&#160;The SmartShape 
+ Wizard is located in the C:\Program Files\Sugars\Utilities directory.<span class="hcp6">&#160;</span>&#160;Highlight the new shape 
+ and then double click the wizard from Windows Explorer (or make a shortcut 
+ to the wizard on the Desktop).<span class="hcp6">&#160;</span>&#160;The 
+ wizard options are self-explanatory, and it will create a text field to 
+ be the top most field in the order of the shapes.</p>
+<p class="MsoNoSpacing" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">A station name must be assigned 
+ so Sugars will recognize the new shape.<span class="hcp6">&#160;</span>&#160;Highlight 
+ the shape so that there is a selection border around the shape.<span class="hcp6">&#160;</span>&#160;Click 
+ <b class="hcp7">DEVELOPER <span class="hcp9">&gt;</span></b> 
+ <b>Show ShapeSheet</b> <span class="hcp9">&gt; 
+ <b><u>S</u>hape</b> as shown on the screen below</span>.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp4"><img src="Images/Designing_Shapes_Scn-3.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">This will open the ShapeSheet 
+ for the new shape.<span class="hcp6">&#160;</span>&#160;The 
+ ShapeSheet has several sections that are used to control the behavior 
+ of the shape.<span class="hcp6">&#160;</span>&#160;The screen 
+ below shows the ShapeSheet in the Visio window.</p>
+<p class="hcp3">&#160;</p>
+<p class="hcp8"><img src="Images/Designing_Shapes_Scn-4.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">The ShapeSheet in the screen 
+ above shows a <b class="hcp7">Connection Points</b> 
+ section, but a <b class="hcp7">User-defined cells</b> 
+ section is needed to name the shape.<span class="hcp6">&#160;</span>&#160;The 
+ <b class="hcp7">User-defined cells</b> section 
+ can be added by clicking <b class="hcp7">Insert</b> 
+ in the Sections group on the Visio ribbon (see screen below) and then 
+ clicking the <b class="hcp7">User-defined cells</b> 
+ box.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp4"><img src="Images/Designing_Shapes_Scn-5.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Click on the first cell 
+ in the first row under User-defined Cells and type <b>Class</b> in the 
+ cell editing area.<span class="hcp6">&#160;</span>&#160;Click 
+ on the green check next to the entry field, or press the <b>Enter</b> 
+ key when done.<span class="hcp6">&#160;</span>&#160;Click 
+ on the cell in the first row under <b>Value</b> in the <b>User-defined 
+ Cells</b> area.<span class="hcp6">&#160;</span>&#160;Enter 
+ the name of the shape with quotation marks around the name in the cell 
+ editing space and click the green check next to the entry field, or press 
+ the <b>Enter</b> key when finished.<span class="hcp6">&#160;</span>&#160;For 
+ example, type <b>&quot;SI_Pan&quot;</b> to name a pan shape (see screen 
+ below).<span class="hcp6">&#160;</span>&#160;This is the 
+ name Sugars will recognize when the shape is dragged from a stencil and 
+ dropped onto a drawing.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp4"><img src="Images/Designing_Shapes_Scn-6.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">Next the connection points 
+ need to be identified so they can be recognized by Sugars as the shape 
+ is added to a drawing.<span class="hcp6">&#160;</span>&#160;Use 
+ the following procedure to identify the input and output connections.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">Make sure the shape is highlighted 
+ with the green border and the shape sheet is shown.<span class="hcp6">&#160;&#160;</span>&#160;On 
+ the shape sheet, click on the first cell in the first row under <b>Connection 
+ Points</b> and type in the port number in the entry field next to the 
+ green check at the top of the window.<span class="hcp6">&#160;</span>&#160;Input 
+ port numbers start with Input0 and are numbered in sequence.<span class="hcp6">&#160;</span>&#160;The 
+ input port numbers must coincide with the flows into the station in the 
+ same relationship as they are for all stations of the same type.<span class="hcp6">&#160;</span>&#160;For example, a Pan station 
+ has two input ports.<span class="hcp6">&#160;</span>&#160;Input 
+ port 0 (Input0) is for syrup and Input port 1 (Input1) is for steam/vapor.<span class="hcp6">&#160;</span>&#160;A black box is shown 
+ around the connection point on the shape as each cell (row) of the <b>Connections 
+ Points</b> is checked.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">As shown in the screen below 
+ at the top of the window, the name of the first input connection (syrup) 
+ is entered as <b>Input0</b> (do not enclose the entry in quotation marks 
+ &quot; &quot;).<span class="hcp6">&#160;</span>&#160;Enter 
+ <b>Input1</b> <span class="hcp9">on <b>Row_2</b></span> 
+ for the second input connection (steam/vapor) for the pan.<span class="hcp6">&#160;</span>&#160;Click 
+ on the green check next to the input box, or press <b>Enter</b> when finished 
+ with the entry.<span class="hcp6">&#160;</span>&#160;Type 
+ <b>Output0</b> for the first output connection (massecuite), <b>Output1</b> 
+ for the second output connection (vapor) and <b>Output2</b> for the third 
+ output connection (condensate).<span class="hcp6">&#160;</span>&#160;Be 
+ sure to label each connection correctly for the type of input and output 
+ flow.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; text-align: center;"><img src="Images/Designing_Shapes_Scn-7.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">The ShapeSheet should look 
+ as shown in the screen below where the shape name is in the User-defined 
+ Cells in the User.Class row and “SI_Pan” is in the Value column.<span class="hcp6">&#160;</span>&#160;Also, each connection 
+ point for the ports into and out of the station are listed and named.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; text-align: center;"><img src="Images/Designing_Shapes_Scn-8.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt; text-align: center;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">Close the ShapeSheet.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">The new shape is now ready 
+ to be placed on a stencil for use in building flow diagrams.<span class="hcp6">&#160;</span>&#160;To 
+ place the new shape on a stencil, open the stencil and then right click 
+ on the stencil title bar and select <b class="hcp7">Edit 
+ Stencil</b> from the drop-down menu.<span class="hcp6">&#160;</span>&#160;Then 
+ drag the new shape from the drawing on to the stencil.<span class="hcp6">&#160;</span>&#160;Once 
+ the shape is on the stencil, the shape can be named by selecting the stencil 
+ and then using the <b><u>E</u>dit Master</b> &gt; <b>Master P<u>r</u>operties…</b><span class="hcp6">&#160;</span>&#160;to name the shape and 
+ enter text for the prompt.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">Save the stencil with the 
+ new shape by right clicking the stencil title bar and selecting <b>Save 
+ <u>A</u>s…</b> from the drop-down menu and saving the new stencil under 
+ the same name, or giving it a new name.<span class="hcp6">&#160;</span>&#160;The 
+ stencil can be used with any other drawing by opening it as a stencil 
+ from the drawing.<span class="hcp6">&#160;</span>&#160;<span 
+	 style="color: #ff0000;">It is best to not add custom shapes to the 
+ Sugars stencils because these custom shapes may become lost when Sugars 
+ is updated with a new version at a later time and the Sugars stencils 
+ could be overwritten with the update.</span></p>
+</body>
+</html>

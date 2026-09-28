@@ -1,0 +1,88 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Dryer Examples</title>
+<link rel="StyleSheet" href="../Dryer.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt; }
+span.hcp2 { font-size:10pt; }
+span.hcp3 { mso-spacerun:yes; }
+span.hcp4 { font-family:Symbol;
+mso-bidi-font-family:Symbol; }
+p.hcp5 { margin-bottom:0.00pt;
+text-align:center; }
+img.hcp6 { border:none; }
+p.hcp7 { margin-bottom:0.00pt;
+font-size:10pt; }
+font.hcp8 { font-size:10pt; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Dryer Examples</font></h1>
+<p class="header" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><span class="hcp2">The figure 
+ below shows a sugar granulator model that uses a dryer and cooler station.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;Steam 
+ is used to heat the material flow in by a heat exchanger in the dryer 
+ that heats the airflow.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;An Output Flow Temperature (</span><span class="hcp4">°</span><span class="hcp2">C) value was entered for the temperature 
+ of the material flow out port 0.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;The steam flow in is a required flow 
+ (see the small ‘R’ on the flow line from station no. 1000 to the dryer 
+ station no. 830).</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp5"><img src="Images/DryerExamples_Fig-1.png" alt="" border="0" class="hcp6"></p>
+<p style="margin-bottom: 0.00pt; text-align: justify;">&#160;</p>
+<p class="hcp1"><span class="hcp2">Using 
+ a dryer and cooler station to model a granulator station is best; even 
+ though, the output temperature of the dryer could be specified to equal 
+ the temperature of the sugar out of the actual granulator in the factory.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;However, 
+ if the model of the granulator is not constructed with a dryer and cooler 
+ station, <b>the energy required to heat the sugar for drying will not 
+ be correct</b> if the actual granulator consists of a heating section 
+ and a cooling section using air.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;The energy required for the heating 
+ section can only be calculated correctly if the temperature of the sugar 
+ leaving the heating section of the granulator is entered into the dryer 
+ Output Flow Temperature (</span><span class="hcp4">°</span><span class="hcp2">C) property.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;Energy lost to the air during cooling 
+ in a granulator is accounted for in the cooler station that follows the 
+ dryer.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><span class="hcp2">In the 
+ model, the vapor flow stream out of the dryer does not contain air because 
+ the components for air are not in the Sugars program.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;Fifteen components are considered in 
+ Sugars, and the four gas components are: water vapor, ethanol vapor, CO2, 
+ and NH3.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;So, 
+ air through the dryer is not considered.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;Vapor from the dryer will only contain 
+ water vapor and any dry matter carried over with the vapor.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;The 
+ vapor can be sent to other stations to recover the dry matter that may 
+ contain sucrose if a granulator is being modeled.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;Usually, a separator station is used 
+ to split the dry matter (sucrose) carried over from the water vapor component.</span><span class="hcp3">&#160;</span><span class="hcp2">&#160;Diluent 
+ water can be used in the separator, as in a Rotoclone, to carry the dry 
+ matter to other stations for recovery of the sucrose.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp5"><img src="Images/DryerExamples_Fig-2.png" alt="" border="0" class="hcp6"></p>
+<p class="hcp1">&#160;</p>
+<p class="Block_Text">The above diagram shows the granulator from the previous 
+ diagram with a separator station on the vapor flow out to strip the dry 
+ matter from the vapor after it leaves the dryer.<span class="hcp3">&#160;</span>&#160;The 
+ condensate flow (diluent flow) into the separator goes to input port 1 
+ of the separator and is used by the separator to recover the dry matter.<span class="hcp3">&#160;</span>&#160;The combined flow of 
+ dry matter and condensate leaves the separator in output no. 2 where it 
+ can be sent to other stations in the factory for recovery of the sucrose.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp7">Also, a dryer station 
+ will allow additional crystal growth until the output flow stream is saturated 
+ (i.e., sucrose supersaturation equals 1.0) if sucrose crystals entering 
+ the dryer have a film of supersaturated mother liquor (water).</p>
+<p class="hcp7">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><a href="Dryer_Features.htm"><font size="2" class="hcp8">Dryer Features</font></a><font size="2" class="hcp8"> 
+ </font></p>
+<p class="hcp1"><a href="Dryer_Properties.htm"><font size="2" class="hcp8">Dryer Properties</font></a><font size="2" class="hcp8"> </font></p>
+</body>
+</html>

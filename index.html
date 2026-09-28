@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Massecuite Boiling Scheme Simulator — Phase 1</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/page-workspace.css" />
+  <link rel="stylesheet" href="css/ribbon.css" />
+  <link rel="stylesheet" href="css/property-windows.css" />
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">M</div>
+      <div>
+        <div class="brand-title">Massecuite Boiling Scheme Simulator</div>
+        <div class="brand-sub">Phase 4.8.5.1.1 · Connector Double-Click + Routing Interaction Fix</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn" id="newBtn">New</button>
+      <button class="btn" id="openBtn">Open</button>
+      <button class="btn" id="saveBtn">Save Project</button>
+      <button class="btn" id="templateBtn">Save Template</button>
+      <button class="btn" id="libraryBtn">Scheme Library</button>
+      <button class="btn" id="undoBtn">Undo</button>
+      <button class="btn" id="redoBtn">Redo</button>
+      <button class="btn" id="autoBtn">Auto-layout</button>
+      <button class="btn primary" id="solveBtn">Solve</button>
+      <button class="btn" id="auditBtn">Solver Audit</button>
+      <button class="btn" onclick="window.print()">Print / PDF</button>
+      <span class="status-pill" id="solverStatus"><span class="status-dot"></span><span id="statusText">Loading…</span></span>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="side-head">
+        <div class="side-title">Station palette</div>
+        <div class="side-sub">Drag stations or a Universal Flow stencil to the canvas. Streams automatically become External Input, Internal Flow, or Product / External Output from their endpoint topology.</div>
+      </div>
+
+      <div class="palette">
+        <div class="group-title">Evaporation &amp; Boiling</div>
+
+        <div class="palette-item" draggable="true" data-type="pan">
+          <div class="pal-icon">P</div>
+          <div><div class="pal-name">Massecuite Pan</div><div class="pal-desc">Vacuum pan boiling · supersaturation</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="evaporator">
+          <div class="pal-icon">Ev</div>
+          <div><div class="pal-name">Evaporator Effect</div><div class="pal-desc">Multiple-effect body · calandria vapour</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="compressor">
+          <div class="pal-icon">Cp</div>
+          <div><div class="pal-name">Vapor Compressor (MVR)</div><div class="pal-desc">Mechanical vapor recompression</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="thermocompressor">
+          <div class="pal-icon">TC</div>
+          <div><div class="pal-name">Thermocompressor</div><div class="pal-desc">Steam jet ejector · vapor boost</div></div>
+        </div>
+
+        <div class="group-title">Crystallization &amp; Separation</div>
+
+        <div class="palette-item" draggable="true" data-type="crystallizer">
+          <div class="pal-icon">Cr</div>
+          <div><div class="pal-name">Crystallizer</div><div class="pal-desc">Massecuite cooling · crystal growth</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="centrifugal2">
+          <div class="pal-icon">C2</div>
+          <div><div class="pal-name">2-Output Centrifugal</div><div class="pal-desc">Sugar + heavy/green molasses</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="centrifugal3">
+          <div class="pal-icon">C3</div>
+          <div><div class="pal-name">3-Output Centrifugal</div><div class="pal-desc">Sugar + green + wash molasses</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="melter">
+          <div class="pal-icon">Me</div>
+          <div><div class="pal-name">Sugar Melter</div><div class="pal-desc">Sugar/magma → melt liquor</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="magma">
+          <div class="pal-icon">Mg</div>
+          <div><div class="pal-name">Magma Mixer</div><div class="pal-desc">Sugar + diluent → magma</div></div>
+        </div>
+
+        <div class="group-title">Thermal &amp; Heat Transfer</div>
+
+        <div class="palette-item" draggable="true" data-type="heater">
+          <div class="pal-icon">Ht</div>
+          <div><div class="pal-name">Juice / Process Heater (Surface)</div><div class="pal-desc">Shell &amp; tube / plate heat exchanger</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="injectionHeater">
+          <div class="pal-icon">IH</div>
+          <div><div class="pal-name">Direct Injection Heater</div><div class="pal-desc">Direct steam condensation &amp; dilution</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="flashTank">
+          <div class="pal-icon">Fl</div>
+          <div><div class="pal-name">Flash Tank</div><div class="pal-desc">Flash cooling · flash vapour recovery</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="contactCondenser">
+          <div class="pal-icon">CC</div>
+          <div><div class="pal-name">Barometric Contact Condenser</div><div class="pal-desc">Direct contact spray · tailpipe</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="surfaceCondenser">
+          <div class="pal-icon">SC</div>
+          <div><div class="pal-name">Surface Condenser</div><div class="pal-desc">Vapor condensation · pure distillate</div></div>
+        </div>
+
+        <div class="group-title">Sugar Drying &amp; Conditioning</div>
+
+        <div class="palette-item" draggable="true" data-type="dryer">
+          <div class="pal-icon">Dr</div>
+          <div><div class="pal-name">Sugar Dryer</div><div class="pal-desc">Rotary / fluidized bed dryer</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="cooler">
+          <div class="pal-icon">Co</div>
+          <div><div class="pal-name">Sugar Cooler</div><div class="pal-desc">Conditioning air sugar cooling</div></div>
+        </div>
+
+        <div class="group-title">Power &amp; Utility Stations</div>
+
+        <div class="palette-item" draggable="true" data-type="turbine">
+          <div class="pal-icon">Tb</div>
+          <div><div class="pal-name">Steam Turbine</div><div class="pal-desc">Back-pressure / condensing drive</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="turboAlternator">
+          <div class="pal-icon">TA</div>
+          <div><div class="pal-name">Turbo Alternator (Cogen)</div><div class="pal-desc">Turbine generator · electrical kWe</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="pressureReducer">
+          <div class="pal-icon">PR</div>
+          <div><div class="pal-name">Pressure Reducer (PRV)</div><div class="pal-desc">Steam let-down &amp; desuperheating</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="pump">
+          <div class="pal-icon">Pu</div>
+          <div><div class="pal-name">Process Pump</div><div class="pal-desc">Juice, syrup, massecuite pumping</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="tank">
+          <div class="pal-icon">Tk</div>
+          <div><div class="pal-name">Process Storage Tank</div><div class="pal-desc">Surge, buffer, &amp; storage vessels</div></div>
+        </div>
+
+        <div class="group-title">Clarification &amp; Treatment</div>
+
+        <div class="palette-item" draggable="true" data-type="reactor">
+          <div class="pal-icon">Rx</div>
+          <div><div class="pal-name">Reactor / Clarifier</div><div class="pal-desc">Liming, carbonatation, sulfitation</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="separatorFilter">
+          <div class="pal-icon">SF</div>
+          <div><div class="pal-name">Mud Filter / Separator</div><div class="pal-desc">Rotary vacuum filter · mud cake</div></div>
+        </div>
+
+        <div class="group-title">Material Handling &amp; Routing</div>
+
+        <div class="palette-item" draggable="true" data-type="universalFlow">
+          <div class="pal-icon">↔</div>
+          <div><div class="pal-name">Universal Flow / Stream</div><div class="pal-desc">External input · internal flow · product/output</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="mixer">
+          <div class="pal-icon">Mx</div>
+          <div><div class="pal-name">General Mixer</div><div class="pal-desc">Multiple feeds → one stream</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="splitter">
+          <div class="pal-icon">Sp</div>
+          <div><div class="pal-name">Splitter</div><div class="pal-desc">One stream → multiple routes</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="distributor">
+          <div class="pal-icon">Di</div>
+          <div><div class="pal-name">Distributor</div><div class="pal-desc">One inlet → up to 10 outlets · % or weight · overflow</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="receiver">
+          <div class="pal-icon">R</div>
+          <div><div class="pal-name">Receiver</div><div class="pal-desc">Hold / transfer stream</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="seed">
+          <div class="pal-icon">Sd</div>
+          <div><div class="pal-name">Seed / Slurry Source</div><div class="pal-desc">Route via mixer/blender before Pan</div></div>
+        </div>
+
+        <div class="palette-hint" style="margin:8px 0 0">
+          Use <b>Universal Flow / Stream</b> for syrup, juice, sweet water, clear juice, wash water,
+          condensate, hot water, steam and vapour. The connector's topology determines whether it is an external input, internal flow, or product/output.
+        </div>
+      </div>
+
+      <div class="palette-hint">
+        <b>Universal Stream rule:</b><br>
+        The connector itself is the flow object and the boundary stencil.
+        <br><br><b>Input port → blank canvas</b> = External Input.
+        <br><b>Output port → input port</b> = Internal Flow.
+        <br><b>Output port → blank canvas</b> = Product / External Output.
+        <br><br>Drag <b>Universal Flow / Stream</b> onto blank canvas when you want a free Visio-style stream stencil before connecting it.
+        <br><br><b>Topology rule:</b> one process stream per equipment output port. Use a <b>Splitter</b> for branching.
+      </div>
+    </aside>
+
+    <section class="canvas-shell">
+      <div class="canvas-top">
+        <div class="scheme-name-wrap">
+          <span style="font-size:10px;font-weight:900;color:#6d7f8d">SCHEME</span>
+          <input id="schemeName" class="scheme-name" value="New Massecuite Scheme" />
+        </div>
+        <div class="canvas-tools">
+          <button class="mini" id="zoomOut">−</button>
+          <span class="zoom-label" id="zoomLabel">100%</span>
+          <button class="mini" id="zoomIn">+</button>
+          <button class="mini" id="zoomReset">Reset zoom</button>
+          <button class="mini" id="fitBtn">Fit</button>
+        </div>
+      </div>
+
+      <div class="viewport" id="viewport">
+
+        <div class="flow-legend">
+          <span class="key"><span class="mini-flag r">R</span><b>Required flow</b></span>
+          <span class="key"><span class="mini-flag p">P</span><b>Pressure feedback</b></span>
+          <span>Internal flow = calculated</span>
+        </div>
+
+        <div class="world-wrap" id="worldWrap">
+          <div class="world" id="world">
+            <svg id="wires" viewBox="0 0 2200 1400" preserveAspectRatio="none">
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L8,4 L0,8 z" fill="#536f83"></path>
+                </marker>
+              </defs>
+              <g id="wireLayer"></g>
+            </svg>
+            <div id="nodes"></div>
+            
+            <!-- Sheet Outline & CAD Title Block -->
+            <div class="sheet-frame" id="sheetFrame">
+              <div class="sheet-titleblock" id="sheetTitleblock">
+                <div class="sheet-tb-cell"><div class="sheet-tb-lbl">PROJECT</div><div class="sheet-tb-val" id="stbProject">Massecuite Scheme</div></div>
+                <div class="sheet-tb-cell"><div class="sheet-tb-lbl">PAGE</div><div class="sheet-tb-val" id="stbPage">Page 1</div></div>
+                <div class="sheet-tb-cell"><div class="sheet-tb-lbl">STANDARD</div><div class="sheet-tb-val">Sugar's Help Book</div></div>
+                <div class="sheet-tb-cell"><div class="sheet-tb-lbl">UNITS / STATUS</div><div class="sheet-tb-val" id="stbStatus">kg/h · °C · kPa abs</div></div>
+              </div>
+            </div>
+            <div class="empty-state" id="emptyState">
+              <div class="big">Build your boiling scheme</div>
+              <div class="small">Drag stations from the left. Name them A, A1, B, B1, B2, C, C1, R1, etc. The topology will become the calculation structure.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+      <!-- Visio-Style Bottom Page-Tab Navigation Bar -->
+      <nav class="page-tab-bar" id="pageTabBar" aria-label="Drawing Pages">
+        <div class="page-nav-arrows">
+          <button class="page-nav-arrow" id="pageNavPrev" title="Previous Page (PageUp)" aria-label="Previous Page">◀</button>
+          <button class="page-nav-arrow" id="pageNavNext" title="Next Page (PageDown)" aria-label="Next Page">▶</button>
+        </div>
+        <div class="page-tabs-scroll" id="pageTabsScroll" role="tablist">
+          <!-- Populated dynamically by Page Manager -->
+        </div>
+        <button class="page-tab-add-btn" id="addPageBtn" title="Insert New Page (Ctrl+Alt+N)" aria-label="Add New Page">+</button>
+        <div class="page-bar-info" id="pageBarInfo">
+          <span class="page-bar-pill" id="pageStatusPill">Page 1 of 1 · A4 Landscape</span>
+          <button class="page-setup-quick-btn" id="pageSetupQuickBtn" title="Page Setup &amp; Dimensions">⚙️ Setup</button>
+        </div>
+      </nav>
+    </section>
+
+    <aside class="props">
+      <div class="side-head">
+        <div class="side-title">Engineering properties</div>
+        <div class="side-sub">Inputs are shown in red. Calculated fields will remain read-only in later phases.</div>
+      </div>
+      <div class="props-content" id="propsContent">
+        <div class="blank-props">Select a station or connector to edit its properties.</div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json,application/json"/>
+<div class="context-menu" id="contextMenu"></div>
+<div class="toast" id="toast"></div>
+
+
+<div class="audit-backdrop" id="solverIssueBackdrop">
+  <div class="audit-modal">
+    <div class="audit-head">
+      <div>
+        <div class="audit-title">Solve Needs Attention</div>
+        <div style="font-size:8.5px;color:#617786;margin-top:2px">Exact panel, property and correction required before the model can solve.</div>
+      </div>
+      <button class="audit-close" id="solverIssueClose">Close</button>
+    </div>
+    <div class="audit-body" id="solverIssueBody"></div>
+  </div>
+</div>
+
+<div class="audit-backdrop" id="solverAuditBackdrop">
+  <div class="audit-modal">
+    <div class="audit-head">
+      <div class="audit-title">Network Solver Audit</div>
+      <button class="audit-close" id="solverAuditClose">Close</button>
+    </div>
+    <div class="audit-body" id="solverAuditBody"></div>
+  </div>
+</div>
+
+
+
+
+
+<div class="station-float" id="stationFloat" role="dialog" aria-modal="false">
+  <div class="station-float-titlebar" id="stationFloatTitlebar">
+    <div>
+      <div class="station-float-title" id="stationFloatTitle">Station Properties</div>
+      <div class="station-float-sub" id="stationFloatSub">Double-click station property editor</div>
+    </div>
+    <button class="modal-close" id="stationFloatClose">×</button>
+  </div>
+  <div class="station-float-body" id="stationFloatBody"></div>
+  <div class="station-float-footer" id="stationFloatFooter">
+    <div class="status" id="stationFloatFooterStatus">Edit station properties; press OK to commit.</div>
+    <div class="actions"><button id="stationCancelBtn">Cancel</button><button class="primary" id="stationOkBtn">OK</button></div>
+  </div>
+</div>
+
+
+<div class="pan-design-window" id="panDesignWindow" role="dialog" aria-modal="false" aria-label="Pan Design">
+  <div class="pan-design-titlebar" id="panDesignTitlebar">
+    <div><div class="pan-design-title">Pan Design</div><div class="pan-design-sub" id="panDesignSub">Vacuum pan mechanical / process sizing</div></div>
+    <div class="pan-design-actions"><button id="panDesignMin" title="Minimize">—</button><button id="panDesignMax" title="Maximize / Restore">□</button><button id="panDesignClose" title="Close">×</button></div>
+  </div>
+  <div class="pan-design-layout" id="panDesignLayout">
+    <nav class="pan-design-nav" id="panDesignNav" aria-label="Pan design quick jump">
+      <span class="workspace-jump-label">Quick Jump</span>
+      <button class="active" data-pan-design-page="basis">Design Basis</button>
+      <button data-pan-design-page="surface">Heating Surface</button>
+      <button data-pan-design-page="calandria">Tube / Calandria</button>
+      <button data-pan-design-page="downtake">Downtake & Circulator</button>
+      <button data-pan-design-page="shell">Tube Plate & Shell</button>
+      <button data-pan-design-page="connections">Connections</button>
+      <button data-pan-design-page="bottom">Bottom / Graining</button>
+      <button data-pan-design-page="height">Pan Height</button>
+      <button data-pan-design-page="catchall">Catchall</button>
+      <button data-pan-design-page="audit">Audit & Warnings</button>
+    </nav>
+    <div class="pan-design-body" id="panDesignBody"></div>
+  </div>
+  <div class="pan-design-footer"><div class="status" id="panDesignStatus">Design not calculated.</div><div class="actions"><button id="panDesignReset">Reset Source Defaults</button><button id="panDesignCancel">Close</button><button class="primary" id="panDesignApply">Apply to Pan</button></div></div>
+</div>
+
+<div class="flow-modal-backdrop" id="flowModalBackdrop">
+  <div class="flow-modal sp-window" role="dialog" aria-modal="false" aria-label="Stream Properties">
+    <div class="flow-modal-titlebar sp-titlebar" id="flowModalTitlebar">
+      <div class="sp-brandmark">PFS</div>
+      <div class="sp-titleblock">
+        <div class="flow-modal-title" id="flowModalTitle">Stream Properties</div>
+        <div class="flow-modal-sub" id="flowModalSub"></div>
+      </div>
+      <div class="sp-title-actions">
+        <span class="sp-title-status" id="modernTitleStatus">UNSOLVED</span>
+        <button class="sp-window-btn" id="flowMinimize" title="Minimize">—</button>
+        <button class="sp-window-btn" id="flowMaximize" title="Maximize / Restore">□</button>
+        <button class="modal-close sp-window-btn close" id="flowModalClose" title="Close">×</button>
+      </div>
+    </div>
+
+    <div class="sp-identity">
+      <div class="sp-stream-name">
+        <span id="legacyPropertyTitle" style="display:none"></span>
+        <label>Stream Name</label>
+        <input id="legacyStreamName" aria-label="Stream name">
+      </div>
+      <div class="sp-identity-meta">
+        <div><span class="k">Internal ID</span><span class="v mono" id="modernStreamId">—</span></div>
+        <div><span class="k">Role</span><span class="v" id="modernStreamRole">—</span></div>
+        <div><span class="k">Medium</span><span class="v" id="modernStreamMedium">—</span></div>
+        <div><span class="k">Connection</span><span class="v" id="modernStreamConnection">—</span></div>
+      </div>
+    </div>
+
+    <div class="sp-layout">
+      <nav class="sp-nav" aria-label="Stream property quick jump">
+        <span class="workspace-jump-label">Quick Jump</span>
+        <button class="sp-nav-btn active" data-sp-section="general">General</button>
+        <button class="sp-nav-btn" data-sp-section="conditions">Conditions</button>
+        <button class="sp-nav-btn" data-sp-section="composition" id="legacyFractionsBtn">Composition</button>
+        <button class="sp-nav-btn" data-sp-section="derived" id="legacyParametersBtn">Derived Properties</button>
+        <button class="sp-nav-btn" data-sp-section="phase">Phase Information</button>
+        <button class="sp-nav-btn" data-sp-section="diagnostics">Diagnostics &amp; Methods</button>
+        <button class="sp-nav-btn" data-sp-section="charts">Charts</button>
+        <button class="sp-nav-btn" data-sp-section="notes">Notes</button>
+        <div class="sp-nav-spacer"></div>
+        <div class="sp-nav-legend">
+          <span><i class="dot specified"></i>Specified</span>
+          <span><i class="dot calculated"></i>Calculated</span>
+          <span><i class="dot solver"></i>Solver-owned</span>
+        </div>
+      </nav>
+
+      <main class="sp-content">
+        <section class="sp-pane active" data-sp-pane="general">
+          <div class="sp-page-head"><div><h2>General</h2><p>Identity, routing context and engineering overview.</p></div><span class="sp-role-chip" id="modernGeneralRole">—</span></div>
+          <div class="sp-card">
+            <div class="sp-card-head">Connections</div>
+            <div class="sp-card-body"><div class="route-list modern-route-list" id="legacyRouteList"></div></div>
+          </div>
+          <div class="sp-two-col">
+            <div class="sp-card">
+              <div class="sp-card-head">Conditions Overview <span class="sp-badge calculated">READ-ONLY MIRROR</span></div>
+              <div class="sp-card-body" id="modernGeneralConditions"></div>
+            </div>
+            <div class="sp-card">
+              <div class="sp-card-head">Stream Summary</div>
+              <div class="sp-card-body">
+                <table class="sp-summary-table">
+                  <thead><tr><th>Flow</th><th>TDM</th><th>Sugar</th><th>DS</th><th>Purity</th><th>Crystals</th><th>ISNS</th><th>Gas</th></tr></thead>
+                  <tbody><tr><td id="legacyTons">—</td><td id="legacyTDM">—</td><td id="legacySugar">—</td><td id="legacyDS">—</td><td id="legacyPurity">—</td><td id="legacyCrystals">—</td><td id="legacyISNS">—</td><td id="legacyGas">—</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="sp-three-col">
+            <div class="sp-card">
+              <div class="sp-card-head">Optical / Analysis</div>
+              <div class="sp-card-body">
+                <div class="sp-field"><label>Colour <span class="sp-badge specified">SPECIFIED</span></label><input id="legacyColour"></div>
+                <div class="sp-field"><label>Economic Value <span class="sp-badge specified">SPECIFIED</span></label><div class="sp-unit-input"><input id="legacyValue"><span>currency / mass</span></div></div>
+              </div>
+            </div>
+            <div class="sp-card" id="modernSolubilityCard">
+              <div class="sp-card-head">Solubility Coefficients</div>
+              <div class="sp-card-body">
+                <div class="sp-coef-head"><span id="modernSolubilityBasis">Coefficient set</span><button class="sp-small" id="legacySelectCoef">Select…</button></div>
+                <div class="sp-coef-grid"><div><label>a</label><input id="legacyCoefA" readonly></div><div><label>b</label><input id="legacyCoefB" readonly></div><div><label>c</label><input id="legacyCoefC" readonly></div></div>
+              </div>
+            </div>
+            <div class="sp-card">
+              <div class="sp-card-head">Key Derived State</div>
+              <div class="sp-card-body" id="modernGeneralDerived"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="sp-pane" data-sp-pane="conditions">
+          <div class="sp-page-head"><div><h2>Conditions</h2><p>Independent stream specifications and solver ownership.</p></div></div>
+          <div class="sp-two-col">
+            <div class="sp-card">
+              <div class="sp-card-head">Primary Conditions</div>
+              <div class="sp-card-body sp-form-grid">
+                <div class="sp-field"><label>Pressure <span id="modernPressureOwner" class="sp-badge specified">SPECIFIED</span></label><div class="sp-unit-input"><input id="legacyPressure"><span>kPa abs</span></div></div>
+                <div class="sp-field"><label>Temperature <span id="modernTemperatureOwner" class="sp-badge specified">SPECIFIED</span></label><div class="sp-unit-input"><input id="legacyTemperature"><span>°C</span></div></div>
+                <div class="sp-field"><label>Mass Flow <span id="modernFlowOwner" class="sp-badge specified">SPECIFIED</span></label><div class="sp-unit-input"><input id="legacyFlow"><span>kg/h</span></div></div>
+                <div class="sp-field"><label>pH <span id="modernPHOwner" class="sp-badge specified">SPECIFIED</span></label><input id="legacyPH"></div>
+                <div class="sp-field sp-span2" id="legacySteamStateWrap" style="display:none"><label>Steam State <span class="sp-badge specified">SPECIFIED</span></label><div class="sp-unit-input"><select id="legacySteamState"><option value="SATURATED">Saturated / Wet</option><option value="SUPERHEATED">Superheated</option></select><span id="legacySteamStateHint">P ↔ T</span></div></div>
+              </div>
+            </div>
+            <div class="sp-card">
+              <div class="sp-card-head">Ownership &amp; Applicability</div>
+              <div class="sp-card-body" id="modernOwnershipDetail"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="sp-pane" data-sp-pane="composition">
+          <div class="sp-page-head"><div><h2>Composition</h2><p>Canonical 15-component total-stream mass ledger.</p></div><button class="sp-action" id="legacyDSPurityBtn">DS &amp; Purity…</button></div>
+          <div class="legacy-group sp-composition-card" id="legacyFractionsGroup">
+            <div class="legacy-tabs sp-phase-tabs"><button class="legacy-tab active" id="legacyLiquidTab">Liquid + Solid</button><button class="legacy-tab" id="legacyVapourTab">Vapour / Steam Gas</button></div>
+            <div class="legacy-liquid-panel active" id="legacyLiquidPanel"><div class="legacy-components"><div class="legacy-component-box"><div class="legacy-component-title">Liquid Components</div><div id="legacyLiquidComponents"></div></div><div class="legacy-component-box"><div class="legacy-component-title">Solid Components</div><div id="legacySolidComponents"></div></div></div></div>
+            <div class="legacy-vapour-panel" id="legacyVapourPanel"><div class="legacy-component-box"><div class="legacy-component-title">Vapour / Steam Gas Components</div><div id="legacyGasComponents"></div></div></div>
+          </div>
+          <div class="sp-card"><div class="sp-card-head">Component Fractions &amp; Mass Flows</div><div class="sp-card-body sp-table-scroll"><table class="component-flow-table" id="legacyComponentFlowTable"></table></div></div>
+        </section>
+
+        <section class="sp-pane" data-sp-pane="derived">
+          <div class="sp-page-head"><div><h2>Derived Properties</h2><p>Calculated sugar analysis and unified property-package outputs.</p></div></div>
+          <div class="sugar-analysis-wrap modern-analysis" id="legacySugarAnalysisGroup">
+            <div class="sp-card">
+              <div class="sp-card-head">Sugar Analysis Basis</div>
+              <div class="sp-card-body sp-form-grid">
+                <div class="sp-field"><label>Purity Basis <span class="sp-badge specified">SPECIFIED</span></label><select id="legacyPurityBasis"><option value="TRUE">TRUE</option><option value="APPARENT">APPARENT / POL</option></select></div>
+                <div class="sp-field"><label>Pol, % stream <span class="sp-badge specified">SPECIFIED</span></label><input id="legacyPol"></div>
+              </div>
+            </div>
+            <div class="sp-card"><div class="sp-card-head">Sugar Solution State</div><div class="sp-card-body sp-table-scroll"><table class="analysis-table" id="legacySugarAnalysisTable"></table></div></div>
+          </div>
+          <div class="legacy-group sp-card" id="legacyParametersGroup">
+            <div class="sp-card-head">Unified Property Package Results</div>
+            <div class="sp-card-body sp-table-scroll"><table class="legacy-prop-table" id="legacyParametersTable"></table></div>
+          </div>
+        </section>
+
+        <section class="sp-pane" data-sp-pane="phase">
+          <div class="sp-page-head"><div><h2>Phase Information</h2><p>Mother liquor, crystals, gas/steam state and equilibrium results.</p></div></div>
+          <div class="sp-two-col">
+            <div class="sp-card">
+              <div class="sp-card-head">Equilibrium / Phase State</div>
+              <div class="sp-card-body"><div class="sp-field"><label>Calculated Supersaturation, SS <span class="sp-badge calculated">CALCULATED</span></label><input id="legacyCalculatedSS" readonly></div><div id="modernPhaseInfo"></div></div>
+            </div>
+            <div class="sp-card"><div class="sp-card-head">Massecuite / Mother Liquor</div><div class="sp-card-body sp-table-scroll"><table class="analysis-table" id="legacyMassecuiteTable"></table><div class="analysis-note" id="legacyMassecuiteNote"></div></div></div>
+          </div>
+          <div class="sp-card" id="legacyFluidPropWrap"><div class="sp-card-head">Water / Steam Phase Properties</div><div class="sp-card-body sp-table-scroll"><table class="legacy-prop-table" id="legacyFluidPropTable"></table></div></div>
+        </section>
+
+        <section class="sp-pane" data-sp-pane="diagnostics">
+          <div class="sp-page-head"><div><h2>Diagnostics &amp; Methods</h2><p>Property methods, warnings, ownership and calculation trace.</p></div></div>
+          <div class="engine-strip modern-engine-strip" id="phase2EngineStrip"></div>
+          <div class="sp-card"><div class="sp-card-head">Property Package Status</div><div class="sp-card-body"><div class="property-package-status" id="legacyPropertyPackageStatus"></div></div></div>
+          <div class="sp-card"><div class="sp-card-head">Property Methods</div><div class="sp-card-body"><div class="property-method-grid" id="legacyPropertyMethodGrid">
+            <div class="sp-field"><label>Liquid Cp / h Method</label><select id="legacyCpMethod"><option value="HUGOT_T_PURITY">Hugot T + Purity</option><option value="HUGOT_SIMPLE">Hugot Simple</option><option value="USER_INPUT">User Cp</option></select></div>
+            <div class="sp-field"><label>User Cp</label><div class="sp-unit-input"><input id="legacyCpUser"><span>kJ/(kg·K)</span></div></div>
+            <div class="sp-field"><label>Sensible h Reference</label><input readonly value="0 °C"></div>
+            <div class="sp-field"><label>Liquid Density Method</label><select id="legacyDensityMethod"><option value="LYLE_1957_PURE_SUCROSE_EQ32_8">Lyle 1957 / Rein Eq. 32.8 — Pure-Sucrose Approx.</option><option value="USER_INPUT">Measured / User Density</option></select></div>
+            <div class="sp-field"><label>Density at Stream T</label><div class="sp-unit-input"><input id="legacyDensityUser"><span>kg/m³</span></div></div>
+            <div class="sp-field"><label>User Density Reference T</label><div class="sp-unit-input"><input id="legacyDensityRefT"><span>°C</span></div></div>
+            <div class="sp-field"><label>BPE Method</label><select id="legacyBpeMethod"><option value="BPE_SASKA_ASI_2002_EQ8">Saska ASI 2002 — Technical Cane (Eq. 8)</option><option value="BUBNIK_KADLEC_1995_TECHNICAL">Bubnik–Kadlec Technical</option><option value="USER_INPUT">User BPE</option></select></div>
+            <div class="sp-field"><label>User BPE</label><div class="sp-unit-input"><input id="legacyBpeUser"><span>K</span></div></div>
+            <div class="sp-field"><label>Water / Steam Package</label><input readonly value="IAPWS-IF97"></div>
+          </div></div></div>
+          <div class="sp-card"><div class="sp-card-head">Runtime / Model Context</div><div class="sp-card-body sp-runtime-grid"><div id="legacyRuntimeState">—</div><div id="legacyModelName">—</div><div>Units: SI (fixed in this release)</div></div></div>
+        </section>
+
+        <section class="sp-pane" data-sp-pane="charts">
+          <div class="sp-page-head"><div><h2>Charts</h2><p>Read-only charts derived only from the current component ledger.</p></div></div>
+          <div id="modernCharts"></div>
+        </section>
+
+        <section class="sp-pane" data-sp-pane="notes">
+          <div class="sp-page-head"><div><h2>Notes</h2><p>Plain-text model notes. Notes do not affect engineering calculations.</p></div></div>
+          <div class="sp-card"><div class="sp-card-head">Stream Notes</div><div class="sp-card-body"><textarea id="modernNotes" class="sp-notes" placeholder="Engineering notes, assumptions or operating context…"></textarea></div></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="sp-footer">
+      <div class="sp-footer-status"><span id="modernFooterStatus">Ready</span><span class="sep">•</span><span id="legacyRuntimeStateMirror">—</span></div>
+      <div class="sp-footer-actions secondary"><button class="sp-footer-btn" id="legacyHelpBtn">Help</button><button class="sp-footer-btn" id="legacyPrintBtn">Print</button><button class="sp-footer-btn" id="legacyUnitsBtn">Units</button></div>
+      <div class="sp-footer-actions"><button class="sp-footer-btn primary" id="flowApply">OK</button><button class="sp-footer-btn" id="flowCancel">Cancel</button><button class="sp-footer-btn emphasis" id="flowApplyKeep">Apply</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="subdialog" id="dsPurityDialog">
+  <div class="subdialog-box">
+    <div class="subdialog-head">Liquid Dry Substance and Purity</div>
+    <div class="subdialog-body">
+      <div class="flow-field"><label>Dry Substance / Brix (%)</label><input id="quickDS"></div>
+      <div class="flow-field"><label>Purity (%)</label><input id="quickPurity"></div>
+      <div class="property-note">This helper applies only to the <b>liquid phase / mother liquor</b>. Existing solid and gas fractions are preserved. Entered Invert, Ash and NS2 are held fixed; the remaining dissolved nonsugar is assigned to NS1.</div>
+      <div class="flow-actions"><span></span><div class="right"><button class="modal-btn" data-close-sub="dsPurityDialog">Cancel</button><button class="modal-btn primary" id="quickDSApply">OK</button></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="subdialog" id="solubilityDialog">
+  <div class="subdialog-box">
+    <div class="subdialog-head">Solubility Coefficients</div>
+    <div class="subdialog-body">
+      <div class="property-note">
+        These coefficients belong to the sugar-solution solubility model. They are applicable to sugar-bearing liquid/massecuite streams, not steam or vapour.
+      </div>
+      <div class="preset-list" id="solubilityPresets">
+        <div class="preset-row" data-name="Beet Values (Grut)" data-a="-0.1780" data-b="0.8200" data-c="-2.1000">Beet Values (Grut): a = -0.1780, b = 0.8200, c = -2.1000</div>
+        <div class="preset-row" data-name="Beet Values (Typical)" data-a="0.2700" data-b="0.7100" data-c="-1.4000">Beet Values (Typical): a = 0.2700, b = 0.7100, c = -1.4000</div>
+        <div class="preset-row" data-name="Cane Values (Typical)" data-a="0.0400" data-b="0.7100" data-c="-2.1000">Cane Values (Typical): a = 0.0400, b = 0.7100, c = -2.1000</div>
+        <div class="preset-row" data-name="Custom" data-a="" data-b="" data-c="">Custom</div>
+      </div>
+      <div class="abc-grid">
+        <div class="flow-field"><label>a</label><input id="coefA"></div>
+        <div class="flow-field"><label>b</label><input id="coefB"></div>
+        <div class="flow-field"><label>c</label><input id="coefC"></div>
+      </div>
+      <div class="flow-actions"><span></span><div class="right"><button class="modal-btn" data-close-sub="solubilityDialog">Cancel</button><button class="modal-btn primary" id="coefApply">OK</button></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="subdialog" id="flowDirtyDialog">
+  <div class="subdialog-box">
+    <div class="subdialog-head">Unsaved Stream Property Changes</div>
+    <div class="subdialog-body">
+      <div class="property-note">This stream has unapplied edits. Choose whether to apply them, discard them, or keep editing.</div>
+      <div class="flow-actions" style="margin-top:12px"><span></span><div class="right"><button class="modal-btn" id="flowDirtyKeep">Keep Editing</button><button class="modal-btn" id="flowDirtyDiscard">Discard</button><button class="modal-btn primary" id="flowDirtyApply">Apply &amp; Close</button></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="subdialog" id="flowLegendDialog">
+  <div class="subdialog-box">
+    <div class="subdialog-head">Flow Legend</div>
+    <div class="subdialog-body">
+      <div class="property-note" id="flowLegendConnInfo">From Station — &nbsp;→&nbsp; To Station —</div>
+      <div class="flow-field" style="margin-top:8px"><label>Flow Properties to Display in Legend</label></div>
+      <div id="flowLegendCheckList" class="legend-check-list"></div>
+      <div class="property-note" id="flowLegendWarn" style="display:none;color:#c0392b">Select at least one property to display.</div>
+      <div class="flow-field"><label>Relative Position to Flow Connector</label></div>
+      <div id="flowLegendPositionRadios" class="legend-position-radios">
+        <label><input type="radio" name="flowLegendPos" value="BEGINNING"> Beginning</label>
+        <label><input type="radio" name="flowLegendPos" value="MIDDLE" checked> Middle</label>
+        <label><input type="radio" name="flowLegendPos" value="ENDING"> Ending</label>
+      </div>
+      <div class="flow-actions"><span></span><div class="right"><button class="modal-btn" data-close-sub="flowLegendDialog">Cancel</button><button class="modal-btn primary" id="flowLegendApply">OK</button></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Page Setup Modal Dialog -->
+<div class="page-setup-dialog" id="pageSetupDialog" role="dialog" aria-label="Page Setup">
+  <div class="page-setup-box">
+    <div class="page-setup-head">
+      <div class="page-setup-title">⚙️ Page Setup &amp; Dimensions</div>
+      <button class="page-setup-close" id="pageSetupClose">✕</button>
+    </div>
+    <div class="page-setup-body">
+      <div class="page-setup-field">
+        <label>Page Name</label>
+        <input type="text" id="setupPageName" value="Page 1" />
+      </div>
+      <div class="page-setup-field">
+        <label>Standard Dimensions (CAD / Drawing Frame)</label>
+        <select id="setupPageSize">
+          <option value="A4">A4 (297 × 210 mm standard sheet)</option>
+          <option value="A3">A3 (420 × 297 mm large schematic)</option>
+          <option value="Letter">ANSI Letter (11 × 8.5 in)</option>
+          <option value="Custom">Custom / Unlimited Canvas</option>
+        </select>
+      </div>
+      <div class="page-setup-field">
+        <label>Drawing Orientation</label>
+        <select id="setupPageOrientation">
+          <option value="landscape">Landscape (Standard Flowsheet)</option>
+          <option value="portrait">Portrait</option>
+        </select>
+      </div>
+      <div class="page-setup-field" style="flex-direction:row;align-items:center;gap:8px;margin-top:6px;">
+        <input type="checkbox" id="setupShowSheetFrame" checked style="height:auto;width:auto;" />
+        <label for="setupShowSheetFrame" style="cursor:pointer;font-size:11px;color:#334e68;font-weight:700;">Show Drawing Sheet Frame &amp; Title Block</label>
+      </div>
+    </div>
+    <div class="page-setup-actions">
+      <button class="btn" id="setupCancelBtn">Cancel</button>
+      <button class="btn primary" id="setupApplyBtn">Apply Changes</button>
+    </div>
+  </div>
+</div>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

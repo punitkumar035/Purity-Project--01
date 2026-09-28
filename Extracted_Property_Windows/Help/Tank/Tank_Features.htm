@@ -1,0 +1,54 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Tank Features</title>
+<link rel="StyleSheet" href="../Tank.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript">
+</script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt; }
+font.hcp2 { font-size:11pt;
+font-weight:bold; }
+font.hcp3 { font-size:10pt; }
+span.hcp4 { font-size:10.0pt;
+mso-fareast-font-family:Times New Roman;
+mso-ansi-language:EN-US;
+mso-fareast-language:EN-US;
+mso-bidi-language:HE;
+font-family:Arial, sans-serif; }
+span.hcp5 { mso-spacerun:yes;
+font-family:Arial, sans-serif; }
+span.hcp6 { font-size:10pt; }
+span.hcp7 { mso-spacerun:yes;
+font-size:10pt; }
+span.hcp8 { mso-spacerun:yes; }
+-->
+</style>
+</head>
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Tank Features</font></h1>
+<p class="header" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Tank</font> <font size="2" class="hcp3">A tank station is used to combine flow streams, melt sucrose crystals, heat the combined flows and store or remove material. Some of the different tank shapes provided with Sugars are shown below.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p style="margin-bottom: 0.00pt; text-align: center;"><img src="Images/TankFeatures_Fig-1.png" alt="" style="border: none;" border="0"></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">General Features</font> <span class="hcp4">Tank stations are used to combine flows, add or remove material from storage, melt sucrose crystals, control the output flow to a total dry matter (TDM) and heat the input flow streams to a specified output flow temperature.</span><span class="hcp5">&#160;</span><span class="hcp4">&#160;The heating can be either by injection heating (heating flow is absorbed into the process flow stream), or by coil heating (heating flow is not absorbed into the process flow stream, but leaves the tank after giving up heat to the process flow).</span><span class="hcp5">&#160;</span><span class="hcp4">&#160;Sucrose crystals, if any, are melted until the output flow stream is saturated (that is, supersaturation coefficient is 1.0); however, crystal growth is not allowed, even if the input flow is supersaturated (same as for a melter- see</span> <a href="../Melter/Melter_Features.htm"><font size="2" class="hcp3">Melter Features</font></a><span class="hcp6">).</span><span class="hcp7">&#160;</span><span class="hcp6">&#160;Up to ten process flows (input port 0 thru 9) can flow into a tank, but only one heating flow (into input port 10) is allowed.</span><span class="hcp7">&#160;</span><span class="hcp6">&#160;The pressure of the process flow out of the tank will always be at atmospheric pressure, despite the pressures of any of the process or heating input flows.</span><span class="hcp7">&#160;</span><span class="hcp6">&#160;If any input flows are pressure feedback flows, the pressure fed back will be atmospheric pressure.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp3"><span class="hcp4">The input flow into port 9 will be a required flow if an entry is made for the dry substance out of the tank (see</span> <a href="Tank_Properties.htm">Tank Properties</a></font> <span class="hcp6">for "Hold TDM at" entry field).</span><span class="hcp7">&#160;</span><span class="hcp6">&#160;If a dry substance is not specified for the output flow, the flow into port 9 will not be required unless the output flow from the tank is required and the input flow into port 9 is selected to satisfy the required output flow.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><span class="hcp6">If a heating flow is used, it will go into port 10 and it will always be a required flow.</span><span class="hcp8">&#160;</span><span class="hcp6">&#160;The heating flow is calculated to be the quantity necessary to raise all input flows (any flow from storage is assumed to be at the same temperature as the flow out of the tank) up to the specified output flow temperature.</span><span class="hcp8">&#160;</span><span class="hcp6">&#160;If a temperature value is not entered, the quantity of the heating flow will be 0.0 as a required flow.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><span class="hcp6">The output (port 0) flow from a tank can be required by another station, and if it is, one of the input flows into the tank must be made a required flow that can be adjusted by Sugars to satisfy the required output flow.</span><span class="hcp8">&#160;</span><span class="hcp6">&#160;The quantity of the required input flow will be calculated by Sugars to equal the required output flow quantity less the quantities of all other flows into the tank.</span><span class="hcp8">&#160;</span><span class="hcp6">&#160;A small box will appear on the Tank Properties window to select which input flow is to be required when the output flow is required.</span><span class="hcp8">&#160;</span><span class="hcp6">&#160;Input flows into the tank that cannot be made required will not be displayed in the box.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><a href="Tank_Properties.htm"><font size="2" class="hcp3">Tank Properties</font></a></p>
+<p class="hcp1"><a href="Tank_Examples.htm"><font size="2" class="hcp3">Tank Examples</font></a></p>
+</body>
+</html>

@@ -1,0 +1,365 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Single Crystallization</title>
+<link rel="StyleSheet" href="../Examples.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt;
+font-size:10pt; }
+font.hcp2 { font-style:italic; }
+p.hcp3 { text-align:center;
+margin-bottom:0.00pt;
+font-size:10pt; }
+img.hcp4 { border:none; }
+p.hcp5 { margin-top:0;
+margin-bottom:0;
+font-size:10pt; }
+span.hcp6 { mso-spacerun:yes; }
+p.hcp7 { text-align:center;
+font-size:10pt; }
+font.hcp8 { text-decoration:underline; }
+p.hcp9 { margin-bottom:0.00pt;
+font-size:10pt;
+tab-stops:-1.25in -.75in -.25in .25in 57.1pt 93.1pt 1.75in 165.1pt 201.1pt 237.1pt 273.1pt 309.1pt 345.1pt; }
+p.hcp10 { text-align:justify;
+margin-bottom:0.00pt;
+font-size:10pt; }
+font.hcp11 { font-size:10pt; }
+span.hcp12 { tab-stops:-1.25in -.75in -.25in .25in 57.1pt 93.1pt 1.75in 165.1pt 201.1pt 237.1pt 273.1pt 309.1pt 345.1pt; }
+font.hcp13 { font-weight:bold; }
+span.hcp14 { font-weight:bold; }
+font.hcp15 { font-weight:bold;
+text-decoration:underline; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Single Crystallization</font></h1>
+<p class="header" style="margin-bottom: 0.00pt; font-size: 10pt;">&#160;</p>
+<p class="hcp1">The flow diagram for 
+ the Single Crystallization example is shown below. This example is a very 
+ simple single crystallization process that only uses a pan, crystallizer 
+ and centrifugal to boil and crystallize a syrup into a massecuite that 
+ can be processed by a continuous centrifugal to separate the crystalline 
+ sugar from the mother liquor. External sources are used for the steam, 
+ syrup and centrifugal wash water (i.e., they are <font class="hcp2">external</font> 
+ flows) and the molasses and sugar leave the flow diagram without any recycle. 
+ All flows that leave each station are <font class="hcp2">internal</font> 
+ flows. For example, the massecuite flow from the pan to the crystallizer, 
+ from the crystallizer to the centrifugal, vapor and condensate flows out 
+ of the pan, and sugar and molasses flows out of the centrifugal. Crystallization 
+ is controlled by the input data for the pan and crystallizer stations, 
+ and the separation of mother liquor and sugar from the massecuite is controlled 
+ by the input data used for the centrifugal to define the performance characteristics 
+ of the centrifugal station. More complicated models are developed using 
+ the same techniques as used for this simple model.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Dgm-1.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">The Single Crystallization 
+ model is already built and located in the &quot;...\Sugars\Examples&quot; 
+ directory. Either double click on the &quot;Single Crystallization.vsd&quot; 
+ file from Windows Explorer, or open it from within Visio.</p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1">The two external flows 
+ into the pan are &quot;Steam&quot; and &quot;Syrup&quot;. The steam flow 
+ is a required flow; that is, Sugars will calculate the quantity of steam 
+ consumed by the pan. The syrup flow has to be completely defined, with 
+ pressure, temperature, quantity, components, color, and solubility coefficients. 
+ Also, currency value numbers can be given if the net process revenues 
+ are to be calculated by Sugars.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">To enter data for the 
+ characteristics of the steam flow into the pan, place the cursor on the 
+ steam flow line (the cursor will change to have four crossing arrows when 
+ the line is selected) and double click the left mouse button to get the 
+ external flow input window shown below (shown with data already entered).<span class="hcp6">&#160;</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp7"><img src="Images/Single_Crystallization_Scn-1.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Enter the name of the 
+ flow stream as &quot;Steam to Pan&quot;, enter 0.0 for pressure, 108°C 
+ for the steam temperature and 100% for the &quot;Gas&quot; component &quot;Steam/Vapor&quot;. 
+ No entry is needed for the solubility coefficients because the steam flow 
+ does not contain any non-sucrose components. And, no entry is made for 
+ the quantity of flow because it will be calculated by Sugars; that is, 
+ it is a <font class="hcp2">required</font> flow. Place 
+ the cursor on the <font class="hcp8">O</font>K 
+ button and press the left mouse button. Sugars will calculate the pressure 
+ from the steam temperature for saturated steam. The window should appear 
+ as shown above after the <font class="hcp8">O</font>K 
+ button is pressed. After the <font class="hcp8">O</font>K 
+ button is pressed, Sugars will calculate the steam pressure assuming that 
+ the steam into the pan is saturated at the entered temperature of 108°C.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp9">Next, 
+ place the cursor on the syrup flow line (the cursor will change to have 
+ four crossing arrows with a large white arrow when the line is selected) 
+ and double click the left mouse button to get the external flow input 
+ window shown below (shown with data already entered).</p>
+<p class="hcp5">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Scn-2.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp10">&#160;</p>
+<p class="hcp1">The entries for the 
+ syrup flow to the pan should appear as shown in the above window. The 
+ quantity of syrup flow into the pan must be specified (30,000 kg/h for 
+ this example) before Sugars can do the balance calculations. Also, the 
+ temperature of the flow (73°C for this example), the solubility equation 
+ coefficients (Grut values are used for this example) and component fractions 
+ (entered as 82.30%DS and 77.0 Purity) must be given. Use the &quot;<font class="hcp8">D</font>S and Purity&quot; button 
+ to the right of &quot;Liquid&quot; and above &quot;Water (H2O)&quot; in 
+ the Flow Stream Components grouping to obtain a small window to enter 
+ 82.30%DS and 77.0 Purity values. Sugars will calculate the &quot;Water 
+ (H2O)&quot;, &quot;Sucrose&quot; and &quot;Non-Sucrose #1&quot; components 
+ using the %DS and Purity values entered in the small popup window. A color 
+ value of 4,200 is entered for the syrup. When all of the entries have 
+ been made, place the cursor on the <font class="hcp8">O</font>K 
+ button and click the left mouse button to accept the input values and 
+ return to the flow diagram.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp9">Next, 
+ move the mouse cursor over the pan station until the cursor changes to 
+ a large white arrow with four crossing black arrows and then double click 
+ the left mouse button to bring up the pan station input parameter’s window 
+ as shown below (shown with entries already made).</p>
+<p class="hcp10">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Scn-3.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Enter the name &quot;Pan 
+ Station&quot; for the pan and then enter the values as shown on above 
+ window. That is, enter <font class="hcp8">S</font>upersaturation 
+ = 1.150, Total Solids = 94.50%, Temperature = 91.0°C, Color Rise % = 5.00, 
+ Entrainment Sugar Loss PPM = 75 and Heat Loss % = 8.00. See <a href="../Pan/Pan_Properties.htm"><font size="2" class="hcp11">Pan Properties</font></a> for an 
+ explanation of each of the input values. When all entries are made, place 
+ the cursor on the <font class="hcp8">O</font>K 
+ button and click the left mouse button to accept the input values and 
+ return to the flow diagram. Notice that the pan station color is now yellow.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><span class="hcp12">Move 
+ the mouse cursor over the crystallizer station until the cursor changes 
+ black crossing arrows.</span><span class="hcp6">&#160;</span><span class="hcp12">&#160;Double 
+ click the left mouse button to bring up the Crystallizer Properties window 
+ as shown below (shown with entries already made).</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Scn-4.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Enter the name of the 
+ crystallizer (e.g., &quot;Crystallizer&quot;) in the Station Name field. 
+ Next, enter a 1.100 supersaturation coefficient, a temperature of 51°C 
+ and a color rise of 2.00% for the massecuite leaving the crystallizer; 
+ that is, the massecuite will be cooled from 91°C to 51°C with a drop in 
+ supersaturation from 1.15 to 1.10 as it passes through the crystallizer 
+ after leaving the pan (see the <a href="../Crystallizer/Crystallizer_Properties.htm"><font size="2" class="hcp11">Crystallizer Properties</font></a> 
+ for an explanation of each input parameter). When all entries are made, 
+ place the cursor on the <font class="hcp8">O</font>K 
+ button and click the left mouse button to accept the input values and 
+ return to the flow diagram (crystallizer station color is now yellow).</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><span class="hcp12">Next, 
+ enter the characteristics of the wash flow going to the centrifugal.</span><span class="hcp6">&#160;</span><span class="hcp12">&#160;Move 
+ the mouse cursor over the wash flow line going to the centrifugal until 
+ it has four black crossing arrows.</span><span class="hcp6">&#160;</span><span class="hcp12">&#160;Double 
+ click using the left mouse button to obtain the data entry window for 
+ the wash water going to the centrifugal as shown in the window below (shown 
+ with data already entered).</span></p>
+<p class="hcp5">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Scn-5.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Enter a name for the 
+ external flow; for example, &quot;Cent. Wash H2O&quot;. Next, enter the 
+ pressure (101.3kPa) and temperature (98.0°C) of the wash water. The quantity 
+ of water flow will be calculated by Sugars since the wash water is required 
+ by the centrifugal and the quantity of wash water is controlled by the 
+ performance data entered for the centrifugal. Finally, enter 100.00 in 
+ the Water (H2O) component entry field. If syrup washing is used, flow 
+ fractions for the syrup could be enter instead of 100% water, and if steam 
+ is used, a percentage can be entered for the fraction of the flow that 
+ is made up of steam. When all entries are completed, place the cursor 
+ on the <font class="hcp8">O</font>K button and 
+ click the left mouse button to accept the input values and return to the 
+ flow diagram view in Visio.</p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1"><span class="hcp12">Next, 
+ select the centrifugal shape with the cursor and double click the left 
+ mouse button (or click the right mouse button and select &quot;S<u>u</u>gars 
+ Properties&quot; from the drop-down menu).</span><span class="hcp6">&#160;</span><span class="hcp12">&#160;This 
+ will bring up a window from Sugars about the start of a centrifugal evaluation 
+ (see the window shown below).</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Scn-6.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font color="#FF0000">A 
+ centrifugal evaluation must be done to determine the performance of the 
+ centrifugal that is being used in the model.</font> Actual operating data 
+ is necessary to provide the performance data used for the evaluation, 
+ and the results of the evaluation will be used to predict the results 
+ from the centrifugal when the balance calculations are done. Press the 
+ <font class="hcp13">Enter</font> key, or click the left mouse 
+ button on the <span class="hcp14"><font class="hcp15">O</font>K</span> 
+ button, to begin the evaluation and advance to the massecuite evaluation 
+ window (see window shown below with data already entered).</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp7"><img src="Images/Single_Crystallization_Scn-7.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Enter the characteristics 
+ of the massecuite flowing to the centrifugal from actual operating data 
+ (for example, select Grut Solubility Coefficients, Supersaturation Coefficient 
+ = 1.150, Dry Substance = 94.50%, Purity = 77.00% and Temperature = 52.0°C). 
+ <font class="hcp13">The solubility equation coefficients, 
+ %DS, Purity, temperature and supersaturation values entered for this massecuite 
+ may be different then the massecuite that flows into the centrifugal when 
+ the balance calculations are done - the data entered should be from actual 
+ operating data.</font> The massecuite Specific Weight, Non-Sucrose/Water 
+ Ratio, crystal weight content (Crystals), and mother liquor %DS and Purity 
+ are displayed as the data is entered. Also, the <span class="hcp14">Calculate 
+ <font class="hcp15">P</font>arameters</span> 
+ button can be pressed to update the results at any time.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Next, click on the <span class="hcp14"><font class="hcp15">O</font>K</span> 
+ button to advance to the centrifugal evaluation window (see the window 
+ shown below with data already entered).</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp7"><img src="Images/Single_Crystallization_Scn-8.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1">See the <a href="../Centrifugal/2-Output_Centrifugal_Properties.htm">2-Output 
+ Centrifugal Properties</a> section for an explanation of each of the input 
+ parameters. The results from an actual centrifugal operation, using the 
+ same massecuite as used for the massecuite evaluation, should be entered 
+ as shown on the window above (i.e., Massecuite Flow = 25.0, Wash Temp. 
+ = 99.0°C, Green %DS = 83.25, Purity = 59.90 and Temperature = 57.00°C, 
+ Sugar %DS = 98.50, Purity = 94.50 and Temperature = 51.5°C). Fields in 
+ magenta color (three fields) are optional fields in which only two of 
+ the three fields need entries - the third field, where an entry isn't 
+ made, will be calculated by Sugars. For example, enter values for the 
+ &quot;Green Dry Substance&quot; and &quot;Sugar Dry Substance&quot; and 
+ the &quot;Wash Flow&quot; in l/min will be calculated. Or, if the &quot;Wash 
+ Flow&quot; in l/min is entered along with the &quot;Green Dry Substance&quot;, 
+ the &quot;Sugar Dry Substance&quot; will be calculated. After making all 
+ of the necessary entries, click on the <span class="hcp14"><font class="hcp15">O</font>K</span> 
+ button to accept the entries and the unknown value will be calculated 
+ and displayed by Sugars. Click the <span class="hcp14"><font class="hcp15">O</font>K</span> 
+ button again to get the window showing the &quot;2-Output Centrifugal 
+ Performance Calculation&quot; results as shown in the window below.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Scn-9.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">The results from this 
+ window show that 57.41% of the massecuite and wash water into the centrifugal 
+ go out the green (molasses) flow line and 47.41% go out the sugar line. 
+ Some crystals pass through the screen to the green flow (6.19% by weight) 
+ by melting. No crystals are lost in the sugar flow out. The total loss 
+ of sucrose crystals is 13.076% from the crystals in the massecuite entering 
+ the centrifugal (highlighted section at bottom of the window). Also, 98.732% 
+ of the wash water in and 88.182% of the mother liquor is purged out to 
+ the green (molasses). The total heat loss in the centrifugal is 1.27%. 
+ Of the non-sucrose components into the centrifugal, 11.82% of them remain 
+ with the sugar flow out. The total crystal loss and non-Sugars remaining 
+ with the sugar are highlighted at the bottom of the window. Good centrifugal 
+ operation will result in low values for these parameters. The sugar flow 
+ out parameters of mother liquor and wash water residues will be held during 
+ the balance calculations (this is the default selection by Sugars as shown 
+ by the check in the check box next to the &quot;Use Residual Data for 
+ Iterations&quot; option). The Crystal Loss Ratio, Liquor Purge Ratio and 
+ Wash Purge Ratio parameters can be selected for use during the balance 
+ calculations (instead of the residue values) by clicking in the box next 
+ to the &quot;Use Residual Data for Iterations&quot;. The choice of residue, 
+ or ratio, value is optional and may depend on the operating conditions 
+ in the factory. Also, the performance evaluation results for ratio values 
+ can be edited by entering new values for &quot;Crystal Loss Ratio&quot;, 
+ &quot;Liquor Purge Ratio&quot;, or &quot;Wash Purge Ratio&quot;. Changing 
+ ratio values will result in new values for %DS and Purity of green and 
+ sugar flows out of the centrifugal (they will be displayed on the input 
+ data window if the performance results are edited).</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Click the <span class="hcp14"><font class="hcp15">O</font>K</span> 
+ button to return to the flow diagram display in Visio after reviewing 
+ the 2-Output Centrifugal Performance Calculation results.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">All of the required 
+ input data has been entered for this example. Therefore, the balance calculations 
+ can be done. The full balance icon on the Sugars ribbon tab (see the window 
+ shown below) shows a red box to indicate that the model is unbalanced.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Dgm-2.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Click on the full balance 
+ icon, and the balance calculations will start. The calculations should 
+ proceed quickly and the full balance icon should change to the color green 
+ to indicate that a balance was achieved.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Dgm-3.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Right click on the massecuite 
+ flow stream connected to the output of the vacuum pan and the input of 
+ the crystallizer and select &quot;Add Flow Legend&quot; (see the above 
+ window).</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Dgm-4.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">On the Flow Legend selection 
+ windows (see above), select &quot;Flow Rate by Volume&quot;, &quot;Crystals&quot; 
+ and &quot;Middle&quot; to display the volume quantity of massecuite leaving 
+ the pan and the crystal content of the massecuite. Middle is selected 
+ to display the data in the middle of the flow stream (see window below). 
+ Click the <span class="hcp14">OK</span> button to display 
+ the data. The data can be moved to the desired location on the drawing 
+ after it is displayed.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Dgm-5.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1">Double click with the 
+ left mouse button on any flow stream to see the details of the flow stream. 
+ Click on the P<font class="hcp8">a</font>rameters 
+ button to display engineering parameters of the flow (volume, specific 
+ weight, enthalpy, specific heat, supersaturation, and boiling point elevation) 
+ while viewing the details of a flow stream. For example, double click 
+ on the massecuite flow from the pan to see the characteristics of the 
+ massecuite from the pan and then click on the parameters button to determine 
+ the enthalpy of the massecuite leaving the pan (see the window below). 
+ This information is available for any flow stream in the model.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Scn-11.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1">From the flow diagram 
+ window, click the &quot;Summary report&quot; icon to display a report 
+ of all of the flow streams in the model (see the window below). Material 
+ and heating flows to and from each station are shown on the report with 
+ the quantity, % sugar, % purity, % crystallization, temperature, color 
+ and other flow characteristics given for each flow stream.</p>
+<p class="hcp10">&#160;</p>
+<p class="hcp3"><img src="Images/Single_Crystallization_Scn-12.png" alt="" border="0" class="hcp4"></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">Reviewing the results 
+ of the material flows printout, it can be seen that the percent crystallization 
+ of the massecuite out of the pan is 31.77% and after the massecuite leaves 
+ the crystallizer, the percent crystallization has increased to 48.68%.</p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1">Reviewing the results 
+ for the steam flow to the pan shows that the pan requires 4,728.2 kg/h 
+ of steam to accomplish the evaporation and crystallization for this example. 
+ Also, the vapor flow from the pan shows a 0.01% TDM and 0.01% Sugar content: 
+ these values are due to the entrainment (droplets) loss in the vapor.</p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1">After the results from 
+ the calculations are printed out, the model can be saved by clicking on 
+ the save icon on the Visio toolbar, or clicking on the Visio file menu 
+ item and selecting <span class="hcp14">Save</span>, or <span class="hcp14">Save as</span> from the drop-down menu. 
+ Saving the model will save the results from the balance calculations and 
+ all of the input data entered for the performance of each station and 
+ the characteristics of each external flow.</p>
+<p class="hcp5">&#160;</p>
+<p class="hcp1">Making changes to this 
+ example is useful to become more familiar with Sugars. Additional stations 
+ can be added to gain experience with adding stations and the results obtained 
+ from further processing of the flow streams using other stations. For 
+ example, add more boilings and try a different juice (syrup) input flow 
+ to see the effect on molasses purity and sugar yield.</p>
+</body>
+</html>

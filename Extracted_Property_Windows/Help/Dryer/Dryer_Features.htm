@@ -1,0 +1,61 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Dryer Features</title>
+<link rel="StyleSheet" href="../Dryer.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript">
+</script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt; }
+font.hcp2 { font-size:10pt; }
+font.hcp3 { font-size:11pt;
+font-weight:bold; }
+font.hcp4 { font-size:10pt;
+font-weight:bold; }
+span.hcp5 { font-size:10pt; }
+span.hcp6 { mso-spacerun:yes; }
+p.hcp7 { margin-bottom:0.00pt;
+text-align:center; }
+img.hcp8 { border:none; }
+-->
+</style>
+</head>
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Dryer Features</font></h1>
+<p class="header" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Dryers are used to remove water from</font> <font size="2" class="hcp2">an</font> <font size="2" class="hcp2">insoluble solid material. The calculations are the same for all types - only the shapes shown on the flow diagram are different.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp3">Dryer</font> <font size="2" class="hcp4">&#160;</font><span class="hcp5">The shape for a general purpose dryer is shown in the diagram below.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;The material to be dried goes into input port 0 and steam or condensate goes into input port 1 (zoom in on the shape to see the port identifiers - input port 1 is red).</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;The steam/vapor or condensate flow into the dryer is not always a required flow.</span></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp7"><img src="Images/DryerFeatures_Fig-1.png" alt="" border="0" class="hcp8"></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp3">Steam Pulp Dryer</font> <font size="2" class="hcp4">&#160;</font><span class="hcp5">The shape for a steam pulp dryer is shown in the diagram below.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;The material to be dried goes into input port 0 and steam or condensate goes into input port 1 (zoom in on the shape to see the port identifiers - input port 1 is red).</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;The steam/vapor or condensate flow into the dryer is not always a required flow.</span></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp7"><img src="Images/DryerFeatures_Fig-2.png" alt="" border="0" class="hcp8"></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp3">Sugar Dryer</font> <font size="2" class="hcp4">&#160;</font><span class="hcp5">The shape for a sugar dryer is shown in the diagram below.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Syrup goes into input port 0 and steam goes into input port 1 (zoom in on the shape to see the port identifiers - input port 1 is red).</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Steam/vapor or condensate flow into the dryer not is always a required flow.</span></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp7"><img src="Images/DryerFeatures_Fig-3.png" alt="" border="0" class="hcp8"></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp3">General Features &#160;</font><span class="hcp5">A dryer station is used to dry a material flow stream (for example, pulp or sugar) using a heating flow (for example, steam or condensate) to heat an air stream to drive the water out of the material.</span><span class="hcp6">&#160;&#160;</span><span class="hcp5">&#160;Only one material flow into port 0 and one heating flow into port 1 is allowed.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;If the flow in contains sucrose crystals, crystal growth will occur until the flow out is at sucrose saturation.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;The flow out pressure will be at atmospheric while the vapor flow out pressure will correspond to the saturation temperature of the vapor leaving the dryer.</span></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">The heating flow into the dryer does not have to be a required flow because effectiveness can be used to control the transfer of heat from the heating flow to the air stream. If effectiveness is not used, the heating flow into the dryer will be a required flow; that is, Sugars will calculate the quantity of steam flowing into the dryer.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="Block_Text">Entrainment loss can occur in the dryer from particles that are entrained in the air/vapor mixture leaving the dryer. Particles that are not recovered in a cyclone will leave with the air/vapor. The particles contain sucrose in the same percentage, as there is sucrose in the dried material leaving the dryer.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Heat loss can be entered for any heat loss that occurs due to convection, venting, conduction, or radiation of heat from the dryer to the surroundings. The % heat loss is for the amount of heat that is lost from the steam, or vapor, as heat is transferred to the wet material.</font></p>
+<p class="hcp1">&#160;</p>
+<p style="margin-bottom: 0.00pt; font-size: 10pt;">The vapor flow out of the dryer cannot be made a required flow (i.e., quantity of flow calculated by Sugars). Sugars will give a warning message if it detects that the vapor flow out of the dryer is required because a balance may not be possible. The condensate flow out of the dryer can be required if effectiveness is used for the heat transfer in the dryer.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">The dried flow out of a dryer can be a required flow. If it is required, the wet flow into the dryer also will be required. The quantity of wet material flow into the dryer is not dependent on the properties of the dryer; so, making the dried flow out a required flow does not cause a warning message.</font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><a href="Dryer_Properties.htm"><font size="2" class="hcp2">Dryer Properties</font></a></p>
+<p class="hcp1"><a href="Dryer_Examples.htm"><font size="2" class="hcp2">Dryer Examples</font></a></p>
+</body>
+</html>

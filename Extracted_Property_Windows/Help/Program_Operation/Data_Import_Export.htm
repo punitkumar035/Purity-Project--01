@@ -1,0 +1,145 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Data Import/Export</title>
+<link rel="StyleSheet" href="../Introduction.css" type="text/css">
+<script type="text/javascript" language="javascript" src="../ehlpdhtm.js"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { font-size:10pt;
+margin-top:0pt; }
+b.hcp2 { mso-bidi-font-weight:normal; }
+span.hcp3 { mso-spacerun:yes; }
+p.hcp4 { font-size:10pt;
+margin-top:0pt;
+text-align:center; }
+img.hcp5 { border:none; }
+-->
+</style>
+</head>
+
+<body>
+<h1 style="font-size: 12pt; color: #000080;">Data Import/Export</h1>
+<p style="margin-top: 0.00pt; font-size: 8pt;">&#160;</p>
+<p class="hcp1">Importing data from and/or 
+ exporting data to an e<b class="hcp2">X</b>tensible 
+ <b class="hcp2">M</b>arkup <b class="hcp2">L</b>anguage 
+ (XML) file is an optional feature of Sugars.<span class="hcp3">&#160;</span>&#160;With 
+ this feature, data for stations and external flows can be imported directly 
+ into the model and the model rebalanced to reflect the new conditions.<span class="hcp3">&#160;</span>&#160;An XML file with the 
+ new data is created manually or by another program; for example, the data 
+ acquisition software used by a factory.<span class="hcp3">&#160;</span>&#160;An 
+ example of an XML file for import into a model is shown in the figure 
+ below as displayed by Microsoft Internet Explorer.</p>
+<p class="hcp4"><img src="Images/Data_Import_Export_Scn-1.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">All of the lines above the 
+ “&lt;ExternalFlow&gt;” line are the header for the file that identifies 
+ the schema (used to define the format of the XML file data), the date 
+ and time and the units used for data in the file.<span class="hcp3">&#160;</span>&#160;In 
+ this example, data is being imported to only one external flow.<span class="hcp3">&#160;</span>&#160;The 
+ new data is a flow rate of 255,000 kg/h, liquid dry substance (%DS) and 
+ liquid % Purity.<span class="hcp3">&#160;</span>&#160;When 
+ this data is imported, Sugars will convert the %DS and % Purity to new 
+ components for the flow; that is, it will determine the water, dissolved 
+ sucrose and non-sucrose components in the flow.<span class="hcp3">&#160;</span></p>
+<p style="margin-top: 0pt; font-size: 8pt;">&#160;</p>
+<p class="hcp1"><span class="hcp3">“xmlNotepad.exe” 
+ in the “C:\Program Files\Sugars\AMS” sub-directory or another xml editor 
+ can be used to modify the XML file.&#160;&#160;The values that can be 
+ imported are given in the “AMS Import PropertiesRev_.pdf” document located 
+ in the <b class="hcp2">…\Sugars\AMS</b> subdirectory 
+ which is the same as the Visio Shape Data for the flow except for the 
+ <b class="hcp2">Name</b> which cannot be imported.&#160;&#160;The 
+ figure below shows the Visio Shape Data for the external flow that goes 
+ to port 0 of the station with Equipment ID “HE130” (station no. 130 input 
+ port 0) before the XML data is imported into the model.</span></p>
+<p class="hcp4"><img src="Images/Data_Import_Export_Scn-2.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">After the XML data is imported 
+ and the model is balanced, the new data is shown in the figure below.<span class="hcp3">&#160;</span>&#160;As shown, the new flow 
+ rate = 255,000, DrySubstanceLiquid = 21.10% and PurityLiquid = 85.60%.<span class="hcp3">&#160;</span>&#160;Also, new components 
+ were calculated for Water, DissolvedSucrose and DissolvedNonSucrose1.<span class="hcp3">&#160;</span>&#160;Pressure, Temperature, 
+ Fiber, Solubility Coefficients (a, b and c), Enthalpy and SaturationTemperature 
+ all remain the same.</p>
+<p class="hcp4"><img src="Images/Data_Import_Export_Scn-3.png" alt="" border="0" class="hcp5"></p>
+<p class="hcp1">The Cossettes flow to Station 
+ no. 130 input port 0 is shown in the figure below.<span class="hcp3">&#160;</span>&#160;The 
+ new values are displayed on the diagram for the Cossettes that flow into 
+ heat exchanger station 130.<span class="hcp3">&#160;</span>&#160;Only 
+ external flows that go to a station with an Equipment ID can have data 
+ imported or exported.<span class="hcp3">&#160;</span>&#160;Flows 
+ to or from stations that do not have an Equipment ID will not be able 
+ to import or export data.<span class="hcp3">&#160;</span>&#160;The 
+ same is true for stations; that is, stations must have an Equipment ID 
+ or data cannot be imported to the station and when data is exported from 
+ the model, stations without an Equipment ID will not have their data exported.</p>
+<p class="hcp4"><img src="Images/Data_Import_Export_Scn-4.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt;">After the external flow in 
+ the XML file, there are four stations that have data being imported.<span class="hcp3">&#160;</span>&#160;These stations have 
+ Equipment ID’s: HE175, HE706, E750 and CC890.</p>
+<p class="MsoNormal" style="font-size: 8pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">Property 
+ data for the heat exchanger station no. 175 (Equipment ID: HE175) is shown 
+ in the figure below.</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt; text-align: center;"><img src="Images/Data_Import_Export_Scn-5.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">And, the Shape Data for this 
+ station is shown in the figure below.</p>
+<p class="MsoNormal" style="font-size: 10pt; text-align: center;"><img src="Images/Data_Import_Export_Scn-6.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt;">Any of the Heat Exchanger 
+ Properties shown in the Shape Data can be defined in an XML file and then 
+ imported into the model; however, only the active fields will have an 
+ effect on the balance.<span class="hcp3">&#160;</span>&#160;<span class="hcp3">&#160;</span>For example, in station no. 
+ 175 above, data imported into the Port 0 - Temperature Out field will 
+ affect the balance, but data imported into the Rise or Approach fields 
+ will not.&#160;&#160;&#160;<span class="hcp3">&#160;&#160;</span>The 
+ same is true for all other stations available in Sugars.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">Importing 
+ data into the model after the XML file is created is done by left clicking 
+ on the <b class="hcp2">Import/Export</b> icon 
+ on the <b class="hcp2">SUGARS</b> tab in Visio 
+ as shown in the figure below.</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt; text-align: center;"><img src="Images/Data_Import_Export_Scn-7.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">Left clicking 
+ on the <b class="hcp2">Import/Export</b> icon 
+ brings up the Data Import/Export screen as shown below.</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt; text-align: center;"><img src="Images/Data_Import_Export_Scn-8.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt; text-align: center;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt;">Enter the path and file name 
+ of the XML file in the “File:” field and then left click the <b class="hcp2">Import 
+ Data</b> button to import the XML file data into the model.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">Any errors 
+ encountered during the import will result in an error message in the “Status” 
+ window.<span class="hcp3">&#160;</span>&#160;Clicking on 
+ the <b class="hcp2">Error Report</b> button will 
+ display a report listing all of the errors and messages that occurred 
+ during the import.<span class="hcp3">&#160;</span>&#160;An 
+ example of an error report is shown below.</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt; text-align: center;"><img src="Images/Data_Import_Export_Scn-9.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt; text-align: center;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">A comparison 
+ report can be shown by left clicking the <b class="hcp2">Comparison 
+ Report</b> button.<span class="hcp3">&#160;</span>&#160;This 
+ report lists all of the data that was imported and compares it to the 
+ data that was in the model before the import occurred.<span class="hcp3">&#160;</span>&#160;The 
+ percent change is listed for any data that changed.<span class="hcp3">&#160;</span>&#160;An 
+ example of the report is shown below.</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt; text-align: center;"><img src="Images/Data_Import_Export_Scn-10.png" alt="" border="0" class="hcp5"></p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 0pt;">Imported 
+ values that are outside of the minimum or maximum range as defined by 
+ the Tolerance % are noted on the Error Report and on the Comparison Report. 
+ &#160;These values will be used in the model unless the model is closed 
+ without saving it. &#160;However, large variations in the data may cause 
+ problems with rebalancing the model.</p>
+</body>
+</html>

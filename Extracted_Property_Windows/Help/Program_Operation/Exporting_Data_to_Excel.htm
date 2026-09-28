@@ -1,0 +1,279 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Exporting Data to Excel</title>
+<link rel="StyleSheet" href="../Program_Operation.css" type="text/css">
+<script type="text/javascript" language="javascript" src="../ehlpdhtm.js"></script>
+<style title="hcp" type="text/css">
+<!--
+span.hcp1 { mso-spacerun:yes; }
+b.hcp2 { mso-bidi-font-weight:normal; }
+img.hcp3 { border:none; }
+b.hcp4 { font-weight:bold; }
+u.hcp5 { text-decoration:underline; }
+i.hcp6 { font-style:italic;
+mso-bidi-font-style:normal; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Exporting Data 
+ to Excel</font></h1>
+<p style="font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">The Cane Factory (Milling) example model provided 
+ with Sugars has an embedded Excel spread­sheet as an example.<span class="hcp1">&#160;</span>&#160;You 
+ can copy the Visual Basic (VB) code from this example into your own model 
+ and then revise the code to select the Sugars data that you want exported 
+ from your model into the Excel spreadsheet.<span class="hcp1">&#160;</span>&#160;There 
+ is code for both an embedded spreadsheet and an external spreadsheet running 
+ in Excel separate from Visio/Sugars.</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">To create the embedded spreadsheet in your model, 
+ open your model and select the <b class="hcp2">INSERT</b> 
+ tab and then click on the <b class="hcp2">Object</b> 
+ icon in the Text group on the Visio ribbon menu (see below).</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt; text-align: center;"><img src="Images/Exporting_Data_to_Excel_Scn-1.png" alt="" border="0" class="hcp3"></p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">Scroll down to find Microsoft Excel Worksheet. Select 
+ the &quot;Create new&quot; radio button option and then click the <span 
+	 style="mso-bidi-font-weight: normal;"><b class="hcp2">O</b>K</span> 
+ button.</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">Position the spreadsheet where you would like to 
+ see it on the page. Click outside of the newly inserted spreadsheet to 
+ go back to Visio and then click on the spreadsheet object again to get 
+ the normal Visio handles around it.<span class="hcp1">&#160;</span>&#160;From 
+ Visio, click <b class="hcp2">DEVELOPER</b> &gt; 
+ <b class="hcp2">Show ShapeSheet</b> and in the 
+ title bar of the ShapeSheet for the spreadsheet object, look for the Sheet 
+ number and write it down (see below).<span class="hcp1">&#160;</span>&#160;The 
+ sheet number will be used in the VB code to send Shape Data to the spreadsheet 
+ object.</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt; text-align: center;"><img src="Images/Exporting_Data_to_Excel_Scn-2.png" alt="" border="0" class="hcp3"></p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt; text-align: center;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">Next, click <b class="hcp2">DEVELOPER</b> 
+ &gt; <b class="hcp2">Visual Basic</b> to open 
+ the VB editor.<span class="hcp1">&#160;</span>&#160;In the 
+ VB editor, click <b class="hcp2">Tools</b> &gt; 
+ <b class="hcp2">References</b> and check the 
+ box for “Microsoft Office 15.0 Object Library” (see below).</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt; text-align: center;"><img src="Images/Exporting_Data_to_Excel_Scn-3.png" alt="" border="0" class="hcp3"></p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">And, find the “Microsoft Excel 15.0 Object Library” 
+ and check its box (see below).</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt; text-align: center;"><img src="Images/Exporting_Data_to_Excel_Scn-4.png" alt="" border="0" class="hcp3"></p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">Click the <b class="hcp2">OK</b> 
+ button to return to the VB editor and then click <b class="hcp2">Insert</b> 
+ &gt; <b class="hcp2">Module</b> to open a new 
+ module2 (see below).</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt; text-align: center;"><img src="Images/Exporting_Data_to_Excel_Scn-5.png" alt="" border="0" class="hcp3"></p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">Start another instance of Visio by double clicking 
+ on the Visio icon on the desktop.<span class="hcp1">&#160;</span>&#160;Once 
+ the 2<sup>nd</sup> instance of Visio is running, open the Cane Factory 
+ (Milling) example that is provided with Sugars in the “C:\Program Files\Sugars\Examples” 
+ directory.<span class="hcp1">&#160;</span>&#160;Once the 
+ Cane Factory (Milling) module is loaded, click <b class="hcp2">DEVELOPER</b> 
+ &gt; <b class="hcp2">Visual Basic</b> in the 
+ “Code” grouping and in the Module2 code window copy all of the code to 
+ the clipboard starting with “Public Sub PopulateEmbeddedExcel()” <span class="hcp1">&#160;</span>up to “Public Sub PopulateExternalExcel()”.<span class="hcp1">&#160;</span>&#160;Module2 will be shown 
+ in the Project Explorer window.<span class="hcp1">&#160;</span>&#160;Just 
+ click on the Module2 entry in Project Explorer to see all of the code 
+ for this module.<span class="hcp1">&#160;</span>&#160;“Module1” 
+ and “ThisDocument (Cane Factory (Milling))” contains code used by Sugars 
+ to communicate with Visio and it is the same for every Sugars model and 
+ does not need to be copied.</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">Next, return to the 1<sup>st</sup> instance of Visio 
+ that contains your model with the newly inserted spread­sheet, and paste 
+ the code copied from the Cane Factory (Milling) example into the Module2 
+ code window.<span class="hcp1">&#160;</span>&#160;The result 
+ should look the same as shown in the figure below.</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt; text-align: center;"><img src="Images/Exporting_Data_to_Excel_Scn-6.png" alt="" border="0" class="hcp3"></p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">Review the code to see how data is imported into 
+ the spreadsheet. The code is fairly self-explanatory.<span class="hcp1">&#160;</span>&#160;Modify 
+ this code to get data from the Sugars objects (that is, stations and flow 
+ streams - see the title block of the Shape Data window in the model to 
+ get the name of a station or flow stream).<span class="hcp1">&#160;</span>&#160;Note 
+ that there are several VB subroutines in the Cane Factory (Milling) example 
+ code to make it easier.<span class="hcp1">&#160;</span>&#160;A 
+ description of the subroutines is given below.</p>
+<p class="MsoNormal" style="mso-bidi-font-weight: normal; font-size: 10pt; 
+	 margin-top: 2.0pt;">&#160;</p>
+<p class="MsoNormal" style="mso-bidi-font-weight: normal; font-size: 10pt; 
+	 margin-top: 2.0pt;"><b class="hcp4"><u class="hcp5">Example 
+ Functions to Shape Data Values</u></b></p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 2.0pt;"><span 
+	 style="mso-tab-count: 1;">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</span>&#160;</p>
+<p class="MsoNormal" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 72px;"><i class="hcp6">GetShapeDataString</i> 
+ – gets a string value from a Shape Data value</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 132px;">Parameters:</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">PageName 
+ – the name of the page where the Sugars shape is located</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">ShapeName 
+ – the name of the shape with the Shape Data</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">ShapeData 
+ – the name of the Shape Data (prefixed with “Prop.”)</p>
+<p class="MsoNoSpacing" style="margin-top: 2.0pt; font-size: 10pt; margin-left: 132px;">Returns 
+ a variable of type string</p>
+<p class="MsoNoSpacing" style="margin-top: 2.0pt; font-size: 10pt;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 72px;"><span 
+	 style="font-size: 10pt;"><i class="hcp6">GetShapeDataDouble</i> 
+ – gets a double value from a Shape Data value</span></p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 132px;">Parameters:</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">PageName 
+ – the name of the page the Sugars shape is on</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">ShapeName 
+ – the name of the shape with the Shape Data</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">ShapeData 
+ – the name of the Shape Data (prefixed with “Prop.”)</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 132px;">Returns 
+ a variable of type double</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt;">&#160;</p>
+<p class="MsoNoSpacing" style="mso-bidi-font-weight: normal; font-size: 10pt; 
+	 margin-top: 2.0pt;"><b class="hcp4"><u class="hcp5">Example 
+ Functions to Set a Cell in an Embedded Excel Spreadsheet</u></b></p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 72px;"><i class="hcp6">SetCellString</i> 
+ – Sets a string value into an embedded Excel spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 132px;">Parameters:</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">PageName – name of the page where the Excel spreadsheet 
+ is embedded</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in 184.5pt; font-size: 10pt; 
+	 margin-top: 2.0pt; margin-left: 168px;">ShapeName – name of the shape 
+ which is the embedded Excel spreadsheet</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">SheetName – the name of the Excel worksheet</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">Row – the row of the cell to insert the value</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">Column – the column of the cell to insert the 
+ value</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">Value – the string value to insert into the spreadsheet 
+ cell</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 72px;"><i class="hcp6">SetCellDouble</i> 
+ – Sets a double value into an embedded Excel spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 132px;">Parameters:</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">PageName – name of the page where the Excel spreadsheet 
+ is embedded</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">ShapeName – name of the shape which is the embedded 
+ Excel spreadsheet</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">SheetName – the name of the Excel worksheet</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">Row – the row of the cell to insert the value</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; font-size: 10pt; margin-top: 2.0pt; 
+	 margin-left: 168px;">Column – the column of the cell to insert the 
+ value</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; margin-top: 2.0pt; font-size: 10pt; 
+	 margin-left: 168px;">Value – the double value to insert into the spreadsheet 
+ cell</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; margin-top: 2.0pt; font-size: 10pt; 
+	 margin-left: 168px;">&#160;</p>
+<p class="MsoNoSpacing" style="tab-stops: 1.75in; margin-top: 2.0pt; font-size: 10pt; 
+	 margin-left: 72px;"><span style="font-style: italic;">PopulateEmbeddedExcel</span> 
+ – Example of getting Shape Data and setting cells in an embedded spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt;">&#160;</p>
+<p class="MsoNoSpacing" style="mso-bidi-font-weight: normal; font-size: 10pt; 
+	 margin-top: 2.0pt;"><b class="hcp4"><u class="hcp5">Example 
+ Functions to Set a Cell in an External Excel Spreadsheet</u></b></p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 72px;"><i class="hcp6">SetExtCellString</i> 
+ – Sets a string value into an external Excel spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 132px;">Parameters:</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">ExcelSheet 
+ – object which is the Excel spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">Row 
+ – the row of the cell to insert the value</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">Column 
+ – the column of the cell to insert the value</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">Value 
+ – the string value to insert into the spreadsheet cell</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 72px;"><i class="hcp6">SetExtCellDouble</i> 
+ – Sets a string value into an external Excel spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 132px;">Parameters:</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">ExcelSheet 
+ – object which is the Excel spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">Row 
+ – the row of the cell to insert the value</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">Column 
+ – the column of the cell to insert the value</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 168px;">Value 
+ – the double value to insert into the spreadsheet cell</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 72px;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 72px;"><i class="hcp6">GetExternalExcelSheet</i> 
+ – Opens Excel and creates a spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 132px;">Returns 
+ an object which is of type Excel.Worksheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; margin-left: 216px; 
+	 text-indent: -144px;"><i class="hcp6">PopulateExternalExcel</i> 
+ – Example of getting Shape Data and setting cells in external spreadsheet</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; margin-top: 2.0pt; text-indent: -144px; 
+	 margin-left: 216px;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt;">To run a macro in Visio, 
+ click <b class="hcp2">DEVELOPER</b> &gt; <b class="hcp2">Macros</b> 
+ and select the module to be run (see below). The “SugarsSI.Module2…” macro 
+ must be run to transfer data from Sugars (i.e., Shape Data in each shape) 
+ to the embedded spreadsheet.</p>
+<p class="MsoNoSpacing" style="font-size: 10pt;">&#160;</p>
+<p class="MsoNoSpacing" style="font-size: 10pt; text-align: center;"><img src="Images/Exporting_Data_to_Excel_Scn-7.png" alt="" border="0" class="hcp3"></p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="mso-layout-grid-align: none; text-autospace: none; 
+	 font-size: 10pt;">Finally, to make it easy to run the VB code, click 
+ on the spreadsheet object, then click on the <b class="hcp2">Options…</b> 
+ button to make a shortcut key (e.g., ‘e’) and then add descriptive text.<span class="hcp1">&#160;</span>&#160;The latest data from 
+ a Sugars balance can now be transferred to the Excel spreadsheet by simply 
+ clicking on the embedded spreadsheet and then pressing the <b class="hcp2">Ctrl</b> 
+ &gt; <b class="hcp2">e</b> keys to update the 
+ spreadsheet.</p>
+</body>
+</html>

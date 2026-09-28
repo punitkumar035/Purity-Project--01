@@ -1,0 +1,185 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Heat Exchanger Properties</title>
+<link rel="StyleSheet" href="../Heat_Exchanger.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt; }
+font.hcp2 { font-size:11pt;
+font-weight:bold; }
+font.hcp3 { font-size:10pt;
+font-weight:bold; }
+font.hcp4 { font-size:10pt; }
+span.hcp5 { font-size:10pt; }
+span.hcp6 { mso-spacerun:yes; }
+p.hcp7 { margin-left:36.00pt;
+margin-bottom:0.00pt; }
+p.hcp8 { margin-left:36.00pt;
+margin-bottom:0.00pt;
+font-size:10pt; }
+font.hcp9 { font-weight:bold; }
+b.hcp10 { font-weight:bold; }
+span.hcp11 { mso-bidi-font-weight:bold;
+mso-spacerun:yes; }
+span.hcp12 { mso-bidi-font-weight:bold; }
+p.hcp13 { margin-bottom:0.00pt;
+margin-left:84px; }
+font.hcp14 { font-size:10pt;
+vertical-align:super; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Heat Exchanger 
+ Properties</font></h1>
+<p class="header" style="margin-bottom: 0.00pt;">&#160;</p>
+<p style="text-align: center; font-size: 10pt;"><img src="Images/HeatExchangerProperties_Scn-1.png" alt="" style="border: none;" border="0"> </p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Equipment ID </font><font size="2" class="hcp3">&#160;</font><font size="2" class="hcp4">An equipment ID of up to 11 characters 
+ can be used to identify the station with an actual station in the process. 
+ Any combination of numbers and letters that are used in the factory/refinery 
+ to identify equipment can be entered. For example, Equipment ID = </font><font size="2" class="hcp3">123.456A</font><font size="2" class="hcp4">. It is not necessary to make an 
+ entry in the Equipment ID f</font><font size="2" class="hcp4">ield 
+ if the station in the model does not have a corresponding station in the 
+ factory/refinery.</font><font style="font-size: 9pt;" size="2"> </font></p>
+<p class="hcp1">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Station Name</font><font size="2" class="hcp3"> &#160;</font><font size="2" class="hcp4">A name of up to 20 characters must 
+ be entered for the station. For example, Station Name = </font><font size="2" class="hcp3">2nd Carb. Heaters</font><font size="2" class="hcp4">.</font></p>
+<p class="hcp1">&#160;</p>
+<p><font size="2" class="hcp2">Port 0 - 
+ Temperature &#160;</font><span class="hcp5">Out, Rise, and 
+ Approach entries control the port 0 flow out tempera­ture to the value 
+ entered and cause the port 1 flow in to be a required flow unless the 
+ Port 1 “Input Flow Required” check box is unchecked.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;If the port 1 flow is steam/vapor and 
+ the port 1 input flow is required, Sugars will calculate the required 
+ quantity of steam/vapor to give the specified temperature.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Also, 
+ a value must be entered for either the effectiveness or the heat transfer 
+ coefficient and heating surface if the port 1 flow is a liquid (e.g., 
+ condensate) instead of steam or vapor.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;</span><span style="color: #ff00ff; 
+												 font-size: 10pt;">Magenta</span><span class="hcp5"> colored borders on the entry fields are 
+ used to indicate that only one of the entries can be selected; that is, 
+ when one is selected the others are not accessible.</span></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp8"><font class="hcp9">Out &#160;</font>Temperature of the port 
+ 0 flow out; for example, Out = <b>90.0</b> (flow out = 90°C).</p>
+<p class="hcp7">&#160;</p>
+<p class="hcp8"><font class="hcp9">Rise</font> &#160;Temperature increase 
+ in the port 0 flow going through the heat exchanger; for example, Rise 
+ = <b>7.5</b>.</p>
+<p class="hcp7">&#160;</p>
+<p class="hcp7"><font size="2" class="hcp3">Approach &#160;</font><span class="hcp5">Difference 
+ between the port 1 flow out (T1o) and the port 0 flow out (T0o) temperatures; 
+ for example, Approach = <b>5.5</b>°C (T1o-T0o = 5.5°C).</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Value can be less than 0.0; for example, 
+ Approach = <b>-7.5</b>°C.</span></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Port 1</font><font size="2" class="hcp4"> </font><span class="hcp5">Flow into port 1 can 
+ be made either a required flow (quantity of port 1 flow is to be calculated 
+ by Sugars), or a not required flow when the quantity of the port 1 flow 
+ is known.&#160;&#160;Also, a temperature out can be specified to calculated 
+ the effectiveness and/or the heat transfer coefficient for heat exchanges 
+ with known input and output temperatures.</span></p>
+<p class="hcp7">&#160;</p>
+<p class="MsoNormal" style="margin-left: 48px; font-size: 10pt; margin-bottom: 0pt;"><b class="hcp10">Input Flow Required</b><span class="hcp6">&#160;</span>&#160;This 
+ is the normal selection when a temperature value is entered.<span class="hcp6">&#160;</span>&#160;Sugars 
+ will calculate the quantity of the flow into port no. 1 when the &quot;Input 
+ Flow Required&quot; check box is checked.<span class="hcp6">&#160;</span>&#160;Uncheck 
+ the box when the quantity of the input flow is known and port 1 output 
+ flow temperature is to be calculated by Sugars.</p>
+<p class="MsoNormal" style="margin-left: 48px; font-size: 8pt;">&#160;</p>
+<p class="MsoNormal" style="margin-left: 48px; font-size: 10pt; margin-bottom: 0pt;"><b class="hcp10">Temperature Out</b><span class="hcp11">&#160;</span><span class="hcp12">&#160;Enter an output temperature 
+ for the port 1 flow when temperature values for the output flows are known 
+ and the heat transfer coefficient is to be calculated.</span><span class="hcp11">&#160;</span><span class="hcp12">&#160;Selecting 
+ Temperature Out will cause the port 1 input flow to be a required flow.</span><span class="hcp11">&#160;</span><span class="hcp12">&#160;Normally, this is used for 
+ liquid-liquid heat exchange.</span></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp1"><font size="2" class="hcp2">Heat Transfer </font><font size="2" class="hcp3">&#160;</font><span class="hcp5">Entries for the heat transfer are used when 
+ the output flow temperatures are to be calculated and known port 0 and 
+ port 1 flows go to the heat exchanger, or when the port 1 flow isn't steam/vapor 
+ and a port 0 output flow temperature is specified.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Also, Sugars will calculate the steam/vapor 
+ flow to the heat exchanger if the heat exchanger condenses the port 1 
+ steam/vapor.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;If a Coefficient is entered, a Heating 
+ Surface entry must be made.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Sugars will use the saturation temperature 
+ (not the actual superheated temperature) for heat transfer coefficient 
+ (LMTD) calculations (but the total enthalpy is used) if the port 1 input 
+ flow is superheated vapor; however, for effectiveness calculations, the 
+ actual port 1 input flow temperature is used.</span></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp7"><font size="2" class="hcp3">Coefficient &#160;</font><span class="hcp5">Enter 
+ a heat transfer coefficient for the heat exchange between port 0 and port 
+ 1 flow streams across the Heating Surface.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;For example,</span></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp13"><font size="2" class="hcp4">&#160;Heat 
+ Transfer Coefficient = </font><font size="2" class="hcp3">455</font><font size="2" class="hcp4"> Watts/</font><font size="2" class="hcp4">m</font><font size="2" class="hcp14">2</font><font size="2" class="hcp4">-</font><font size="2" class="hcp4">°C</font></p>
+<p class="hcp13"><font size="2" class="hcp4">&#160;Heat 
+ Transfer Coefficient = </font><font size="2" class="hcp3">80.1</font><font size="2" class="hcp4"> BTU/</font><font size="2" class="hcp4">h-ft</font><font size="2" class="hcp14">2</font><font size="2" class="hcp4">-°F</font></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp7"><font size="2" class="hcp3">Heating Surface &#160;</font><font size="2" class="hcp4">Enter the Heating Surface area (in units shown) for the heat 
+ exchanger. If a Heat Transfer Coefficient is input, a Heating Surface 
+ entry must be made. For example,</font></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp13"><font size="2" class="hcp4">&#160;Heating 
+ Surface = </font><font size="2" class="hcp3">35 
+ </font><font size="2" class="hcp4">m</font><font size="2" class="hcp14">2</font></p>
+<p class="hcp13"><font size="2" class="hcp4">&#160;Heating 
+ Surface = </font><font size="2" class="hcp3">376.7</font><font size="2" class="hcp4"> ft</font><font size="2" class="hcp14">2</font></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp7">&#160;</p>
+<p class="hcp7"><font size="2" class="hcp3">Effectiveness (%) &#160;</font><span class="hcp5">Enter Effectiveness in percent (%) for transfer 
+ of heat between hot and cold flow streams.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Effectiveness equals the ratio of actual 
+ heat transfer to the maximum possible heat transfer between the flow streams, 
+ and the actual input temperatures are used - not vapor saturation temperature 
+ if the input flow is superheated steam.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;The amount of actual heat transferred 
+ is the amount of heat given to the flow being heated.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Heat loss is considered and it is heat 
+ lost from the transfer of heat from the hot flow to the cold flow.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;Use 
+ effectiveness to have Sugars calculate output flow temperatures when known 
+ port 1 and port 0 flows go to the heat exchanger, or when the port 1 flow 
+ isn't a steam/vapor and a port 0 output flow temperature is specified.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;High 
+ values of effectiveness depend on large heat transfer coefficient and 
+ heating surface area and low flow rates to give a large Number of Transfer 
+ Units (NTU).</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;For example,</span></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp13"><font size="2" class="hcp4">&#160;Effectiveness 
+ = </font><font size="2" class="hcp3">30%</font><font size="2" class="hcp4"> (shell and tube)</font></p>
+<p class="hcp13"><font size="2" class="hcp4">&#160;Effectiveness 
+ = </font><font size="2" class="hcp3">60%</font><font size="2" class="hcp4"> (plate type)</font></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp7"><font size="2" class="hcp3">Heat Loss (%) &#160;</font><span class="hcp5">Enter 
+ the Heat Loss in percent (%) for the heat that is lost in the heat exchanger 
+ station.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;The 
+ heat loss is the percentage loss of heat from the total heat that is transferred 
+ to the cold flow from the hot flow.</span><span class="hcp6">&#160;</span><span class="hcp5">&#160;For example, Heat Loss = <b>0.5</b>% 
+ to give 1/2% of heat loss.</span></p>
+<p class="hcp7">&#160;</p>
+<p class="hcp8"><font class="hcp9">Condensate Drop</font> &#160;Enter a temperature 
+ drop for the condensate (port 1flow out) if it leaves the heat exchanger 
+ with a temperature that is lower than the saturation temperature for the 
+ condensate.<span class="hcp6">&#160;</span>&#160;For example, 
+ if the vapor saturation temperature for the vapor flow into the heat exchanger 
+ is 119°C and condensate leaves the heat exchanger at 115°C, then Condensate 
+ Drop = <b>4.0</b>K.<span class="hcp6">&#160;</span>&#160;The 
+ heat lost from the condensate is considered for the heat transferred to 
+ the port 0 flow.</p>
+<p class="hcp1">&#160;</p>
+<p class="hcp8"><font class="hcp9">Flow Direction &#160;</font>Select either 
+ counter (counter-current) or parallel (co-current) flow between port 0 
+ and port 1 flow streams.</p>
+<p class="hcp7">&#160;</p>
+<p class="hcp8"><font class="hcp9">Type</font> &#160;The heat exchanger can 
+ be either condensing, or non-condensing.<span class="hcp6">&#160;</span>&#160;Condensing 
+ is used when the port 1 flow is steam or vapor and all of the steam or 
+ vapor is condensed in the heat exchanger.<span class="hcp6">&#160;</span>&#160;Sugars 
+ can calculate the output temperature using the coefficient and heating 
+ surface values knowing that all of the steam will condense.</p>
+<p class="hcp7">&#160;</p>
+<p>&#160;</p>
+<p class="hcp1"><a href="Heat_Exchanger_Features.htm"><font size="2" class="hcp4">Heat Exchanger Features</font></a><font size="2" class="hcp4"> </font></p>
+<p class="hcp1"><a href="Heat_Exchanger_Examples.htm"><font size="2" class="hcp4">Heat Exchanger Examples</font></a><font size="2" class="hcp4"> </font></p>
+</body>
+</html>

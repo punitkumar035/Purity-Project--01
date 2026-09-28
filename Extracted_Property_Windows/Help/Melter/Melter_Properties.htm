@@ -1,0 +1,116 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Melter Properties</title>
+<link rel="StyleSheet" href="../Melter.css" type="text/css">
+<script language="JavaScript" title="BSSC Special Effects" src="../ehlpdhtm.js" type="text/javascript"></script>
+<style title="hcp" type="text/css">
+<!--
+p.hcp1 { margin-bottom:0.00pt;
+text-align:center; }
+img.hcp2 { border:none; }
+p.hcp3 { margin-bottom:0.00pt; }
+font.hcp4 { font-size:11pt;
+font-weight:bold; }
+font.hcp5 { font-size:10pt;
+font-weight:bold; }
+font.hcp6 { font-size:10pt; }
+span.hcp7 { font-size:10pt; }
+span.hcp8 { mso-spacerun:yes; }
+p.hcp9 { margin-left:36.00pt;
+margin-bottom:0.00pt;
+font-size:10pt; }
+p.hcp10 { margin-left:36.00pt;
+margin-bottom:0.00pt; }
+p.hcp11 { margin-bottom:0.00pt;
+text-align:justify; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Melter Properties</font></h1>
+<p class="header" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp1"><img src="Images/MelterProperties_Scn-1.png" alt="" border="0" class="hcp2"></p>
+<p style="margin-top: 0; margin-bottom: 0;">&#160;</p>
+<p class="hcp3"><font size="2" class="hcp4">Equipment ID </font><font size="2" class="hcp5">&#160;</font><font size="2" class="hcp6">An equipment ID of up to 11 characters 
+ can be used to identify the station with an actual station in the process. 
+ Any combination of numbers and letters that are used in the factory/refinery 
+ to identify equipment can be entered. For example, Equipment ID = </font><font size="2" class="hcp5">123.456A</font><font size="2" class="hcp6">. It is not necessary to make an 
+ entry in the Equipment ID field if the station in the model does not have 
+ a corresponding station in the factory/refinery. </font></p>
+<p class="hcp3">&#160;</p>
+<p class="hcp3"><font size="2" class="hcp4">Station Name</font><font size="2" class="hcp5"> &#160;</font><font size="2" class="hcp6">A name of up to 20 characters must 
+ be entered for the station. For example, Station Name = </font><font size="2" class="hcp5">High Melter</font><font size="2" class="hcp6">.</font></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp3"><font size="2" class="hcp4">Syrup Out </font><font 
+	 style="font-size: 11pt;" size="2">&#160;</font><span class="hcp7">Enter 
+ values for the syrup leaving the melter.</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;A dry substance can be specified for 
+ the output flow if an input flow goes into port 9 and a temperature value 
+ can be specified for the output flow if a heating flow goes into port 
+ 10. The &quot;Hold TDM at&quot; and &quot;Temperature&quot; entry fields 
+ will be dimmed if input flows do not go to these ports.</span><span class="hcp8">&#160;</span></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp9"><font 
+	 style="font-weight: bold;">Hold TDM at (%)</font> &#160;The input 
+ flow going to port 9 will be adjusted by Sugars to give an output flow 
+ from the melter that has a total dry matter (total soluble and insoluble 
+ solids) content that is equal to the value entered.<span class="hcp8">&#160;</span>&#160;This 
+ field is active only if a flow stream goes to input port 9 (the input 
+ flow located on the side of the melter).<span class="hcp8">&#160;</span>&#160;If 
+ a value is not entered, the input flow into port 9 is handled the same 
+ as any other flow into port numbers 0 through 8.<span class="hcp8">&#160;</span>&#160;That 
+ is, enter <b>0.00</b>% if the flow into port 9 is not being used to control 
+ the output flow to a %TDM, or enter a value &gt; 0.00 if the flow into 
+ port 9 is being used to control the output flow to a %TDM.<span class="hcp8">&#160;</span>&#160;For 
+ example, Hold TDM at = <b>67.00</b>%.</p>
+<p class="hcp9">&#160;</p>
+<p class="hcp10"><font size="2" class="hcp5">Temperature &#160;</font><font size="2" class="hcp6">Enter the temperature of the output flow from the melter. 
+ The heating flow into the melter will be required and the quantity of 
+ flow will be adjusted to give the specified output flow temperature. For 
+ example,</font><font size="2" class="hcp5"> 
+ </font><font size="2" class="hcp6">Output Flow Temperature 
+ = </font><font size="2" class="hcp5">92.0</font><font size="2" class="hcp6">°C.</font></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp10"><font size="2" class="hcp5">Color Rise </font><font size="2" class="hcp6">&#160;Enter 
+ a color rise that occurs in the melter. The color rise can be specified 
+ as either a % increase, or an absolute increase of a specified amount 
+ of color units. For example, Color Rise = </font><font size="2" class="hcp5">5.0</font><font size="2" class="hcp6">%, or Color Rise = </font><font size="2" class="hcp5">150</font><font size="2" class="hcp6"> ICU color units of increase. </font></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp3"><font size="2" class="hcp4">Heating Type</font><font size="2" class="hcp6"> &#160;The heating type will be 
+ either injection, or coil. All of the heating flow is added to the process 
+ flow out of the melter when an injection-heated melter is used. All of 
+ the heating flow leaves as condensate when a coil-heated melter is used. 
+ The shape selected from the stencil determines the type of heating.</font></p>
+<p class="footnote_text" style="margin-bottom: 0.00pt;">&#160;</p>
+<p class="hcp3"><font size="2" class="hcp4">Heat Loss (%)</font><font size="2" class="hcp5"> </font><font size="2" class="hcp6">Enter the Heat Loss in percent (%) 
+ for the heat that is lost in the melter station. The heat loss is the 
+ percentage loss of heat from the total heat that is transferred to the 
+ process flow from the heating flow. For example, Heat Loss (%) = </font><font size="2" class="hcp5">1.0</font><font size="2" class="hcp6"> (to give 1% heat loss).</font></p>
+<p class="hcp3">&#160;</p>
+<p class="hcp3"><span class="hcp7">A box 
+ labeled &quot;Required Flow&quot; will appear on the Melter Properties 
+ window if the output flow from the melter is required (see below).</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;All 
+ of the flows into the melter that can be made required will be shown in 
+ this box.</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;In 
+ some cases, there may be input flows from other stations that go into 
+ the melter that cannot be made required and these flows will not be shown.</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;The 
+ box will not be shown if there is only one input flow or only one of the 
+ input flows can be made required.</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;Select the input flow that is to be 
+ used by Sugars to satisfy the output flow.</span><span class="hcp8">&#160;</span><span class="hcp7">&#160;That is, Sugars will calculate the 
+ total quantity of all other input flows and then adjust the quantity of 
+ the input flow that was selected to be required to satisfy the quantity 
+ of the output flow.</span></p>
+<p class="hcp3">&#160;</p>
+<p class="hcp1"><img src="Images/MelterProperties_Scn-2.png" alt="" border="0" class="hcp2"></p>
+<p class="hcp3">&#160;</p>
+<p class="hcp3">&#160;</p>
+<p class="hcp3">&#160;</p>
+<p class="hcp11"><a href="Melter_Features.htm"><font size="2" class="hcp6">Melter Features</font></a><font size="2" class="hcp6"> </font></p>
+<p class="hcp11"><a href="Melter_Examples.htm"><font size="2" class="hcp6">Melter Examples</font></a></p>
+</body>
+</html>

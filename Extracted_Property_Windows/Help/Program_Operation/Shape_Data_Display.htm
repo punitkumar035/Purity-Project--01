@@ -1,0 +1,223 @@
+
+<!doctype HTML public "-//W3C//DTD HTML 4.0 Frameset//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+ <meta name="generator" content="Adobe RoboHelp 9">
+<title>Shape Data Display</title>
+<link rel="StyleSheet" href="../Program_Operation.css" type="text/css">
+<script type="text/javascript" language="javascript" src="../ehlpdhtm.js"></script>
+<style title="hcp" type="text/css">
+<!--
+span.hcp1 { mso-spacerun:yes; }
+img.hcp2 { border:none; }
+b.hcp3 { mso-bidi-font-weight:normal; }
+b.hcp4 { font-weight:bold; }
+-->
+</style>
+</head>
+
+<body>
+<h1><font style="font-size: 12pt;" color="#000080" size="4">Shape Data 
+ Display</font></h1>
+<p class="header" style="margin-top: 0.00pt;">&#160;</p>
+<p class="Default" style="font-size: 10pt;">Every flow stream and station 
+ in a model has a Visio ShapeSheet.<span class="hcp1">&#160;</span>&#160;After 
+ every balance calculation, Sugars writes data to the Shape Data which 
+ is in a section of the ShapeSheet.<span class="hcp1">&#160;</span>&#160;Also, 
+ some stations contain data that are a result of the balance calculations 
+ and this data is written to the Shape Data in the ShapeSheet for the station. 
+ <span class="hcp1">&#160;</span>Visio has the ability to 
+ display flow stream and station proper­ties on the drawing using Shape 
+ Data.<span class="hcp1">&#160;</span>&#160;Also, calculations 
+ can be made using this data and they can be placed on the drawing in any 
+ location. &#160;For example, percent on cane and generated electrical 
+ power are shown on the drawing snippet shown below.<span class="hcp1">&#160;</span>&#160;Steam 
+ percent on cane is from the quan­tity of live steam from the boiler divided 
+ by the quantity of cane into the model.<span class="hcp1">&#160;</span>&#160;Each 
+ quantity is from the Shape Data for their respective flow stream.<span class="hcp1">&#160;</span>&#160;Generated electrical 
+ power is from the Shape Data associated with the Turbo Alternator station 
+ number 4710.</p>
+<p class="Default" style="font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-size: 10pt; text-align: center;"><img src="Images/Shape_Data_Display_Scn-1.png" alt="" border="0" class="hcp2"></p>
+<p class="Default" style="font-size: 10pt;">Other values shown on the drawing 
+ are from the Flow Legend display (see <span style="color: #008000;"><a 
+	 href="../Overview/Program_Overview.htm#Results">Overview &gt; Results</a></span>).&#160;&#160;For 
+ example, the quantities of steam (t/h), pressures (kPa) and temperatures 
+ (ºC) are displayed using the Sugars right click drop-down menu Flow Legend 
+ selection for displaying balance results.</p>
+<p class="Default" style="font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-size: 10pt; text-align: center;"><img src="Images/Shape_Data_Display_Scn-2.png" alt="" border="0" class="hcp2"></p>
+<p class="Default" style="font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-size: 10pt;">The figure above shows the 
+ Station Properties (called Shape Data in Visio) for station no. 3200, 
+ 2nd Effect.&#160;&#160;Any of these values can be displayed on the drawing 
+ (Heat Transfer Coefficient and Heating Surface are shown for the 2nd Effect) 
+ and they can be used in calculations to provide other information.&#160;&#160;They 
+ can even be used in an Excel spreadsheet that is either embedded in the 
+ Visio docu­ment or external to it (see <a href="Exporting_Data_to_Excel.htm">Exporting 
+ Data to Excel</a>).&#160;&#160;Balance results can be manipulated and 
+ displayed in a variety of ways.&#160;&#160;The Shape Data window is displayed 
+ by clicking the box next to the “Shape Data Windows” selection in the 
+ “Show/Hide” group on the Visio <b class="hcp3">DATA</b> 
+ tab. <span class="hcp1">&#160;</span>Instructions for displaying 
+ Shape Data and building calculations are given below.</p>
+<p class="MsoNormal" style="font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-size: 11pt;"><b class="hcp4">Displaying 
+ Visio Shape Data</b></p>
+<p class="MsoNormal" style="font-size: 11pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">After 
+ each balance, Sugars will update all of the Visio Shape Data; however, 
+ on the Sugars ribbon menu, click the <b class="hcp3">Users 
+ Preferences</b> icon to see entries to select either updating all of the 
+ Shape Data or only the ones that changed during a balance.&#160;&#160;Selecting 
+ &quot;Update Only Changed Values&quot; will make drawing updates occur 
+ faster.&#160;&#160;The default is to &quot;Update All Values&quot; to 
+ make sure that the values are always updated, but if you have not made 
+ any changes to any of the values using the Visio ShapeSheet for a station, 
+ then updating only the changed values gives the best performance and for 
+ most users this is the preferred set­ting.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">Referencing 
+ Shape Data values for display on your drawing is done using the Visio 
+ <b class="hcp3">INSERT</b> tab and then selecting 
+ <b class="hcp3">Field</b> from the text group. 
+ <span class="hcp1">&#160;</span>First, create a text block 
+ using the <b class="hcp3">Text</b> tool in the 
+ Tools group on the <b class="hcp3">HOME</b> tab.<span class="hcp1">&#160;</span>&#160;Visio Help gives the 
+ details, but as an example, to display the Electrical Power Output produced 
+ by the turbo alternator station no. 4710 in the Cane Factory (Milling) 
+ example can be displayed by creating a text field on the same page as 
+ the station and then clicking the <b class="hcp3">INSERT</b> 
+ tab and selecting <b class="hcp3">Field</b> from 
+ the <b class="hcp3">Text</b> group. <span class="hcp1">&#160;</span>When 
+ the Field dialog is displayed, click on “Custom Formula” and in the &quot;Custom 
+ formula:&quot; entry box enter:</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="text-align: center; font-family: Arial, sans-serif; 
+	 font-size: 10pt; margin-top: 0pt;">=Station4710!Prop.ElectricalPowerOutput.Value</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">The 
+ “Value” at the end is optional.&#160;&#160;The format for the number displayed 
+ is selected by clicking on the <b class="hcp3">Data 
+ Format…</b> button and select “Number” in the category selection box.<span class="hcp1">&#160;</span>&#160;To add units to the 
+ displayed number, create another field inside the same text box and insert 
+ another field next to the power output number as follows.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="text-align: center; font-family: Arial, sans-serif; 
+	 font-size: 10pt; margin-top: 0pt;">=Station4710!Prop.ElectricalPowerOutput.Prompt</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">This will give the same units for the electrical 
+ power output that Sugars uses in the Turbo Alter­nator Properties dialog.&#160;&#160;The 
+ same procedure is used to display flow stream data.&#160;&#160;You can 
+ quickly see the label for a station (e.g., Station4710 in the above examples) 
+ or flow stream by using the Shape Data Window to display Shape Data for 
+ stations and flow streams as you click on them.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">Calculations 
+ can be done using Shape Data for creating your own results using the results 
+ from the Sugars balance calculations. <span class="hcp1">&#160;</span>For 
+ example, to display the difference between two values, in the field from 
+ the insert menu you would type:</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="text-align: center; font-family: Arial, sans-serif; 
+	 font-size: 10pt; margin-top: 0pt;">=1st custom property reference 
+ - 2nd custom property reference</p>
+<p class="MsoNormal" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">Other 
+ math operators are the usually ones (e.g., +, * and /).</p>
+<p class="MsoNormal" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">To 
+ display a Shape Data value of a station that is on another page, the Sheet 
+ ID has to be used instead of the shape name.<span class="hcp1">&#160;</span>&#160;The 
+ Sheet ID for a shape is obtained from the <b class="hcp3">DEVELOPER</b> 
+ tab.<span class="hcp1">&#160;</span>&#160;Visio Developer 
+ Mode is necessary to make the <b class="hcp3">DEVELOPER</b> 
+ tab&#160;active by clicking <b class="hcp3">FILE</b> 
+ &gt; <b class="hcp3">Options</b>&#160;&gt; <b class="hcp3">Advanced</b> and then click 
+ the box for &quot;Run in developer mode&quot; (see screen below). &#160;Click 
+ the <b class="hcp3">OK</b> button to return to 
+ the drawing window.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 text-align: center;"><img src="Images/Shape_Data_Display_Scn-3.png" alt="" border="0" class="hcp2"></p>
+<p class="MsoNormal" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">The 
+ Sheet ID is given by the <b class="hcp3">Shape 
+ Name</b> selection in the Shape Design group at the top of the window 
+ where &quot;ID: XXX&quot; with XXX as the ID number.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="page-break-before: always; font-family: Arial, sans-serif; 
+	 font-size: 10pt;">For an example, to display the heat transfer coefficient 
+ for an evaporator body on a page that does not contain the evaporator 
+ body, make a text box then click the <b class="hcp3">INSERT</b> 
+ tab and then <b class="hcp3">Field</b> in the 
+ “Text” group.<span class="hcp1">&#160;</span>&#160;In the 
+ Custom Formula category enter:</p>
+<p class="MsoNormal" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="text-align: center; font-family: Arial, sans-serif; 
+	 font-size: 10pt; margin-top: 0pt;">=Pages[Evaporation]!Sheet.15!Prop.HeatTransferCoef</p>
+<p class="MsoNormal" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">Where, 
+ &quot;Evaporation&quot; is the name of the page containing the shape and 
+ Sheet.15 is the sheet ID from the Shape Name dialog box for the 1st&#160;effect 
+ evaporator body on the &quot;Evaporation&quot; page of the Cane Factory 
+ (Milling) example.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">The 
+ fact that it is necessary to use the sheet ID instead of the shape name 
+ when referring to a shape that is on a different page than the active 
+ page is a programmed characteristic of Visio.&#160;&#160;Also, if the 
+ shape is a connection and it is edited later, Visio changes the name “Sheet” 
+ to “Dynamic connector” and this name has to be changed back to “Sheet” 
+ before the field will be accepted in versions of Visio earlier than 2013.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">Another 
+ example is the following to display the % on cane of the generated boiler 
+ steam in the Cane Factory (Milling) example.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="text-align: center; font-family: Arial, sans-serif; 
+	 font-size: 10pt; margin-top: 0pt;">=(Fr4704_0!Prop.FlowRate/Pages[Milling]!Sheet.294!Prop.FlowRate)*100</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">Where, 
+ “Milling” is the page with the flow rate of cane into the model for flow 
+ stream &quot;Sheet.294&quot;.</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt;">The 
+ general syntax for property references is:</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 text-align: center; margin-top: 0pt;">Pages[&lt;PageName&gt;!]&lt;SheetID&gt;!&lt;PropRef&gt;</p>
+<p class="Default" style="font-family: Arial, sans-serif; font-size: 10pt; 
+	 margin-top: 0pt;">&#160;</p>
+<p class="MsoNormal" style="margin-top: 0in; font-size: 10pt;">For example, 
+ to reference the temperature out value of a shape with ID = 83 on the 
+ 1-Diffusion page, the following would be entered in the Custom Formula 
+ field of the <b class="hcp3">INSERT</b> &gt; 
+ <b class="hcp3">Field</b> dialog.</p>
+<p class="MsoNormal" style="margin-top: 0in; font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="margin-top: 0in; text-align: center; font-size: 10pt;">Pages[1-Diffusion]!Sheet.83!Prop.TemperatureOut.Value</p>
+<p class="MsoNormal" style="margin-top: 0in; font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="margin-top: 0in; mso-bidi-font-weight: normal; 
+	 font-size: 10pt;"><b class="hcp4">Also, Sheet ID’s need 
+ to be used instead of the shape name when referencing Shape Data for shapes 
+ that are in groupings from the Sugars stencils. &#160;</b>For example, 
+ the following would be used to display the temperature out of a blender 
+ station in a grouping with a sheet ID of 284.</p>
+<p class="MsoNormal" style="margin-top: 0in; font-size: 10pt;">&#160;</p>
+<p class="MsoNormal" style="margin-top: 0in; text-align: center; font-size: 10pt;">Sheet.284!Prop.TemperatureOut</p>
+<p class="Default" style="font-size: 10pt; text-align: center;">&#160;</p>
+</body>
+</html>
