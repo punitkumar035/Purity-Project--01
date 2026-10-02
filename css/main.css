@@ -33,6 +33,7 @@
     width:35px;height:35px;border-radius:10px;display:grid;place-items:center;
     background:linear-gradient(145deg,#1bd2c4,#0d8da1);font-weight:900
   }
+  img.logo{object-fit:contain;background:transparent;padding:0}
   .brand-title{font-weight:900;font-size:14px}
   .brand-sub{font-size:10.5px;opacity:.72;margin-top:2px}
   .toolbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
@@ -45,13 +46,16 @@
   .btn.primary:hover{background:#0b9695}
   .btn.danger{border-color:rgba(255,110,110,.32)}
   .status-pill{
-    display:inline-flex;align-items:center;gap:6px;border-radius:999px;
-    padding:6px 9px;font-size:10px;font-weight:900;background:#183b5a;border:1px solid rgba(255,255,255,.12)
+    display:inline-flex;align-items:center;gap:7px;border-radius:0;
+    padding:7px 12px;font-size:11px;font-weight:900;letter-spacing:.02em;
+    background:#183b5a;border:1px solid rgba(255,255,255,.12);color:#f87171;
+    transition:color .2s ease-in-out;
   }
-  .status-dot{width:7px;height:7px;border-radius:50%;background:#b9c8d4}
-  .status-pill.ok .status-dot{background:#1fd47e}
-  .status-pill.warn .status-dot{background:#ffbd45}
-  .status-pill.err .status-dot{background:#ff6d6d}
+  .status-pill #statusIcon{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+  .status-pill.ok{color:#4ade80}
+  .status-pill.warn,.status-pill.err{color:#f87171}
+  .status-pill.info{color:#7dd3fc}
+  .status-dot{display:none}
 
   .workspace{
     min-height:0;display:grid;grid-template-columns:250px minmax(0,1fr) 315px;
@@ -276,6 +280,14 @@
   .wire:hover{stroke:#0a8f8c;stroke-width:3}
   .wire.selected{stroke:#0aa5a2;stroke-width:3.2}
   .wire.unresolved{stroke:#c84e4e;stroke-dasharray:7 5}
+  .wire.link-half{stroke-width:2.6}
+  .wire.link-onpage{stroke:#0e7c86}
+  .wire.link-crosspage{stroke:#7c3aed}
+  .wire.link-half.link-pending{opacity:.55}
+  .wire.link-half:hover{stroke-width:3.2}
+  .wire-label.link-half-label{font-size:9.5px;font-weight:900}
+  .wire-label.link-half-label.link-complete{fill:#0f3d44}
+  .wire-label.link-half-label.link-pending{fill:#8a6d1b}
   .wire-hit{
     fill:none;stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:pointer
   }
@@ -901,8 +913,8 @@
   .pan-section{border:1px solid #d4e0e7;background:#fbfdfe;border-radius:7px;padding:8px;margin-bottom:9px}
   .pan-section-title{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#3b5c70;margin-bottom:6px}
   .pan-field label{font-size:8px;color:#627786;font-weight:800}
-  .pan-field input,.pan-field select{width:100%;height:30px;border:1px solid #bccbd5;border-radius:5px;background:#fff;padding:0 7px;font-size:9px;color:#d12626;font-weight:800}
-  .pan-field select{color:#c22626}
+  .pan-field input,.pan-field select{width:100%;height:30px;border:1px solid #bccbd5;border-radius:5px;background:#fff;padding:0 7px;font-size:9px;color:#233f52;font-weight:800}
+  .pan-field select{color:#233f52}
   .pan-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   .pan-result{border:1px solid #dbe5eb;background:#fff;border-radius:6px;padding:6px 7px}
   .pan-result .k{font-size:7.4px;text-transform:uppercase;color:#748792;font-weight:900}
@@ -934,7 +946,7 @@
   .magenta-field input, .magenta-field select, .pan-magenta-field input, .pan-magenta-field select {
     border: 1px solid #d4008e !important;
     background: #fff !important;
-    color: #8c005f !important;
+    color: #233f52 !important;
     font-weight: 800;
   }
   .magenta-field.disabled, .pan-magenta-field.disabled {
@@ -965,7 +977,13 @@
   .pan-modern-shell{height:100%;display:flex;flex-direction:column;min-height:0}
   .pan-modern-top{padding:10px 14px;border-bottom:1px solid #d6e5f2;background:#fff;display:grid;grid-template-columns:1.4fr .7fr .7fr .85fr;gap:9px;align-items:end}
   .pan-modern-field label{display:block;font-size:8px;font-weight:900;color:#315b80;margin-bottom:4px;text-transform:uppercase;letter-spacing:.035em}
-  .pan-modern-field input,.pan-modern-field select{width:100%;height:31px;border:1px solid #a9c5df;border-radius:4px;background:#fff;padding:0 8px;font-size:9.5px;font-weight:800;color:#d12626}
+  .pan-modern-field input,.pan-modern-field select{width:100%;height:31px;border:1px solid #a9c5df;border-radius:4px;background:#fff;padding:0 8px;font-size:9.5px;font-weight:800;color:#233f52}
+  /* Radios/checkboxes keep native control size inside full-width field rules (X-06). */
+  .pan-modern-field input[type=radio],.pan-modern-field input[type=checkbox],
+  .pan-field input[type=radio],.pan-field input[type=checkbox],
+  .magenta-field input[type=radio]{width:14px;height:14px;flex:0 0 auto;padding:0}
+  .evap-color-units{display:flex;gap:14px;align-items:center;height:30px}
+  .evap-color-units label{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:800;color:#315b80}
   .pan-modern-field input[readonly],.pan-modern-field select:disabled{background:#f0f5f8;color:#29475f;border-color:#cedbe5}
   .pan-modern-main{flex:1;min-height:0;display:grid;grid-template-columns:155px minmax(0,1fr)}
   .pan-modern-nav{border-right:1px solid #d8e6f1;background:#f1f7fc;padding:10px 8px;overflow:auto}
@@ -987,7 +1005,7 @@
   .pan-readout .k{font-size:7px;text-transform:uppercase;color:#6e8495;font-weight:900}.pan-readout .v{font-size:11px;color:#193f5c;font-weight:900;margin-top:3px}
   .pan-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
   .pan-legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:7.5px;color:#60788b;padding:7px 10px;border-top:1px solid #d9e6ef;background:#f8fbfd}
-  .pan-legend i{display:inline-block;width:12px;height:8px;border-radius:2px;margin-right:4px;vertical-align:-1px}.pan-legend .p{background:#ede2ff;border:1px solid #7c3aed}.pan-legend .r{background:#fff1f1;border:1px solid #d12626}.pan-legend .b{background:#edf5fb;border:1px solid #315b80}.pan-legend .g{background:#eef1f3;border:1px solid #aab8c2}
+  .pan-legend i{display:inline-block;width:12px;height:8px;border-radius:2px;margin-right:4px;vertical-align:-1px}.pan-legend .p{background:#ede2ff;border:1px solid #7c3aed}.pan-legend .r{background:#fff1f1;border:1px solid #d12626}.pan-legend .e{background:#fff;border:1px solid #60788b}.pan-legend .b{background:#edf5fb;border:1px solid #315b80}.pan-legend .g{background:#eef1f3;border:1px solid #aab8c2}
   .pan-modern-footer{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-top:1px solid #cfe0ed;background:#fff;gap:10px}
   .pan-modern-footer .left{font-size:8.5px;color:#60788b}.pan-modern-footer .actions{display:flex;gap:7px;align-items:center}
   .pan-modern-footer button{height:31px;border:1px solid #b9cad7;background:#fff;border-radius:5px;padding:0 14px;font-size:8.5px;font-weight:900;color:#31536d;cursor:pointer}

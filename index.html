@@ -3,19 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Massecuite Boiling Scheme Simulator — Phase 1</title>
+  <title>PURITY FOR SUGAR™ | Process Simulation</title>
+  <link rel="icon" type="image/png" href="assets/purity-logo.png" />
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/page-workspace.css" />
   <link rel="stylesheet" href="css/ribbon.css" />
   <link rel="stylesheet" href="css/property-windows.css" />
+  <link rel="stylesheet" href="css/theme-glass.css" />
 </head>
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand">
-      <div class="logo">M</div>
-      <div>
-        <div class="brand-title">Massecuite Boiling Scheme Simulator</div>
+      <div class="brand">
+        <img class="logo" src="assets/purity-logo.png" alt="Purity" />
+        <div>
+          <div class="brand-title">PURITY FOR SUGAR™&nbsp;&nbsp;|&nbsp;&nbsp;Process Simulation</div>
         <div class="brand-sub">Phase 4.8.5.1.1 · Connector Double-Click + Routing Interaction Fix</div>
       </div>
     </div>
@@ -31,7 +33,7 @@
       <button class="btn primary" id="solveBtn">Solve</button>
       <button class="btn" id="auditBtn">Solver Audit</button>
       <button class="btn" onclick="window.print()">Print / PDF</button>
-      <span class="status-pill" id="solverStatus"><span class="status-dot"></span><span id="statusText">Loading…</span></span>
+      <span class="status-pill" id="solverStatus" title="Network not solved yet"><svg id="statusIcon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span id="statusText">network unsolved</span></span>
     </div>
   </header>
 
@@ -165,9 +167,21 @@
           <div><div class="pal-name">Reactor / Clarifier</div><div class="pal-desc">Liming, carbonatation, sulfitation</div></div>
         </div>
 
-        <div class="palette-item" draggable="true" data-type="separatorFilter">
+        <div class="palette-item" draggable="true" data-type="separator">
           <div class="pal-icon">SF</div>
-          <div><div class="pal-name">Mud Filter / Separator</div><div class="pal-desc">Rotary vacuum filter · mud cake</div></div>
+          <div><div class="pal-name">Separator / Filter</div><div class="pal-desc">Split feed into 2 outputs · optional diluent on Port 1</div></div>
+        </div>
+
+        <div class="group-title">Links / Cross-Page</div>
+
+        <div class="palette-item" draggable="true" data-type="onpageLink">
+          <div class="pal-icon">⎋</div>
+          <div><div class="pal-name">On-Page Link</div><div class="pal-desc">Mated flow reference · same page</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="crosspageLink">
+          <div class="pal-icon">⤢</div>
+          <div><div class="pal-name">Cross-Page Link</div><div class="pal-desc">Mated flow reference · other pages</div></div>
         </div>
 
         <div class="group-title">Material Handling &amp; Routing</div>
@@ -180,6 +194,11 @@
         <div class="palette-item" draggable="true" data-type="mixer">
           <div class="pal-icon">Mx</div>
           <div><div class="pal-name">General Mixer</div><div class="pal-desc">Multiple feeds → one stream</div></div>
+        </div>
+
+        <div class="palette-item" draggable="true" data-type="blender">
+          <div class="pal-icon">Bl</div>
+          <div><div class="pal-name">Blender</div><div class="pal-desc">Blend flow into primary · ratio / quantity / output spec</div></div>
         </div>
 
         <div class="palette-item" draggable="true" data-type="splitter">
