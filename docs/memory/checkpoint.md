@@ -89,3 +89,10 @@ Triage: .gitignore added (zips/chm/Dump/.archify/unreferenced logo/Station
 drop-ins stay on disk, out of git). Committed e5c0dc4 on
 feature/maxgraph-canvas-spike, merged --no-ff into main. UEI-006 (density)
 and UEI-008 (Hugot/Lyle) remain OPEN.
+
+## 2026-10-03 — Pushed to origin/main (9959ef0)
+Full-pack push failed twice (HTTP 408 / connection reset on ~36 MB pack);
+resolved by incremental push oldest-first (baseline seeds, then
+fast-forwards). Remote main == local 9959ef0, tree clean, upstream set.
+Note: plain `git push -u origin main` stalls on large first packs from
+this machine — seed-then-advance if it recurs.
