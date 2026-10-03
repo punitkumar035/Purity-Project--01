@@ -81,3 +81,11 @@ then Phase 3 (remaining dialogs) or heaters.
 1. Solver-plumbing hardening harnesses (streams view, intent default).
 2. Relocate harnesses → `tests/` + runner.
 3. Heater-family audit (§23/§24 style).
+
+## 2026-10-03 — Merged to main (UEI-010 ruling)
+Harness gate resolved to Martins (harness-only; production Bartens
+unchanged). Full suite ALL PASS on feature branch and post-merge on main.
+Triage: .gitignore added (zips/chm/Dump/.archify/unreferenced logo/Station
+drop-ins stay on disk, out of git). Committed e5c0dc4 on
+feature/maxgraph-canvas-spike, merged --no-ff into main. UEI-006 (density)
+and UEI-008 (Hugot/Lyle) remain OPEN.
