@@ -126,3 +126,13 @@ Fix: parser rewritten to the delivered schema with explicit unit handling
 guard. Permanent rule: pasted source schemas are byte-adopted; placeholder
 shapes are retired with the paste, never adapted.
 Regression test: properties_crosscheck martins-active asserts.
+
+## 2026-10-04 — Reference grids: verify provenance before enforcing
+Problem: v2 density spec labeled a 12-state grid "Lyle Eq 32.8, verified
+within ~3" that measured up to 19.9 off the engine. Enforcing it would have
+gone red against a mislabeled reference (same failure mode as the steam
+oracle). Resolution: owner relabeled grid as NBS data (v3), gates rebuilt
+as log-only with critical escalation.
+Permanent rule: every pasted reference grid gets a provenance check
+(spot-verify 2+ states against the cited source) before any assert is
+written against it; log-only until provenance lands.

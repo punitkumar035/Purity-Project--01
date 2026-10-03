@@ -70,7 +70,6 @@ const oracleSteamRho = (p, t) => {
 const oracleSaskaFromTbW = (W, Q, tbW) =>
   0.1660 * Math.pow(W / (100 - W), 1.1394) * Math.pow((273.15 + tbW) / 100, 1.9735) * Math.pow(Q / 100, 0.1237);
 const oracleSaskaFullPath = (W, Q, p) => oracleSaskaFromTbW(W, Q, oracleTsat(p));
-const oracleDensityLinear = (bx, t) => (1000.0 - 0.35 * t - 2.5e-3 * t * t) + 3.8 * bx + 0.02 * bx * bx;
 const oracleNSW = (ds, pu) => (ds * (100 - pu) / 100) / (100 - ds);
 // Independent HB transcriptions (spec pattern, written from registry text)
 const specS = (t) => 64.447 + 0.08222 * t - 0.0016169 * t * t - 1.558e-6 * t * t * t - 4.63e-8 * t * t * t * t;
@@ -191,11 +190,43 @@ const regMet = (bx) => xc.base.value - xc.slope.value * (bx / 100);
 }
 // ---------- E. S(T) identity vs registry transcription ----------
 for (const t of [20, 40, 60, 80, 100, 120]) approx(pureSucroseSaturationPct(t), specS(t), 1e-9, 'S(T) @' + t + 'C');
-// ---------- F. Density: Lyle vs linear oracle (report; UEI-006 open) ----------
+// ---------- F. Density 12-state table (UEI-006; NBS primary) ----------
+// All legs registry-evaluated. Production densityLyle...Eq328 unchanged.
+// NBS grid values are authoritative; beta formula is documented-approximate
+// (85C column deviates <=1.8 — kept as given per owner ruling).
+const nbsBlock = REG.match(/## HB-NBS-C440-RHO[\s\S]*?```json\s*([\s\S]*?)\s*```/);
+const lyleBlock = REG.match(/## HB-LYLE-REIN-EQ328-RHO[\s\S]*?```json\s*([\s\S]*?)\s*```/);
+const metDBlock = REG.match(/## HB-MET-BRIX-DENSITY[\s\S]*?```json\s*([\s\S]*?)\s*```/);
+ok(!!nbsBlock && !!lyleBlock && !!metDBlock, 'density registry entries present');
+const nbsPoly = JSON.parse(nbsBlock[1]), lylePoly = JSON.parse(lyleBlock[1]), metDPoly = JSON.parse(metDBlock[1]);
+ok(nbsPoly.uuid === 'HB-NBS-C440-RHO' && nbsPoly.harness.status === 'active', 'nbs entry uuid+status active');
+ok(lylePoly.uuid === 'HB-LYLE-REIN-EQ328-RHO' && lylePoly.harness.status === 'active', 'lyle entry uuid+status active');
+ok(metDPoly.uuid === 'HB-MET-BRIX-DENSITY' && metDPoly.harness.status === 'active', 'met-density entry uuid+status active');
+const nbsGrid = nbsPoly.equation.grid;
+const regNBS = (bx, T) => nbsGrid[String(bx)][String(T)];
+const lc = lylePoly.equation.coefficients;
+const regLyle = (W, T) => lc.scale.value * (1 + W * (W + 200) / lc.wds_factor.value) * (1 - lc.t_num.value * (T - lc.t_ref.value) / (lc.t_sing.value - T));
+const mc = metDPoly.equation.coefficients;
+const regMET = (bx, T) => {
+  const sg = 1 + bx / (mc.c0.value - (bx / mc.c1.value) * mc.c2.value);
+  const w = if97Region1(101.325, T); // process water ~atmospheric, compressed liquid
+  return w ? sg * w.rho_kgm3 : NaN;
+};
 for (const bx of [15, 30, 45, 60]) for (const T of [20, 50, 85]) {
-  const r = densityLyle1957PureSucroseEq328(bx, T, 100);
-  ok(r.ok && r.value > 0, 'lyle ok Bx=' + bx + ' T=' + T + ' -> ' + (r.ok ? r.value.toFixed(1) : r.message));
-  console.log('  info: density Bx=' + bx + ' T=' + T + ' lyle=' + (r.ok ? r.value.toFixed(1) : 'n/a') + ' linear-oracle=' + oracleDensityLinear(bx, T).toFixed(1));
+  const nbs = regNBS(bx, T), ly = regLyle(bx, T), mt = regMET(bx, T);
+  const eng = densityLyle1957PureSucroseEq328(bx, T, 100);
+  approx(ly, eng.value, 1e-9, 'drift lyle registry==engine Bx=' + bx + ' T=' + T);
+  // Beta-formula re-derivation vs authoritative grid (approximation boundary).
+  const beta = nbsGrid[String(bx)]['20'] * (1 - 0.00025 * (T - 20));
+  const bdev = Math.abs(beta - nbs);
+  const vals = 'nbs=' + nbs.toFixed(1) + ' lyle=' + ly.toFixed(1) + ' met=' + mt.toFixed(1);
+  if (bdev > 2.0) console.log('note: NBS beta-approximation boundary Bx=' + bx + ' T=' + T + ' |d|=' + bdev.toFixed(2));
+  const dNL = Math.abs(nbs - ly);
+  if (dNL > 25) { console.log('FAIL: UEI-006-CRITICAL nbs/lyle Bx=' + bx + ' T=' + T + ' ' + vals + ' |d|=' + dNL.toFixed(1)); fail++; }
+  else if (dNL > 10) console.log('note: UEI-006-BIAS-WARNING nbs/lyle Bx=' + bx + ' T=' + T + ' ' + vals + ' |d|=' + dNL.toFixed(1));
+  else console.log('ok: density Bx=' + bx + ' T=' + T + ' ' + vals);
+  const dNM = Math.abs(nbs - mt);
+  if (dNM > 25) console.log('note: UEI-006-TERTIARY-DIVERGENCE nbs/met Bx=' + bx + ' T=' + T + ' |d|=' + dNM.toFixed(1));
 }
 // ---------- G. Sc forms ----------
 for (const [a, b, c, nsw] of [[0.27, 0.71, 1.44, 0.5], [0.3, 0.65, 1.2, 2.0], [0.27, 0.71, 0, 2.5]]) {

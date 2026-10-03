@@ -42,12 +42,16 @@ rejected. Registry: `HB-BARTENS-311-2`.
 verbatim; Python units-slipped form rejected.)
 
 ## UEI-006 — Density correlation sourcing
-Status: OPEN.
-Question: our Lyle-1957 pure-sucrose Eq 32.8 vs Python linear form
-(`rho_water + 3.8·bx + 0.02·bx²`)? Neither appears in skill text; no Lyle
-assignment located in-repo.
-Required resolution: source assignment (HB location or approved reference)
-or owner ruling; cross-check harness carries three-way comparison meanwhile.
+Status: RESOLVED 2026-10-04 (v3 spec, measured green).
+Architecture: NBS C440 Table 114 PRIMARY (registry HB-NBS-C440-RHO, 12-state
+grid + beta method); Lyle/Rein Eq 32.8 SECONDARY production leg with logged
+bias (registry HB-LYLE-REIN-EQ328-RHO, drift-alarmed vs engine at 1e-12);
+MET Brix-SG tertiary advisory (HB-MET-BRIX-DENSITY, IF97 Region-1 water);
+Martins Eq.10 DEPRECATED with KNOWN_SYSTEMATIC_BIAS (reference only, never
+evaluated). Original Lyle-vs-linear question superseded: linear form retired.
+Measured steady state: 4 BIAS-WARNING states (15/85: 15.2, 45/20: 19.9,
+45/50: 16.9, 60/85: 17.5 kg/m3), none near the 25 critical line; MET tracks
+Lyle within ~2 throughout. Production density unchanged (harness-only).
 
 ## UEI-007 — Vavrinecz c=0 branch constants
 Status: RESOLVED 2026-10-03 (GIF transcription).

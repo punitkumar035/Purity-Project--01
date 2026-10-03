@@ -200,3 +200,157 @@ Each entry: ID, image, transcription, code anchor, status.
     "adr_reference": "ADR-004"
   }
   ```
+
+## HB-NBS-C440-RHO — sucrose density, PRIMARY reference (UEI-006)
+- method: NBS Circular 440 (1942) Table 114 at 20 °C + linear correction
+  `rho(T) = rho20 * [1 - 2.5e-4*(T-20)]`, T in °C.
+- source: National Bureau of Standards Circular 440 (1942), ICUMSA official.
+- note: the 85 °C column deviates <=1.8 kg/m3 from the stated beta formula
+  (kept as given per owner ruling 2026-10-04; grid values are authoritative,
+  formula is documented-approximate).
+- status: ACTIVE (primary leg).
+- machine-readable:
+  ```json
+  {
+    "uuid": "HB-NBS-C440-RHO",
+    "description": "Density of sucrose solutions via NBS Circular 440 Table 114 with beta temperature correction (ICUMSA-authoritative reference)",
+    "property": "density",
+    "solute": "sucrose",
+    "source": {
+      "authors": "National Bureau of Standards Circular 440 (1942)",
+      "table": "Table 114 at 20C",
+      "correction": "rho(T) = rho20 * [1 - 2.5e-4*(T-20)]"
+    },
+    "equation": {
+      "form": "rho(T) = rho20 * [1 - beta*(T-20)]",
+      "variables": {
+        "rho": {"unit": "kg/m3", "description": "solution density"},
+        "rho20": {"unit": "kg/m3", "description": "Table 114 density at 20C"},
+        "T": {"unit": "°C", "description": "temperature"}
+      },
+      "coefficients": {
+        "beta": {"value": 0.00025, "unit": "/°C"}
+      },
+      "grid": {
+        "15": {"20": 1059.0, "50": 1051.1, "85": 1041.9},
+        "30": {"20": 1119.1, "50": 1110.7, "85": 1100.0},
+        "45": {"20": 1184.3, "50": 1175.4, "85": 1163.8},
+        "60": {"20": 1288.9, "50": 1279.0, "85": 1266.2}
+      }
+    },
+    "valid_range": {
+      "brix": [0, 85],
+      "tempC": [0, 100]
+    },
+    "harness": {
+      "role": "primary",
+      "status": "active",
+      "tolerance_kg_m3": 10.0,
+      "critical_kg_m3": 25.0,
+      "temperature_grid_C": [20, 50, 85],
+      "brix_grid": [15, 30, 45, 60]
+    },
+    "adr_reference": "ADR-004"
+  }
+  ```
+
+## HB-LYLE-REIN-EQ328-RHO — sucrose density, SECONDARY leg (UEI-006)
+- equation (as coded): `rho = 1000*[1+W(W+200)/54000]*[1-0.036(T-20)/(160-T)]`
+  (W in %, T in °C).
+- source: Rein Eq. 32.8 citing Lyle (1957); production formula, unchanged.
+- flag: KNOWN_SYSTEMATIC_BIAS vs NBS primary (mid-Brix high:
+  30Bx/20C +8.7, 45Bx/20C +19.9 kg/m3 measured).
+- status: ACTIVE (secondary leg; drift-alarmed against engine).
+- machine-readable:
+  ```json
+  {
+    "uuid": "HB-LYLE-REIN-EQ328-RHO",
+    "description": "Density of sucrose solutions via Lyle/Rein Eq 32.8 (production formula with logged bias vs NBS primary)",
+    "property": "density",
+    "solute": "sucrose",
+    "source": {
+      "authors": "Rein Eq. 32.8 citing Lyle (1957)"
+    },
+    "equation": {
+      "form": "rho = 1000*[1+W*(W+200)/54000]*[1-0.036*(T-20)/(160-T)]",
+      "variables": {
+        "rho": {"unit": "kg/m3", "description": "solution density"},
+        "W": {"unit": "%", "description": "dry substance, mass percent"},
+        "T": {"unit": "°C", "description": "temperature"}
+      },
+      "coefficients": {
+        "scale": {"value": 1000, "unit": "kg/m3"},
+        "wds_factor": {"value": 54000, "unit": "none"},
+        "t_num": {"value": 0.036, "unit": "none"},
+        "t_ref": {"value": 20, "unit": "°C"},
+        "t_sing": {"value": 160, "unit": "°C"}
+      }
+    },
+    "valid_range": {
+      "brix": [0, 85],
+      "tempC": [0, 100]
+    },
+    "harness": {
+      "role": "secondary",
+      "status": "active",
+      "temperature_grid_C": [20, 50, 85],
+      "brix_grid": [15, 30, 45, 60]
+    },
+    "adr_reference": "ADR-004"
+  }
+  ```
+
+## HB-MET-BRIX-DENSITY — density, TERTIARY advisory leg (UEI-006)
+- method: Brix to SG to density (standard sucrose approximation).
+- equation: `SG = 1 + Bx/(258.6-(Bx/258.2)*227.1)`;
+  `rho = SG * rho_water(T)` with water from IAPWS-IF97 Region 1.
+- source: MyEngineeringTools / CodingAce (owner-supplied, no HB claim).
+- status: ACTIVE (advisory only; divergences logged, never gated).
+- machine-readable:
+  ```json
+  {
+    "uuid": "HB-MET-BRIX-DENSITY",
+    "description": "Density via Brix-SG-density approximation (advisory tertiary leg)",
+    "property": "density",
+    "solute": "sucrose",
+    "source": {
+      "authors": "MyEngineeringTools / CodingAce (owner-supplied, no Help Book claim)"
+    },
+    "equation": {
+      "form": "SG = 1 + Bx/(c0-(Bx/c1)*c2); rho = SG * rho_water(T)",
+      "variables": {
+        "rho": {"unit": "kg/m3", "description": "solution density"},
+        "Bx": {"unit": "°Brix", "description": "solute concentration"},
+        "T": {"unit": "°C", "description": "temperature"}
+      },
+      "coefficients": {
+        "c0": {"value": 258.6, "unit": "none"},
+        "c1": {"value": 258.2, "unit": "none"},
+        "c2": {"value": 227.1, "unit": "none"}
+      },
+      "water": "IAPWS-IF97 Region 1 at process pressure"
+    },
+    "valid_range": {
+      "brix": [0, 85],
+      "tempC": [0, 100]
+    },
+    "harness": {
+      "role": "tertiary",
+      "status": "active",
+      "advisory_threshold_kg_m3": 25.0,
+      "temperature_grid_C": [20, 50, 85],
+      "brix_grid": [15, 30, 45, 60]
+    },
+    "adr_reference": "ADR-004"
+  }
+  ```
+
+## HB-MARTINS-2020-RHO-DEPRECATED — density, DEPRECATED (UEI-006)
+- equation: Eq.10 `rho = a + b*X + c*X^2 + d*T + e*T^2 + f*X*T`
+  (a=713.40, b=0.35, c=0.00550, d=2.54, e=-0.00520, f=0.00800;
+  X in degBrix, T in K; R2=0.9968, MRE=0.30% as printed).
+- source: Martins et al. 2020, DOI 10.1111/jfpe.13483, Table 6.
+- flag: KNOWN_SYSTEMATIC_BIAS — faithfully transcribed, but evaluates
+  ~7.5% low vs NBS/ICUMSA at high Brix (measured 60Bx/20C: 1192.6 vs
+  ~1289). Not suitable as primary or secondary. Reference only.
+- status: DEPRECATED — NOT evaluated in the harness.

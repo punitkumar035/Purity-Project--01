@@ -215,3 +215,17 @@ hardcoded `1.0−0.088·NSW` — do NOT adopt the constants on Python's word).
   (registry-Bartens == centHelpbookSyrupCpKJkgK at 1e-12 — 12/12 pass).
 - Leg1/Leg3 gate rows unchanged by the rewire (identical values), still
   with owner for adjudication per §7.
+
+## 9. Density 3-leg harness (2026-10-04, v3 spec — review before merge)
+
+- NBS C440 Table 114 PRIMARY (12-state grid + beta method; 85C column kept
+  as given with <=1.8 deviation note). Lyle/Rein Eq 32.8 SECONDARY with
+  bias note (+8.7 at 30/20, +19.9 at 45/20 measured). MET Brix-SG tertiary
+  via IF97 Region-1 water. Martins Eq.10 DEPRECATED (bias-flagged,
+  unevaluated). All four machine-readable in registry; production density
+  unchanged (monolith NBS-lookup item struck per owner).
+- Measured: 12/12 Lyle drift asserts pass; 4 BIAS-WARNING notes, 0 critical,
+  0 tertiary advisories; MET tracks Lyle within ~2 (both diverge from NBS
+  together at the 4 warning states). Suite green by authority rule.
+- UEI-006 RESOLVED (architecture decided + measured). UEI-008 (Hugot/Lyle
+  sourcing) and UEI-009 (hydrostatic, unbuilt) remain OPEN.

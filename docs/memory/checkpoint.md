@@ -96,3 +96,7 @@ resolved by incremental push oldest-first (baseline seeds, then
 fast-forwards). Remote main == local 9959ef0, tree clean, upstream set.
 Note: plain `git push -u origin main` stalls on large first packs from
 this machine — seed-then-advance if it recurs.
+2026-10-04 density 3-leg (v3): NBS primary / Lyle secondary+bias / MET
+tertiary / Martins deprecated — all registry JSON, harness measured green
+(4 bias-warnings, 0 critical). UEI-006 RESOLVED. Full suite ALL PASS.
+WITH OWNER FOR REVIEW before merge+tag (uei-006-density-harness).
