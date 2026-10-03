@@ -1,144 +1,335 @@
-# MaxGraph Editor Migration Plan
+# Migration Plan
 
-**Status:** Proposal only. No runtime implementation is included in this document change.
+## Overview
 
-## 1. Goal and Guardrails
+This document outlines the migration strategy for evolving the existing Sugar Engineering application toward a professional diagramming architecture while preserving 100% backward compatibility for existing engineering projects and solver functionality.
 
-Upgrade the Sugar application’s diagram editing experience toward Visio/draw.io quality while keeping the current Sugar model and calculation behavior authoritative.
+## Current State Assessment
 
-**Keep unchanged as the source of truth:** project JSON, page-local node/connector collections, `nodeDefs`, equipment/stream properties, endpoint and port IDs, `connectorRole()` semantics, validation, solver, calculation results, diagnostics, and existing engineering property windows.
+Based on the Architecture Audit and Draw.io Adoption Matrix:
+- **Engineering model**: ✅ Fully functional and correct (34+ equipment types, solver, calculations)
+- **Diagram editor**: ✅ Functional but basic (single selection, port snapping, orthogonal routing)
+- **Persistence**: ✅ Robust (JSON, File System Access, browser recovery, templates)
+- **Professional features**: ❌ Missing (multi-selection, groups, layers, minimap, rulers, smart guides)
 
-**Use maxGraph for:** canvas rendering, selection and editing interactions, viewport controls, visual routing/handles, and editor events. It must be replaceable without migrating or rewriting engineering equations.
+## Migration Principles
 
-**Do not do in this migration:** convert project files to draw.io/maxGraph XML; replace the Sugar solver with graph algorithms; introduce cross-page process links; turn visual groups into process stations; or extract the entire IIFE into the attachment’s proposed directory tree.
+1. **Never break existing project files** — V5 JSON must open in new versions
+2. **Never silently lose data** — Unknown fields preserved whenever possible
+3. **Engineering model is authoritative** — Visual changes ≠ engineering changes
+4. **Incremental refactoring** — Extract modules one at a time with behavioral equivalence
+5. **Backward-compatible state extensions** — Add new fields without breaking old loads
 
-## 2. Integration Shape
+## State Schema Evolution Plan
 
-```text
-Existing ribbon / palette / properties
-                 │ existing commands
-                 ▼
-       Thin Sugar ↔ maxGraph adapter
-                 │
-                 ├── maxGraph view model (temporary projection)
-                 │
-                 ▼
- Current project state: nodes + connectors + pages
-                 │
-                 ▼
-       Existing validation and solver
+### Current V5 State Schema (Baseline)
+```javascript
+{
+  version: 5,
+  schemaVersion: 1,
+  name: 'New Massecuite Scheme',
+  activePageId: 'page_1',
+  pages: [
+    {
+      id, name, order, layout, orientation, zoom, panX, panY,
+      nodes: [], connectors: [], streams: []
+    }
+  ],
+  nodes: [],
+  connectors: [],
+  streams: [],
+  flowLegendsOn: false,
+  showSheetFrame: true,
+  gridVisible: true,
+  snapToGrid: true
+}
 ```
 
-Each graph vertex/edge should carry a reference to an existing domain ID. Rebuilding the canvas from a saved project must not create or rename domain objects. Graph events should call a small Sugar bridge for add/move/connect/disconnect/route operations; they should not write arbitrary cell data into solver inputs.
+### Migration Path to V6
+- **V6**: Add professional diagramming features to state while keeping V5 structure intact
+- **New top-level fields**: `layers`, `groups`, `selectionMode`, `multiSelect`, `smartGuidesOn`
+- **Per-page extensions**: Add `layerVisibility`, `groupDefinitions`
+- **Preserve**: All V5 fields and semantics
+- **Unknown field preservation**: During load, copy unknown fields to migrated state
 
-Use `BaseGraph` with only the required interaction plugins. Avoid maxGraph’s complete `Editor` shell, built-in properties UI, and independent undo history because the application already owns ribbon, dialogs, save/load, and history. Build station shapes from the current equipment catalog and preserve the current connector endpoint representation, including free points.
+### V6 State Additions (Backward-Compatible)
+```javascript
+{
+  // ... all V5 fields preserved ...
+  
+  // Diagram editor enhancements
+  multiSelectEnabled: true,        // Allow multi-select operations
+  selectionMode: 'single'|'add'|'subtract', // For Ctrl/Cmd modifier behavior
+  smartGuidesOn: true,             // Smart guides toggle
+  layerManagerEnabled: true,       // Layer system active
+  
+  // Multi-selection tracking
+  multiSelect: [                   // Array of selected object IDs when multi-select active
+    'node_A1',
+    'connector_S1'
+  ],
+  
+  // Layer system (per-page)
+  pages: [
+    {
+      // ... existing V5 page fields ...
+      layerDefinitions: [          // Defined layers for this page
+        { id: 'layer_1', name: 'Process Equipment', visible: true, locked: false },
+        { id: 'layer_2', name: 'Process Streams', visible: true, locked: false },
+        { id: 'layer_3', name: 'Steam', visible: true, locked: false },
+        { id: 'layer_4', name: 'Condensate', visible: true, locked: false },
+        { id: 'layer_5', name: 'Utilities', visible: true, locked: false },
+        { id: 'layer_6', name: 'Instrumentation', visible: false, locked: false },
+        { id: 'layer_7', name: 'Annotations', visible: false, locked: false }
+      ],
+      layerVisibility: {           // Runtime visibility overrides (per-page)
+        'layer_1': true,
+        'layer_2': true,
+        'layer_3': true,
+        'layer_4': true,
+        'layer_5': true,
+        'layer_6': false,
+        'layer_7': false
+      },
+      groupDefinitions: [          // Defined groups for diagram organization
+        { id: 'group_1', name: 'Clarification Station', 
+          members: ['node_A1', 'node_B1', 'node_C1'], 
+          isEngineeringGroup: false }  // true if maps to engineering station/container
+      ]
+    }
+  ]
+}
+```
 
-## 3. Packaging Decision
+### Migration Functions
 
-The current application is a classic-script page with no package manifest. maxGraph’s official README says package use is intended with a bundler and direct plain-page usage is unsupported. Add only the smallest build wrapper needed to install and bundle `@maxgraph/core` (for example, Vite); keep `main.js` and its Sugar calculations as legacy application code during the canvas migration. This is frontend packaging work, not a solver/data-model rewrite.
+```javascript
+function migrateV5ToV6(v5State) {
+  const v6State = { ...v5State }; // Spread preserves all V5 fields
+  
+  // Add new top-level fields with safe defaults
+  v6State.multiSelectEnabled = true;
+  v6State.selectionMode = 'single';
+  v6State.smartGuidesOn = true;
+  v6State.layerManagerEnabled = true;
+  v6State.multiSelect = [];
+  
+  // Migrate each page
+  if (v6State.pages && Array.isArray(v6State.pages)) {
+    v6State.pages = v6State.pages.map(page => {
+      const migratedPage = { ...page };
+      
+      // Add layer definitions if not present (backward compatibility)
+      if (!migratedPage.layerDefinitions) {
+        migratedPage.layerDefinitions = [
+          { id: 'layer_default', name: 'Default', visible: true, locked: false }
+        ];
+        migratedPage.layerVisibility = { 'layer_default': true };
+      }
+      
+      // Add group definitions if not present
+      if (!migratedPage.groupDefinitions) {
+        migratedPage.groupDefinitions = [];
+      }
+      
+      return migratedPage;
+    });
+  }
+  
+  return v6State;
+}
 
-Pin the tested maxGraph version, keep its Apache-2.0 license/attribution, and verify its distribution/build output before using it in a deployed copy. Do not install dependencies or change runtime files until the user approves implementation.
+function migrateV6ToV7(v6State) {
+  // Future migrations follow same pattern
+  // Always preserve unknown fields
+  const v7State = { ...v6State };
+  // ... V6 to V7 changes ...
+  return v7State;
+}
 
-## 4. Phases
+// Load-time migration dispatcher
+function loadProjectObject(obj) {
+  const version = obj.version ?? 5;
+  
+  switch (version) {
+    case 5:
+      return migrateV5ToV6(obj);
+    case 6:
+      return migrateV6ToV7(obj);
+    case 7:
+      // Current version - no migration needed
+      return obj;
+    default:
+      throw new Error(`Unsupported project version: ${version}`);
+  }
+}
+```
 
-### M0 — Baseline and contract freeze
+## Module Extraction Plan (Phase 1)
 
-- Run the existing app and record representative project files and solver results.
-- Preserve the current version-5 JSON fixtures and current palette inventory.
-- Add/confirm regression coverage for ports, free/external/internal Universal Flow, endpoint normalization, routing persistence, undo/redo, and solver outputs.
-- Record the current UI and rendering contract in `ARCHITECTURE_AUDIT.md` and feature decisions in `DRAWIO_ADOPTION_MATRIX.md`.
+### Goal: Extract core concerns into separate modules without changing behavior
 
-**Gate:** all baseline fixtures reopen and retain identity, routes, properties, and solver behavior.
+#### Priority 1: State Management (Low Risk)
+- **File**: `core/state.js`
+- **Contents**:
+  - State schema definition and defaults
+  - `snapshotStateJSON()`, `canonicalStateObject()`
+  - `pushHistory()`, `markChanged()`
+  - Version migration functions (`migrateV5ToV6()`)
+  - Page management (`ensurePageModel()`, `activePage()`, `saveActivePageData()`)
+- **Interface**: Export state object and mutation functions
+- **Verification**: Before/after extraction behavioral equivalence
 
-### M1 — Dependency and renderer spike
+#### Priority 2: Diagram Core (Low-Medium Risk)
+- **Files**:
+  - `diagram/ports.js` — Port definitions, compatibility, snapping logic
+  - `diagram/nodes.js` — Node types, rendering, equipment models
+  - `diagram/connectors.js` — Connector model, properties, endpoint attachment
+  - `diagram/routing.js` — Orthogonal routing engine (`routeOrthogonalBase`, `computedConnectorVertices`)
+- **Interface**: Pure functions operating on plain objects
+- **Verification**: Render output identical before/after
 
-- Create an isolated maxGraph canvas entry behind a renderer feature flag.
-- Add a bundled `BaseGraph` instance with selection, connection, panning/fit, and cell-rendering essentials only.
-- Render a small read-only projection: one Pan, one Evaporator, their semantic ports, an internal connector, and a free Universal Flow connector.
-- Compare geometry, visible identity/status, page clipping, zoom, and connector endpoints with the current canvas.
+#### Priority 3: Persistence & History (Low Risk)
+- **Files**:
+  - `core/persistence.js` — Save/load, File System Access, recovery, templates
+  - `core/history.js` — Undo/redo stack, `pushHistory()`, snapshot management
+- **Interface**: Async save/load functions, history control
+- **Verification**: Save/load roundtrip produces identical state
 
-**Gate:** no edits reach project state in this phase; current canvas remains the fallback; bundled app starts without runtime errors.
+#### Priority 4: Solver & Calculations (Medium Risk - Preserve Sugar Semantics)
+- **Files**:
+  - `solver/topology.js` — Network solver, required-flow/pressure paths
+  - `solver/validation.js` — Station validation, issue detection, self-tests
+  - `sugar/equipment.js` — Equipment domain model, port definitions
+  - `sugar/streams.js` — Process stream ledger, component calculations
+  - `sugar/calculations.js` — All engineering property calculations (Cp, BPE, solubility, etc.)
+- **Interface**: Solver takes engineering model, returns results with issues
+- **Critical**: Solver must NOT depend on DOM elements
+- **Verification**: Solve results identical before/after extraction
 
-### M2 — Read-only Sugar canvas projection
+## Feature Implementation Roadmap
 
-- Map each node ID to one graph vertex and each connector ID to one graph edge.
-- Render station name, tag/station number, solver state, and ports from current node/port definitions.
-- Render source/target port anchors using the current `port_id` and endpoint side; render point endpoints as genuinely dangling ends.
-- Render current page only. Rebuild the projection after project open, page switch, undo/redo, and solve; never serialize the graph model as the project.
+### Phase 0: Baseline (Completed)
+- [x] Create ARCHITECTURE_AUDIT.md
+- [x] Create DRAWIO_ADOPTION_MATRIX.md  
+- [x] Create MIGRATION_PLAN.md
+- [x] Commit baseline: `chore: establish application baseline`
 
-**Gate:** read-only render does not mutate JSON or alter a solve result.
+### Phase 1: Modularization (P0)
+Goal: Extract modules without changing behavior
+- [ ] Extract `core/state.js` — State management and migrations
+- [ ] Extract `core/history.js` — Undo/redo implementation
+- [ ] Extract `core/persistence.js` — Save/load and recovery
+- [ ] Extract `diagram/ports.js` — Port model and snapping
+- [ ] Extract `diagram/nodes.js` — Node types and rendering
+- [ ] Extract `diagram/connectors.js` — Connector model and properties
+- [ ] Extract `diagram/routing.js` — Orthogonal routing engine
+- [ ] Commit after each: `feat: extract <module>`
 
-### M3 — Interaction and adapter
+### Phase 2: Professional Diagram Engine (P1)
+Goal: Implement missing diagramming features
+- [ ] Implement multi-selection (Ctrl/Shift click, marquee box)
+- [ ] Implement smart guides (center/edge alignment, equal spacing)
+- [ ] Implement grid snapping with visual toggle
+- [ ] Implement viewport enhancements (mouse-wheel zoom, space-drag pan already present)
+- [ ] Commit features incrementally
 
-- Route palette insert actions through current station/flow creation commands.
-- Add move, selection, multi-selection, marquee, and keyboard interaction incrementally.
-- Validate a proposed connection through the existing direction, occupancy, and medium-compatibility rules before committing it.
-- Commit a topology edit only when an endpoint is released on a valid port; preserve neutral/free endpoints and external input/output roles.
-- Translate route-handle edits to the existing route mode/points/legacy fields. Keep route reset and endpoint reconnect behavior.
+### Phase 3: Engineering Model Separation (P2)
+Goal: Isolate engineering concerns from UI/diagram
+- [ ] Extract `solver/topology.js` — Network solver (must not touch DOM)
+- [ ] Extract `sugar/equipment.js` — Equipment domain model
+- [ ] Extract `sugar/streams.js` — Process stream calculations
+- [ ] Extract `sugar/calculations.js` — All engineering property math
+- [ ] Create `diagram/engineering-adapter.js` — Maps diagram ↔ engineering model
+- [ ] Verify solver operates on plain engineering objects only
 
-**Gate:** invalid connections are rejected with the existing Sugar reason; graph events preserve station and connector IDs; no graph operation bypasses the adapter.
+### Phase 4: Professional UI & Organization (P2+)
+Goal: Add professional organization features
+- [ ] Implement layer management system (visibility toggles)
+- [ ] Implement group/ungroup system (diagram organization)
+- [ ] Implement minimap and coordinate rulers
+- [ ] Enhance ribbon with advanced layout tools (align/distribute)
+- [ ] Commit organization features
 
-### M4 — Separate visual edits from engineering invalidation
+### Phase 5: Advanced Features (P3+)
+Goal: Polish and extend capabilities
+- [ ] Implement SVG/PNG export
+- [ ] Add engineering report generation
+- [ ] Enhance template/library system
+- [ ] Implement advanced routing (obstacle avoidance, stable routes)
+- [ ] Add diagram validation and diagnostics
 
-- Add explicit change classes: presentation geometry/style, topology, and engineering property.
-- Route bends, line styling, node movement, viewport changes, and visual grouping must not clear solver state unless domain semantics changed.
-- Endpoint attach/detach, port changes, equipment type changes, and engineering property changes must invalidate the appropriate solver state and diagnostics.
-- Make a complete drag/resize/route gesture one Sugar undo transaction. Keep one history owner; do not combine Sugar snapshots with a maxGraph undo manager.
+## Backward Compatibility Guarantees
 
-**Gate:** route-only edits preserve solved statuses and engineering values; topology/property edits invalidate and subsequently recompute as expected; undo/redo restores both view and domain state.
+### Project File Compatibility
+- V5 projects → migrate to V6 → save as V6 → reopen as V6 → migrate to V7...
+- **Never** silently drop fields from V5 projects
+- Unknown fields in loaded V5 objects are preserved in migrated state
+- Migration functions are pure and testable
 
-### M5 — Visio-style UI integration
+### Engineering Data Integrity
+- Visual changes (re-routing, moving bends) never invalidate solver unless:
+  - Equipment topology changes (endpoint attached to different port)
+  - Engineering property modified (temperature, pressure, DS, etc.)
+- Moving equipment visually (without port reattachment) is visual-only
+- Solver invalidation triggers only on:
+  - `markChanged()` calls from topology/property changes
+  - Not from visual-only operations (drag with snap-to-grid, bend movement)
 
-- Keep the current palette content and add search/category collapse, reusable drag previews, and polished selection states.
-- Restyle/extend the existing ribbon: File, Home, Insert, Design, View, Engineering, and Solver groups. Bind ribbon, context menu, keyboard, and palette actions to shared application commands where feasible.
-- Keep current station and stream engineering property panels. Add visual shape formatting as a distinct presentation-only section; do not substitute generic diagram properties for engineering forms.
-- Add missing editor features in priority order: marquee/multi-select, grid and smart guides, align/distribute, keyboard move, fit-to-selection, page rulers/minimap, then optional groups/layers.
+### UI/UX Continuity
+- Existing keyboard shortcuts preserved (Ctrl+Z, Ctrl+Y, Delete, Ctrl+Alt+N)
+- Existing ribbon structure maintained (File/Home/Insert/Design/.../Help)
+- Existing property window workflows preserved (double-click to edit)
+- Existing canvas interactions preserved (drag, endpoint connect, bend/segment drag)
 
-**Gate:** every ribbon command has a real handler or is clearly disabled; property editing preserves current behavior; visual formatting cannot overwrite Sugar parameters.
+## Risk Mitigation
 
-### M6 — Persistence, parity, and rollout
+### Technical Risks
+1. **State migration errors** → Mitigation: Write unit tests for `migrateV5ToV6()`, `migrateV6ToV7()`
+2. **Solver regression** → Mitigation: Compare solve results before/after extraction using known test schemes
+3. **Rendering differences** → Mitigation: Visual regression testing (screenshot comparison)
+4. **Performance degradation** → Mitigation: Profile extraction impact, prefer pure functions
 
-- Continue loading/saving version-5 Sugar JSON. Add only optional presentation fields with a migration if a new visual attribute must persist.
-- Preserve route fields and legacy connector compatibility. Build the graph projection from JSON on load; do not persist duplicate graph cells.
-- Test duplicate page, page activation, project recovery, save/open, report/export, solver audit, and all existing property workflows.
-- Run old and maxGraph renderers side-by-side on test fixtures, then enable the new renderer by default only after parity passes. Retain the old renderer as rollback until release acceptance.
+### Process Risks
+1. **Scope creep** → Mitigation: Stick to extraction-first, feature-second approach
+2. **Behavioral drift** → Mitigation: Automated smoke test: load scheme → render → save → reload → compare state
+3. **Team coordination** → Mitigation: Feature branches per module, frequent integration
 
-**Gate:** old project opens and round-trips without data loss; engineering outputs match baseline; rollback switch works.
+## Success Criteria
 
-## 5. Important Scope Decision: Pages
+### Phase 1 (Modularization) Complete When
+- All core concerns extracted to separate modules
+- Application starts, loads/saves projects identically to baseline
+- All existing functionality works: create node, move node, connect nodes, solve, audit
+- No change in solver output for identical input schemes
+- Commit: `refactor: extract core modules`
 
-The current implementation stores nodes and connectors per page and solves the active page independently; cross-page stream references are explicitly unavailable. This migration will preserve that behavior. The attachment’s desired project-wide engineering network and non-duplicated equipment across pages require a separate domain-model design, schema migration, and solver/topology decision. Do not imply that maxGraph can provide this as a visual-only feature.
+### Phase 2 (Professional Diagram) Complete When
+- Multi-selection works (Ctrl/click, Shift+click, marquee box)
+- Smart guides display during equipment movement
+- Grid snapping functional with visual toggle
+- Layers and groups stubbed out (UI present, data structures in place)
+- Commit: `feat: professional diagram engine`
 
-## 6. Test and Acceptance Checklist
+### Phase 3 (Engineering Separation) Complete When
+- Solver operates on plain engineering objects (no DOM dependencies)
+- Engineering model可替换 with mock for testing
+- Diagram engine communicates via well-defined adapter
+- Commit: `refactor: isolate engineering model`
 
-- All 29 visible palette entries render; source/legacy definitions still load from old files.
-- Node/connector IDs, station numbers, tags, port IDs, properties, and existing routes survive render, save, reload, page switch, duplicate, undo, and redo.
-- Test output→input, input/output acceptance, occupied ports, free connector endpoints, external input/output, and the one-stream-per-output rule.
-- Manual bend/segment/endpoint handles preserve orthogonality and do not change engineering topology unless an endpoint is reattached.
-- Run representative Pan, Evaporator, Injection Heater, Crystallizer, Centrifugal, Mixer, Splitter, and stream-property fixtures before/after; compare statuses, stream states, and balances.
-- Verify visual-only edit does not invalidate solve results; verify topology/property changes do.
-- Exercise 100+ node/connector canvases and multi-page projects; measure drag responsiveness and ensure no full-project rebuild on each pointer movement.
-- Verify console/runtime errors, keyboard accessibility, zoom/pan, print, and existing exports.
+### Final Sign-off
+- Existing V5 projects open, solve correctly, save as V6/V7
+- New projects exhibit professional diagramming behavior
+- Engineering calculations unchanged (bit-for-bit identical solver output)
+- All master prompt P0-P2 features implemented
+- Commit: `feat: complete professional diagram editor`
 
-## 7. Risks and Controls
+## References
 
-| Risk | Control |
-|---|---|
-| Two competing graph/project models | Treat maxGraph cells strictly as a projection; domain IDs and current JSON remain canonical. |
-| Connector direction or boundary semantics change | Use existing Sugar validation and commit endpoint changes only through the adapter. Test dangling and external connectors explicitly. |
-| Visual change invalidates solver or edits do not invalidate it | Split view-change notifications from topology/property invalidation before enabling editable graph events. |
-| Two undo stacks diverge | Retain Sugar history as the sole authority; batch one history snapshot per completed gesture. |
-| Build integration expands into a rewrite | Bundle only the new adapter/dependency; do not convert the solver or all application files to modules in this phase. |
-| maxGraph API or behavior differs from current connector UX | Pin version, prototype early, retain the current renderer behind a fallback. |
-| Cross-page process links are assumed to work | Keep page-local solver scope; handle shared engineering networks as a separately approved project. |
+1. [draw.io Architecture](https://github.com/jgraph/drawio/blob/master/doc/development/drawio-architecture.pdf)
+2. [draw.io mxGraph API](https://jgraph.github.io/mxgraph/docs/manual.html)
+3. [Sugar Engineering Domain Knowledge] — Authoritative source (preserved)
+4. [Version Migration Patterns] — Backward-compatible state evolution
 
-## 8. Upstream References
-
-- [maxGraph repository and setup](https://github.com/maxGraph/maxGraph)
-- [maxGraph selected-features example](https://github.com/maxGraph/maxGraph/tree/main/packages/ts-example-selected-features)
-- [maxGraph toolbar example](https://github.com/maxGraph/maxGraph/blob/main/packages/html/stories/Toolbar.stories.ts)
-- [maxGraph stencil example](https://github.com/maxGraph/maxGraph/blob/main/packages/html/stories/Stencils.stories.ts)
-- [draw.io repository](https://github.com/jgraph/drawio)
-- [Existing Sugar ribbon/multipage plan](Sugar_Ribbon_Multi_Page_Workspace_Implementation_Plan.md)
-- [Code-based architecture audit](ARCHITECTURE_AUDIT.md)
-- [Capability adoption matrix](DRAWIO_ADOPTION_MATRIX.md)
+---
+*This migration plan enables incremental evolution of the Sugar Engineering application into a professional diagramming environment while preserving the authoritative engineering domain model and solver.*

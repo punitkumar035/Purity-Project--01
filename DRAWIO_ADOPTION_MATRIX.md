@@ -1,38 +1,112 @@
-# Diagram-Editor Adoption Matrix
+# Draw.io Adoption Matrix
 
-This matrix compares verified Sugar application behavior with mature diagram-editor capabilities. “Adopt” means improve the interaction/rendering layer while preserving Sugar's domain model and solver. It does not mean importing draw.io code or data formats.
+This matrix maps the existing Sugar Engineering application's capabilities against draw.io reference repositories, documenting current state and recommended actions.
 
-| Capability | Current Sugar implementation | Reference/editor capability | Action for this project | Domain impact |
-|---|---|---|---|---|
-| Equipment identity | Stable node IDs, station number, tag, type code, parameters | Cells carry IDs/user objects | Map graph cell IDs to existing node IDs; never regenerate identity on redraw | None |
-| Equipment shapes | HTML-rendered Sugar stations from `nodeDefs` | Custom shapes, style registries | Render custom Sugar station shapes with labels, identity, status, and semantic ports | None |
-| Stencil library | 29 visible palette entries; drag/double-click creation | Drag-source palettes and stencil viewers | Reuse the existing categorized palette first; route insert commands through the existing node creation API | None |
-| Ports | Named fixed-side input/output ports with category acceptance | Anchors/constraints and connection validation | Preserve existing port IDs/sides/acceptance; use graph connection constraints or port cells as a rendering detail | None |
-| Connector identity | Stable connector ID and semantic endpoint references | Edge cells with terminals | Map edge ID to connector ID; keep current connector object as authority | None |
-| Universal Flow | Free, dangling, boundary, and internal stream forms; topology-derived role | Edges may have terminals or free points | Add a custom endpoint adapter; preserve free endpoints, role intent, and output-to-input normalization | Must preserve exactly |
-| Port validation | Compatibility, direction, occupancy, topology checks | Pre-connect validators | Call current validation before accepting a graph connection; display its rejection reason | None |
-| Orthogonal routing | Direction-aware orthogonal routing and crossing jumps | Multiple edge styles and routers | Start with maxGraph orthogonal rendering; compare output and retain custom Sugar route behavior where needed | Geometry only |
-| Obstacle avoidance | Not present in current automatic route calculation | Advanced route/layout options | Treat as a later enhancement, behind the route-parity tests | Geometry only |
-| Manual route editing | Endpoint, segment, bend, reset, and route persistence | Edge handlers and custom handles | Map graph edge handles to current `route_points` and route mode; preserve one undo step per gesture | Geometry only |
-| Selection | Single node or connector selection | Multi-selection, marquee, keyboard selection | Add multi-select/marquee incrementally; keep selection IDs in app UI state and forward to current property views | None |
-| Port snapping | Compatible-port hit testing with screen-space feedback | Magnetic terminals/guides | Preserve Sugar compatibility filtering; maxGraph must not accept arbitrary terminals | Topology only on commit |
-| Grid/smart guides | Grid visibility exists; port snap exists; no grid snap or smart guides found | Grid, guides, edge/center/spacing snapping | Add visual grid and smart alignment as view features; persist settings only as presentation metadata | None |
-| Viewport | Zoom/reset/fit and scrollbars; fixed world; no minimap/rulers found | Pan, wheel zoom, fit, minimap, rulers | Use maxGraph viewport plugins and controls; map zoom/page state back to existing page fields | None |
-| Undo/redo | JSON snapshots, max depth 80, station edit transaction | Model-level undo managers | Keep one authoritative Sugar history. Do not enable an independent maxGraph undo stack. | Preserve current project history |
-| Geometry invalidation | `markChanged()` currently resets solver state even after visual edits | Diagram editors separate geometry from business data | Introduce explicit presentation-change vs engineering-change paths before/with canvas replacement | Required behavior fix |
-| Pages | Page manager, page tabs, order/rename/duplicate/setup, per-page nodes and connectors | Multipage diagrams | Preserve current page structure and active-page rendering; do not imply cross-page engineering links | Page-local today |
-| Cross-page networks | Not supported; solver resolves active page independently | Shared linked diagrams / off-page references | Defer. Requires an explicit engineering-model decision and project migration, not a renderer feature | Significant model change |
-| Layers | No layer model found | Hide/lock/reorder layers | Add later as presentation-only grouping; hidden layers must not remove nodes from engineering state | None if visual only |
-| Groups | No general graph grouping found | Group/ungroup and containers | Add later with view-only group objects; do not translate groups into process stations | None unless explicitly mapped |
-| Engineering properties | Existing station/stream panels and dialogs | Generic format/property inspector | Keep Sugar Engineering panels; add a separate visual Format section only for diagram styling | Keep domain properties authoritative |
-| Ribbon | Existing custom ribbon tabs and command callbacks | Application-specific ribbon/toolbars | Restyle/extend current ribbon and route actions through existing commands; maxGraph does not supply a complete Visio ribbon | None |
-| Persistence | Version-5 JSON with migration/normalization | Graph XML/model serialization | Keep current JSON as the project format; graph cells are rebuilt from state on load | Must preserve old files |
-| Exports | JSON/page JSON, CSV, Excel backend, print/PDF | SVG/PNG and diagram exports | Keep existing exports; add SVG/PNG only after graph rendering parity and export acceptance | None |
-| Solver and audit | Sugar-specific balances, property calculations, validation and audit | Generic graph algorithms | Never delegate process meaning or calculations to the diagram engine | No substitution |
-| Performance | HTML/SVG rebuilds on render calls; wires redraw during movement | Incremental model/view updates | Use incremental graph updates and batch changes; benchmark realistic large PFDs before removing old renderer | None |
+## Reference Sources
 
-## Draw.io Reference Use
+- **draw.io** (jgraph/drawio): Mature diagram editor with complete feature set
+- **draw.io-libs** (jgraph/drawio-libs): Pre-built libraries and stencils
+- **drawio-desktop** (jgraph/drawio-desktop): Desktop client with full feature set
 
-Study [draw.io](https://github.com/jgraph/drawio) and [draw.io libraries](https://github.com/jgraph/drawio-libs) for interaction patterns, file/page/layer UX, and palette concepts. Do not copy its application or schema. Use [maxGraph](https://github.com/maxGraph/maxGraph) as the candidate graph rendering/interaction library and adapt it to Sugar's connector contracts.
+## Capability Comparison Table
 
-Useful maxGraph references include its [toolbar story](https://github.com/maxGraph/maxGraph/blob/main/packages/html/stories/Toolbar.stories.ts), [stencil story](https://github.com/maxGraph/maxGraph/blob/main/packages/html/stories/Stencils.stories.ts), and [selected-features example](https://github.com/maxGraph/maxGraph/tree/main/packages/ts-example-selected-features). Prefer `BaseGraph` with explicitly selected plugins over adopting a full editor shell.
+| Capability | Existing Sugar App | Draw.io Reference | Action / Decision |
+|------------|-------------------|-------------------|-------------------|
+| **Nodes** | ✅ 34+ domain-specific equipment types (Pan, Crystallizer, Centrifugal2/3, Magma, Melter, Evaporator, Heater, etc.)<br>Each with fixed port count, type-specific parameters, engineering semantics | ✅ Mature node system with configurable shapes, icons, labels, and custom properties | ✅ **Improve/Adapt** — Domain-specific equipment already present; enhance visual representation and add grouping/layer support |
+| **Ports** | ✅ Explicit port model with `inputs[]`/`outputs[]` definitions<br>Each port has: ID, name, accept category, side (left/right/top/bottom), engineered compatibility rules<br>Port compatibility logic (`portCompatibilityForEndpoint`, `glueConnectorEndpointToPort`) | ✅ Comprehensive port system with connection rules, compatibility, and smart snapping | ✅ **Improve** — Port model is robust; extend with drag-and-drop from palette, visual snap candidates, and multi-port groups |
+| **Connectors** | ✅ Process stream model with topological semantics<br>Each has: source/target endpoints, quantity/pressure modes, streamClass, mediumType, solubility, components, props, solveStatus, solverMessage | ✅ Edge/connection system with orthogonal/bezier routing, handles, segment manipulation | ✅ **Improve** — Orthogonal routing already implemented with bend/segment handles; add manual routing override and stable route preservation |
+| **Orthogonal Routing** | ✅ `routeOrthogonalBase`, `computedConnectorVertices`, `wirePath`, bend/segment drag<br>Auto-reset (`resetConnectorAutoRoute`), snap to endpoints, manual vertex manipulation | ✅ Advanced orthogonal routing with obstacle avoidance and stable routes | ✅ **Upgrade** — Sugar routing is functional; enhance with obstacle avoidance, route stability guarantee (connectors may move visually without topology change), and manual bend manipulation |
+| **Selection** | ❌ Single only (`selected = {kind, id}`)<br>Contextual ribbon commands on object select | ✅ Multi-selection, Ctrl/Cmd+Click, Shift+Click, marquee box selection | ⬆ **Upgrade** — **Must implement**: Multi-selection (Ctrl+click, Shift+click, marquee), escape/deselect, select-all |
+| **Snapping** | ✅ Port snapping with visual feedback (snap-candidate/incompatible CSS classes)<br>Grid snapping flag (`snapToGrid: true`) in state, CSS grid present | ✅ Grid snap, port snap, edge snap, center snap, smart guides | ⬆ **Upgrade** — Port snapping already present; add grid snapping with visual toggle, smart guides (center/edge alignment), and temporary guides |
+| **Smart Guides** | ❌ Not implemented | ✅ Center alignment, edge alignment, equal spacing, temporary guides, snap tolerance | ⬆ **Implement** — **Must implement**: When moving equipment, display center/edge alignment guides, equal spacing, and snap tolerance |
+| **Pages** | ✅ Full multi-page system (PageManager)<br>Create/duplicate/rename/delete pages, keyboard shortcuts (Ctrl+Alt+N, PageUp/PageDown), page setup (A4/A3/Letter, landscape/portrait)<br>Sheet frame & title block toggle, status pill ("Page 1 of N") | ✅ Visual page tabs, multi-page document support, navigation | ✅ **Preserve** — Full system already implemented; enhance with cross-page engineering references and better cross-page connectivity warnings |
+| **Layers** | ❌ Not implemented | ✅ Layer visibility control, separate layer groups (Process Equipment, Process Streams, Steam, Condensate, Utilities, Instrumentation, Annotations, Dimensions, Engineering Notes) | ⬆ **Implement** — **Must implement**: Layer system where hidden layers still preserve engineering data visually; layer visibility toggles; data integrity across layer visibility changes |
+| **Groups** | ❌ Not implemented | ✅ Group/ungroup, group movement, group selection, group resize<br>Example: Clarification Station group (Heater + Flash Tank + Clarifier + Mud Filter) | ⬆ **Implement** — **Must implement**: Primary diagram organization mechanism, separate from engineering stations but support station mapping if needed |
+| **Undo/Redo** | ✅ Full undo/redo stack (80 entries max)<br>`pushHistory()` / `snapshotStateJSON()`, Ctrl+Z / Ctrl+Y, suppress history flag | ✅ Transaction-based history, per-action undo steps | ✅ **Preserve + Improve** — System already robust; enhance to prevent hundreds of entries during drag (one action = one undo step) |
+| **Persistence** | ✅ JSON export/load, File System Access API, localStorage recovery<br>Templates in localStorage (`massecuite_template_index`), recovery version (`v5`) | ✅ Full project persistence, versioning, import/export, templates | ✅ **Preserve + Version** — Maintain backward compatibility; add schema migration system (`migrateV5ToV6()`, etc.) |
+| **Solver** | ✅ Complete phase-1/2/3 solver with station-specific routines<br>`runPhase23Solver()`, required-flow paths, pressure-feedback paths, stream/node status | ✅ Generic graph engine only (no engineering semantics) | ⛔ **KEEP SUGAR** — Do not replace with generic graph engine. Maintain Sugar-specific solver with mass/energy balance calculations |
+| **Engineering Calculations** | ✅ Complete property package: Cp (Hugot/Hugot_simple/user), BPE (Saska ASI 2002/Eq.8/Bubnik-Kadlec), solubility (Vavrinecz/ICUMSACoefficients a/b/c), density (Lyle 1957/Rein Eq. 32.8), water/steam (IAPWS-IF97), entrainment, UA, colour, pansolubility | ❌ Not applicable (generic diagram app) | ⛔ **KEEP SUGAR** — Do not replace engineering calculations to simplify architecture |
+| **Equipment Model** | ✅ 34+ domain-specific equipment types with tags, station numbers, ports, parameters<br>Each equipment object retains: identity, type, tag, station number, engineering properties, ports, process relationships, solver relationships | ❌ Generic shapes only | ⛔ **KEEP SUGAR** — Do not convert Sugar equipment into generic shapes |
+| **Process Streams** | ✅ Connector-based topology with boundary detection (source/sink)<br>Universal Flow stencil for free placement, topology rules (one stream per output port, use splitter for branching)<br>Stream properties: flow, temperature, pressure, composition, DS, purity, Brix, colour | ❌ Generic edges only | ⛔ **KEEP SUGAR** — Maintain Sugar-specific stream semantics (role, medium, quantity/pressure modes, composition) |
+| **Engineering Validation** | ✅ Solver audit (steps, required/pressure paths, stream/node status)<br>Issue modal with exact panel/property/correction<br>Connection validation, topology issues, self-tests (phase 483/4833/Saska BPE) | ❌ Not equivalent (different semantics) | ⛔ **KEEP SUGAR** — Maintain Sugar-specific validation and audit |
+
+## Key Insights
+
+### What Sugar Already Solves Better Than draw.io
+
+1. **Engineering Semantics** — Every connector represents a real process stream with medium, role, quantity mode, pressure mode, composition data. draw.io edges have no such semantics.
+
+2. **Solver Integration** — The solver walks the network topology, computes mass/energy balances, and returns station/node status. draw.io has no solver.
+
+3. **Equipment Domain Knowledge** — 34+ Sugar-specific equipment types with type-specific parameter validation (Pan BPE/convergence, Crystallizer supersaturation, Evaporator HTC/area, etc.).
+
+4. **Calculation Preservation** — Engineering properties (DS, purity, Brix, temperature, pressure, solubility coefficients) are authoritative data, not just display.
+
+5. **Project History & Recovery** — Full versioned JSON persistence with browser recovery and template library.
+
+### What draw.io Solves Better Than Current Sugar App
+
+1. **Professional Diagram Editor Features**
+   - Multi-selection (single-select only currently)
+   - Marquee selection (absent)
+   - Group/ungroup functionality (absent)
+   - Layer management (absent — only wire + node DOM layers)
+   - Minimap (absent)
+   - Coordinate rulers (absent)
+   - Smart guides (absent — no alignment/edge guides)
+   - Alignment/distribution tools (absent)
+   - Bring/send backward/forward (absent)
+
+2. **Visual Polish**
+   - More sophisticated UI animations/interactions
+   - Advanced SVG rendering (opacity, stroke gradients, etc.)
+   - Better text handling and labeling
+
+3. **Template/Stencil Libraries**
+   - Pre-built shape libraries (though Sugar's engineering palette is more domain-specific)
+
+### Hybrid Recommendation
+
+The optimal path is **NOT** to replace the Sugar Engineering model with draw.io's generic diagram model, but rather:
+
+1. **Implement missing professional diagramming features** as UI layer on top of the existing engineering model
+2. **Adapt draw.io architectural patterns** (model-view separation, command pattern for history, event-driven interaction) without copying code
+3. **Preserve all engineering semantics** — the sugar-specific model is the authoritative source
+
+### Action Items from This Matrix
+
+| Priority | Capability | What to Do |
+|----------|------------|------------|
+| **P0** | Multi-selection | Implement Ctrl+click, Shift+click, marquee box selection |
+| **P1** | Smart Guides | Center/edge alignment guides when moving equipment |
+| **P1** | Layers | Layer visibility system with data integrity guarantee |
+| **P1** | Groups | Group/ungroup for diagram organization |
+| **P2** | Rulers | Coordinate rulers (x, y position display) |
+| **P2** | Minimap | Overview map of entire canvas |
+| **P2** | Alignment/Distribution | Align left/right/center, distribute horizontally/vertically |
+| **P3** | Solver Hardening | Isolate solver from DOM, ensure it operates on engineering model |
+| **P3** | Migration System | Schema versioning (`migrateV5ToV6()`, etc.) |
+| **P4** | SVG/PNG Export | Eventual export capability beyond JSON/Excel/PDF |
+
+## Dependency-Aware Implementation Order
+
+```
+Phase 1 (Modularization):        Extract core/state.js, diagram/connectors.js, diagram/routing.js
+Phase 2 (Professional Diagram):  Multi-selection + marquee, viewport/snapping upgrade
+Phase 3 (Engineering Model):     Engineering adapter layer, solver isolation, migration system
+Phase 4 (Professional UI):       Layers, groups, rulers, minimap, export SVG/PNG
+```
+
+## Code References in Sugar App
+
+Key functions already implementing draw.io-adjacent patterns:
+- `snapshotStateJSON()` — line 1413 (undo/redo state capture)
+- `canonicalStateObject()` — line 1359 (state normalization)
+- `connectorRole()` — line 994 (stream role determination)
+- `connectorTopologyIssues()` — line 1027 (topology validation)
+- `portCompatibilityForEndpoint()` — line 2861 (port compatibility)
+- `glueConnectorEndpointToPort()` — line 2286 (endpoint gluing)
+- `routeOrthogonalBase()` — line 2587 (orthogonal routing)
+- `runPhase23Solver()` — line 11273 (solver engine)
+- `renderSolverAudit()` — line 11375 (audit display)
+- `PageManager` — multi-page system (create/duplicate/navigate)

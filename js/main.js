@@ -8,18 +8,28 @@
   const emptyState = document.getElementById('emptyState');
   const statusEl = document.getElementById('solverStatus');
   const statusText = document.getElementById('statusText');
+  const statusIcon = document.getElementById('statusIcon');
   const schemeName = document.getElementById('schemeName');
   const fileInput = document.getElementById('fileInput');
   const contextMenu = document.getElementById('contextMenu');
 
   const WORLD_W = 2200, WORLD_H = 1400;
+  // Per-type minimum stencil size for resize (keeps room for header text +
+  // at least a couple of ports per side without them overlapping).
+  const NODE_MIN_SIZE = {
+    source: {w:110, h:44},
+    default: {w:140, h:90}
+  };
+  function nodeMinSize(node){
+    return NODE_MIN_SIZE[node.type] || NODE_MIN_SIZE.default;
+  }
   let zoom = 1;
   let selected = null; // {kind:'node'|'connector', id}
   let pendingConnection = null; // transient normal output→input connection preview; not persisted
   let connectorDrag = null;
     let state = {
     version: 5,
-    schemaVersion: 1,
+    schemaVersion: 2,
     name: 'New Massecuite Scheme',
     activePageId: 'page_1',
     pages: [
@@ -40,14 +50,18 @@
     nodes: [],
     connectors: [],
     streams: [],
+    flows: [],
     flowLegendsOn: false,
     showSheetFrame: true,
+    unitSystem: 'SI',
+    modelAtmosphericKPa: 101.325,
     gridVisible: true,
     snapToGrid: true
   };
   state.pages[0].nodes = state.nodes;
   state.pages[0].connectors = state.connectors;
   state.pages[0].streams = state.streams;
+  installStreamsLiveView(state);
 
   function ensurePageModel(s) {
     if (!s) return;
@@ -145,6 +159,34 @@
         return conn;
       });
 
+      // Duplicated link halves get duplicated shared flows: clone each referenced
+      // flow once, repoint the clones' halves, and remap ends at cloned stations.
+      // Halves on other pages keep referencing the original flow untouched.
+      const clonedFlowIds = new Map();
+      clonedConnectors.forEach(conn => {
+        if (!conn.linkHalf || !conn.flowId) return;
+        if (!clonedFlowIds.has(conn.flowId)) {
+          const orig = (state.flows || []).find(f => f.id === conn.flowId);
+          if (!orig) return;
+          const fc = clone(orig);
+          fc.id = uid('flow');
+          fc.solveStatus = 'UNCONNECTED';
+          fc.solverMessage = 'Duplicated link flow — verify ends.';
+          fc.requiredPath = [];
+          fc.pressurePath = [];
+          for (const k of ['source', 'sink']) {
+            const e = fc[k];
+            if (e?.station_id && idMap.has(e.station_id)) {
+              e.station_id = idMap.get(e.station_id);
+              e.pageId = newId;
+            }
+          }
+          state.flows.push(fc);
+          clonedFlowIds.set(conn.flowId, fc.id);
+        }
+        conn.flowId = clonedFlowIds.get(conn.flowId);
+      });
+
       const newPage = {
         id: newId,
         name: 'Copy of ' + srcPage.name,
@@ -181,13 +223,40 @@
       }
       const pg = state.pages.find(p => p.id === pageId);
       if (!pg) return;
-      if (!confirm('Delete page "' + pg.name + '" and all its stations?')) return;
+      // Spec §5.5/§5.6: list affected link flows BEFORE deleting. Policy is
+      // keep-mate (flagged unpaired): mates on other pages survive, flow ends
+      // at deleted stations are repaired after the splice below.
+      // NOTE: live state.* arrays for the active page (page copies can be stale).
+      const liveNodes = (pg.id === state.activePageId) ? state.nodes : (pg.nodes || []);
+      const liveConns = (pg.id === state.activePageId) ? state.connectors : (pg.connectors || []);
+      const pgNodeIds = new Set(liveNodes.map(n => n.id));
+      const pgHalfFlowIds = new Set(liveConns.filter(c => c.linkHalf === true && c.flowId).map(c => c.flowId));
+      const affected = (state.flows || []).filter(f =>
+        pgHalfFlowIds.has(f.id) ||
+        (f.source?.station_id && pgNodeIds.has(f.source.station_id)) ||
+        (f.sink?.station_id && pgNodeIds.has(f.sink.station_id))
+      );
+      const affectedNote = affected.length
+        ? `\n\n${affected.length} link flow(s) touch this page${affected.length > 3 ? ' (first 3 shown)' : ''}:\n` +
+          affected.slice(0, 3).map(f => {
+            const ends = [f.source, f.sink].filter(Boolean).map(e => {
+              const st = getNodeAnywhere(e.station_id);
+              return `${st?.node?.stationNumber ?? '?'} (${(state.pages || []).find(p => p.id === e.pageId)?.name || e.pageId || '?'})`;
+            }).join(' → ') || 'unpaired';
+            return `• ${ends}`;
+          }).join('\n') +
+          `\nMates on other pages will be kept and flagged as unpaired.`
+        : '';
+      if (!confirm('Delete page "' + pg.name + '" and all its stations?' + affectedNote)) return;
 
       pushHistory();
       saveActivePageData();
       const idx = state.pages.findIndex(p => p.id === pageId);
       state.pages.splice(idx, 1);
       state.pages.forEach((p, i) => { p.order = i; });
+      // Flow records must forget ends glued to stations on the deleted page,
+      // or surviving mates would keep showing stale station numbers.
+      (state.flows||[]).forEach(f=>repairFlowEnds(f,state.pages));
 
       if (state.activePageId === pageId) {
         const nextIdx = Math.min(idx, state.pages.length - 1);
@@ -441,38 +510,30 @@
     evaporator: {
       title:'Evaporator Effect', icon:'Ev',
       inputs:[
-        {id:'steam',name:'Motive Steam / Vapour',accept:'thermal',side:'left'},
-        {id:'juice',name:'Juice In',accept:'material',side:'left'}
+        {id:'in1',name:'Steam / Vapor In',accept:'thermal',side:'left'},
+        {id:'in0',name:'Juice In',accept:'material',side:'left'}
       ],
       outputs:[
-        {id:'vapour',name:'Evaporated Vapour',category:'thermal',side:'top'},
-        {id:'condensate',name:'Condensate Out',category:'condensate',side:'bottom'},
-        {id:'syrup',name:'Syrup / Concentrated Juice',category:'material',side:'right'}
+        {id:'out1',name:'Vapor Out',category:'thermal',side:'top'},
+        {id:'out2',name:'Condensate Out',category:'condensate',side:'bottom'},
+        {id:'out0',name:'Juice / Syrup Out',category:'material',side:'right'}
       ],
       defaults:{
-        effectNumber:'1',
-        specMode:'HTC_AREA',
-        heatTransferCoefficient:'1850.0',
-        heatingSurface:'2000.0',
-        vaporPressure:'20.0',
-        satTemperature:'60.1',
-        flowOutTemp:'102.5',
-        pressureFeedback:'0',
-        totalSolidsPct:'65.0',
-        heatLossPercent:'1.5',
-        condensateDropK:'2.0',
-        entrainmentPpm:'50',
-        bpeFactor:'1.0',
-        colorRise:'5.0',
-        vaporBleedFlow:'0.0',
-        solidsControl:'TARGET_BRIX',
-        targetBrix:'65.0',
-        targetEvapRate:'',
-        pressureMode:'VAPOUR_PRESSURE',
-        vapourPressure:'20.0',
-        vapourTemp:'60.1',
-        bpeMethod:'BUBNIK_KADLEC_1995_TECHNICAL',
-        condensateSubcooling:'2.0',
+        shapeVariant:'Robert',
+        equipmentId:'',
+        stationName:'',
+        effectNo:'1',
+        mode:'PRESSURE',
+        htc_W_m2K:'',
+        heatingSurface_m2:'0.0',
+        heatLossPct:'0.00',
+        condensateDropK:'0.0',
+        vaporPressure:{value:'0.0',unit:'kPa'},
+        satTemp_C:'0.0',
+        entrainment_mgPerKg:'0',
+        flowOutTemp_C:'',
+        totalSolidsPct:'0.00',
+        colorRise:{value:'0.00',unit:'%'},
         notes:''
       }
     },
@@ -530,6 +591,30 @@
       inputs:[{id:'in1',name:'In 1'},{id:'in2',name:'In 2'},{id:'in3',name:'In 3'}],
       outputs:[{id:'out',name:'Mixed'}],
       defaults:{notes:''}
+    },
+    blender: {
+      title:'Blender', icon:'Bl',
+      inputs:[
+        {id:'primary',name:'Primary Flow In (Port 0)',accept:'material',side:'left'},
+        {id:'blend',name:'Blend Flow In (Port 1)',accept:'material',side:'top'}
+      ],
+      outputs:[{id:'out',name:'Blended Out',category:'material',side:'right'}],
+      defaults:{
+        controlMode:'RATIO',
+        ratio:'0.3',
+        ratioBasis:'TOTAL',
+        ratioComponent:'Total',
+        blendQuantity:'0',
+        outputSpecMode:'NONE',
+        outputNSWaterRatio:'0',
+        outputQuantity:'0',
+        outputDS:'0',
+        outputPurity:'0',
+        outputTemp:'0',
+        outputComponent:'Total',
+        outputComponentPct:'0',
+        notes:''
+      }
     },
     splitter: {
       title:'Splitter', icon:'Sp',
@@ -705,36 +790,29 @@
       outputs:[{id:'juiceOut',name:'Treated Juice Out',category:'material',side:'right'}],
       defaults:{targetPH:'7.2',reactionTemp:'75.0',residenceTimeMin:'15.0',notes:''}
     },
-    separatorFilter: {
+    separator: {
       title:'Separator / Filter Station', icon:'SF',
       inputs:[
         {id:'feedIn',name:'Process Feed In (Port 0)',accept:'material',side:'left'},
-        {id:'washWater',name:'Diluent / Wash In (Port 1)',accept:'material',side:'top'}
+        {id:'washWater',name:'Diluent / Wash In (Port 1) — optional',accept:'material',side:'top'}
       ],
       outputs:[
         {id:'filtrateOut',name:'Primary Separated Out 1',category:'material',side:'right'},
         {id:'cakeOut',name:'Secondary Separated Out 2',category:'material',side:'bottom'}
       ],
       defaults:{
-        diluentMode:'NO_RATIO',
-        diluentRatio:'0.150',
-        diluentRatioBasis:'TOTAL',
-        diluentOut1Pct:'30.00',
-        comp1Name:'SUCROSE_CRYSTALS',
-        comp1Out1Pct:'100.00',
-        comp2Name:'DISSOLVED_SUCROSE',
-        comp2Out1Pct:'50.00',
-        comp3Name:'WATER',
-        comp3Out1Pct:'40.00',
-        comp4Name:'NON_SUCROSE_1',
-        comp4Out1Pct:'30.00',
-        otherCompOut1Pct:'0.00',
-        colorOut1Pct:'100.00',
-        presetProfile:'CUSTOM',
-        filtrateRecoveryPct:'85.0',
-        cakeMoisturePct:'70.0',
-        polInCakePct:'1.5',
-        notes:''
+        separator:{
+          splits:[
+            {component:'crystals',pctToOut1:100},
+            {component:'sucrose',pctToOut1:50},
+            {component:'water',pctToOut1:40},
+            {component:'ns1',pctToOut1:30}
+          ],
+          otherComponentsPctToOut1:0,
+          colorPctToOut1:100,
+          diluent:{mode:'NO_RATIO',ratio:0.15,ratioComponent:'TOTAL',outFlow1Pct:30},
+          notes:''
+        }
       }
     },
     tank: {
@@ -993,6 +1071,9 @@
 
   function connectorRole(s){
     if(!s)return 'UNCONNECTED';
+    // Link halves are drawing handles for a shared flow record (Helpbook mated
+    // pair); they carry no engineering payload and never enter the solver.
+    if(s.linkHalf===true)return 'LINK_HALF';
 
     const sourceIsPort=connectorEndpointIsPort(s.source);
     const targetIsPort=connectorEndpointIsPort(s.target);
@@ -1053,7 +1134,7 @@
 
     if(connectorEndpointIsPort(s.source)){
       const duplicates=state.connectors.filter(o=>
-        o.id!==s.id && connectorSolverActive(o) &&
+        o.id!==s.id && (connectorSolverActive(o)||o.linkHalf===true) &&
         connectorEndpointIsPort(o.source) &&
         o.source.station_id===s.source.station_id &&
         o.source.port_id===s.source.port_id
@@ -1062,7 +1143,7 @@
     }
     if(connectorEndpointIsPort(s.target)){
       const duplicates=state.connectors.filter(o=>
-        o.id!==s.id && connectorSolverActive(o) &&
+        o.id!==s.id && (connectorSolverActive(o)||o.linkHalf===true) &&
         connectorEndpointIsPort(o.target) &&
         o.target.station_id===s.target.station_id &&
         o.target.port_id===s.target.port_id
@@ -1110,6 +1191,10 @@
     return n ? state.streams.filter(s=>s.fromNodeId===n.id && s.quantityMode==='REQUIRED').length : 0;
   }
 
+  function separatorRequiredOutputCount(n){
+    return n ? state.streams.filter(s=>s.fromNodeId===n.id && (s.fromPortId==='filtrateOut'||s.fromPortId==='cakeOut') && s.quantityMode==='REQUIRED').length : 0;
+  }
+
   function applyAutomaticConnectorSemantics(s){
     if(!s)return;
     const isPanHeat=connectorFeedsPanHeatingPort(s);
@@ -1138,6 +1223,9 @@
   function applyAllAutomaticConnectorSemantics(){
     state.connectors.forEach(applyAutomaticConnectorSemantics);
     applyCentrifugalRequiredMassecuiteSemantics();
+    applySeparatorRequiredInputSemantics();
+    applyEvaporatorRequiredInputSemantics();
+    applyEvaporatorSteamRequiredSemantics();
   }
   function applyCentrifugalRequiredMassecuiteSemantics(){
     state.nodes.filter(n=>n.type==='centrifugal2'||n.type==='centrifugal3').forEach(n=>{
@@ -1146,6 +1234,94 @@
       if(!mc)return;
       if(reqOuts.length===1){mc.autoQuantityRule='CENTRIFUGAL_MASSECUITE_REQUIRED';mc.quantityMode='REQUIRED';mc.solverMessage=mc.solverMessage||'Massecuite is Required [R] because a centrifugal output is required.';}
       else if(mc.autoQuantityRule==='CENTRIFUGAL_MASSECUITE_REQUIRED'){delete mc.autoQuantityRule;mc.quantityMode=streamBoundaryType(mc)==='EXTERNAL_IN'?'KNOWN':'CALCULATED';}
+    });
+  }
+  // Helpbook Separator rule: if exactly one output is Required, the Port 0 input
+  // flow becomes Required (back-solved by the downstream demand). Both outputs
+  // Required at once is unsatisfiable and blocked at solve time.
+  function applySeparatorRequiredInputSemantics(){
+    state.nodes.filter(n=>n.type==='separator').forEach(n=>{
+      const reqOuts=state.streams.filter(s=>s.fromNodeId===n.id&&(s.fromPortId==='filtrateOut'||s.fromPortId==='cakeOut')&&s.quantityMode==='REQUIRED');
+      const feed=state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='feedIn');
+      if(!feed)return;
+      if(reqOuts.length===1){feed.autoQuantityRule='SEPARATOR_FEED_REQUIRED';feed.quantityMode='REQUIRED';feed.solverMessage=feed.solverMessage||'Feed is Required [R] because a separator output is required.';}
+      else if(feed.autoQuantityRule==='SEPARATOR_FEED_REQUIRED'){delete feed.autoQuantityRule;feed.quantityMode=streamBoundaryType(feed)==='EXTERNAL_IN'?'KNOWN':'CALCULATED';}
+    });
+  }
+  // Evaporator stencil spec §7.8: out0 required → in0 required (same body), and
+  // syrup out of the multiple required → juice into Effect 1 required.
+  function applyEvaporatorRequiredInputSemantics(){
+    const byId={};
+    (state.nodes||[]).forEach(n=>{byId[n.id]=n;});
+    const markFeed=(node,why)=>{
+      const feed=state.streams.find(s=>s.toNodeId===node.id&&s.toPortId==='in0');
+      if(!feed)return;
+      feed.autoQuantityRule='EVAPORATOR_FEED_REQUIRED';
+      feed.quantityMode='REQUIRED';
+      feed.solverMessage=feed.solverMessage||why;
+    };
+    const clearFeed=(node)=>{
+      const feed=state.streams.find(s=>s.toNodeId===node.id&&s.toPortId==='in0');
+      if(feed&&feed.autoQuantityRule==='EVAPORATOR_FEED_REQUIRED'){
+        delete feed.autoQuantityRule;
+        feed.quantityMode=streamBoundaryType(feed)==='EXTERNAL_IN'?'KNOWN':'CALCULATED';
+      }
+    };
+    state.nodes.filter(n=>n.type==='evaporator').forEach(n=>{
+      const out0=state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='out0');
+      if(out0&&out0.quantityMode==='REQUIRED')markFeed(n,'Juice is Required [R] because the evaporator syrup output is required.');
+      else clearFeed(n);
+    });
+    evaporatorMultiples().forEach(run=>{
+      if(run.broken)return;
+      const members=run.members.map(id=>byId[id]).filter(Boolean);
+      if(!members.length)return;
+      const last=members[members.length-1];
+      const lastOut=state.streams.find(s=>s.fromNodeId===last.id&&s.fromPortId==='out0');
+      const first=members[0];
+      if(lastOut&&lastOut.quantityMode==='REQUIRED'&&first){
+        markFeed(first,'Juice into Effect 1 is Required [R] because syrup out of the multiple is required.');
+      }
+    });
+  }
+  // Helpbook Evaporator Examples: specifying Total Solids on any one body
+  // causes the steam into the 1st effect to BECOME a required flow — the
+  // flag is derived, never user-entered. State-aware across re-solves: a
+  // steam that already carries our rule KEEPS it (its flow is last run's
+  // answer and warm-starts the loop); the rule is cleared only when the TS
+  // owner disappears or the run breaks — and then the system-owned flow
+  // value goes with it, so it can never masquerade as a user-entered
+  // Mode-A steam. A user-entered KNOWN flow beside a TS target is left
+  // for the wrapper to block as over-specified (T-5).
+  function applyEvaporatorSteamRequiredSemantics(){
+    const byId={};
+    (state.nodes||[]).forEach(n=>{byId[n.id]=n;});
+    const clearSteam=(steam)=>{
+      if(steam&&steam.autoQuantityRule==='EVAPORATOR_STEAM_REQUIRED'){
+        delete steam.autoQuantityRule;
+        steam.quantityMode=streamBoundaryType(steam)==='EXTERNAL_IN'?'KNOWN':'CALCULATED';
+        steam.props=steam.props||{};
+        steam.props.flow='';
+      }
+    };
+    evaporatorMultiples().forEach(run=>{
+      if(run.broken)return;
+      const members=run.members.map(id=>byId[id]).filter(m=>m&&m.type==='evaporator');
+      if(!members.length)return;
+      const owner=members.find(m=>{const v=parseFloat(m.params?.totalSolidsPct);return Number.isFinite(v)&&v>0;});
+      const first1=members.find(m=>parseInt(m.params?.effectNo,10)===1)||members[0];
+      const steam=first1?state.streams.find(s=>s.toNodeId===first1.id&&s.toPortId==='in1'):null;
+      if(!steam)return;
+      if(!owner){clearSteam(steam);return;}
+      const hasRule=steam.autoQuantityRule==='EVAPORATOR_STEAM_REQUIRED';
+      const hasFlow=p2num(steam.props?.flow)>0;
+      if(hasRule||!hasFlow){
+        if(steam.quantityMode!=='REQUIRED'||!hasRule){
+          steam.autoQuantityRule='EVAPORATOR_STEAM_REQUIRED';
+          steam.quantityMode='REQUIRED';
+          steam.solverMessage=steam.solverMessage||`Steam into Effect 1 is Required [R]: Total Solids is set on ${owner.label||owner.id}, Sugars calculates this flow.`;
+        }
+      }
     });
   }
 
@@ -1376,6 +1552,17 @@
       delete x.solverMessage;
       return x;
     };
+    const cleanFlow=f=>{
+      const x=clone(f);
+      delete x.computed;
+      delete x.requiredPath;
+      delete x.pressurePath;
+      delete x.solverMessage;
+      if(x.properties){
+        x.properties.flow_kgh=(x.props&&x.props.flow!==undefined&&x.props.flow!=='')?Number(x.props.flow):null;
+      }
+      return x;
+    };
     saveActivePageData();
     const pages = (src?.pages && src.pages.length ? src.pages : [{
       id: 'page_1',
@@ -1399,12 +1586,15 @@
 
     return {
       version: 5,
-      schemaVersion: 1,
+      schemaVersion: 2,
       name: src?.name || 'Untitled Scheme',
       flowLegendsOn: !!src?.flowLegendsOn,
       showSheetFrame: src?.showSheetFrame !== false,
+      unitSystem: src?.unitSystem==='US'?'US':'SI',
+      modelAtmosphericKPa: (Number.isFinite(Number(src?.modelAtmosphericKPa))&&Number(src.modelAtmosphericKPa)>0)?Number(src.modelAtmosphericKPa):101.325,
       activePageId: src?.activePageId || 'page_1',
       pages: pages,
+      flows: (src?.flows || []).map(cleanFlow),
       nodes: (src?.nodes || []).map(cleanNode),
       connectors: (src?.connectors || []).map(cleanConnector)
     };
@@ -1416,6 +1606,19 @@
 
   function canonicalizeLoadedConnector(c){
     installConnectorLegacyAccessors(c);
+    if(c.linkHalf===true){
+      // Halves carry no engineering payload: skip medium stamping and
+      // endpoint re-orientation entirely. Orphan recovery stays page-aware
+      // (getNode is active-page-only and would detach valid cross-page glue).
+      for(const which of ['source','target']){
+        const ep=c[which];
+        if(!connectorEndpointIsPort(ep))continue;
+        if(!portDirAnywhere(ep.station_id,ep.port_id)){
+          c[which]={type:'point',x:0,y:0};
+        }
+      }
+      return;
+    }
     c.properties=c.properties||{};
     c.manual_segment_offsets=Array.isArray(c.manual_segment_offsets)?c.manual_segment_offsets:[];
     c.routing_mode=(c.routing_mode==='MANUAL'&&Array.isArray(c.route_points)&&c.route_points.length>=2)?'MANUAL':'AUTO';
@@ -1514,10 +1717,25 @@
     t._timer = setTimeout(()=>t.classList.remove('show'),1600);
   }
 
+  // Network solve-state box: binary colour mode driven by cls.
+  // ok -> green "network solved"; anything else -> red "network unsolved"
+  // ('info' transients keep their own text, neutral). Detail text moves to
+  // the tooltip; toasts/audit keep the full message. Click opens Solver Audit.
+  const NET_STATE_ICON={
+    ok:'<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5.5"/>',
+    bad:'<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>'
+  };
   function setStatus(text, cls=''){
-    statusText.textContent = text;
-    statusEl.className = 'status-pill'+(cls?' '+cls:'');
+    try{if(typeof dockNetStatus==='function')dockNetStatus();}catch(_){}
+    const solved=(cls==='ok');
+    const label=(cls==='info')?text:(solved?'network solved':'network unsolved');
+    statusText.textContent=label;
+    if(statusIcon)statusIcon.innerHTML=solved?NET_STATE_ICON.ok:NET_STATE_ICON.bad;
+    statusEl.className='status-pill '+(solved?'ok':(cls==='info'?'info':'err'));
+    statusEl.title=text||label;
   }
+  { const pill=document.getElementById('solverStatus');
+    if(pill){pill.style.cursor='pointer';pill.onclick=()=>document.getElementById('auditBtn')?.click();} }
 
   function pushHistory(){
     if(suppressHistory)return;
@@ -1533,6 +1751,16 @@
 
     state.connectors.forEach(s=>{
       installConnectorLegacyAccessors(s);
+      if(s.linkHalf===true){
+        // Link halves are drawing handles, not streams: keep link status,
+        // still enforcing port-occupancy issues against all connectors.
+        const linkIssues=connectorTopologyIssues(s);
+        s.solveStatus=linkIssues.length?'INVALID':'LINK_HALF';
+        s.solverMessage=linkIssues.join(' ')||'Link half — engineering lives on the shared flow record.';
+        s.requiredPath=[];
+        s.pressurePath=[];
+        return;
+      }
       applyAutomaticConnectorSemantics(s);
       const issues=connectorTopologyIssues(s);
       const role=connectorRole(s);
@@ -1563,18 +1791,18 @@
 
   const EQUIPMENT_TAG_PREFIX={
     source:'EXT', pan:'PAN', crystallizer:'CRY', centrifugal2:'CEN2', centrifugal3:'CEN3',
-    magma:'MAG', melter:'MLT', mixer:'MIX', splitter:'DST', distributor:'DST', receiver:'RCV', sink:'PROD',
+    magma:'MAG', melter:'MLT', mixer:'MIX', blender:'BLD', splitter:'DST', distributor:'DST', receiver:'RCV', sink:'PROD',
     seed:'SEED', wash:'WASH', clearjuice:'CJ', hotwater:'HW',
     evaporator:'EVAP', heater:'HTR', injectionHeater:'INJ', flashTank:'FLT',
     cooler:'CLR', dryer:'DRY', compressor:'CMP', thermocompressor:'TCM',
     turbine:'TRB', turboAlternator:'TBA', pump:'PMP', pressureReducer:'PRV',
-    contactCondenser:'CND', surfaceCondenser:'SCD', reactor:'RCT', separatorFilter:'FLT', tank:'TNK'
+    contactCondenser:'CND', surfaceCondenser:'SCD', reactor:'RCT', separator:'FLT', tank:'TNK'
   };
   const SUGARS_STATION_TYPE_CODE={
-    mixer:'1', centrifugal2:'2A', centrifugal3:'2B', crystallizer:'6', splitter:'7', distributor:'7',
+    mixer:'1', centrifugal2:'2A', centrifugal3:'2B', crystallizer:'6', splitter:'7', distributor:'7', blender:'11',
     melter:'16', pan:'14', receiver:'18', magma:'1', evaporator:'9', heater:'12', injectionHeater:'13', flashTank:'10',
     cooler:'4', dryer:'8', compressor:'3', thermocompressor:'23', turbine:'24', turboAlternator:'25',
-    pump:'17', pressureReducer:'15', contactCondenser:'5', surfaceCondenser:'21', reactor:'19', separatorFilter:'20', tank:'22',
+    pump:'17', pressureReducer:'15', contactCondenser:'5', surfaceCondenser:'21', reactor:'19', separator:'20', tank:'22',
     source:'BOUNDARY', sink:'BOUNDARY',
     seed:'BOUNDARY', wash:'BOUNDARY', clearjuice:'BOUNDARY', hotwater:'BOUNDARY'
   };
@@ -1584,7 +1812,7 @@
   function stationTypeCode(type){return SUGARS_STATION_TYPE_CODE[type]||'CUSTOM';}
   function stationNumberBlock(type){
     if(['source','sink','seed','wash','clearjuice','hotwater'].includes(type))return [9000,9999];
-    if(['pan','crystallizer','centrifugal2','centrifugal3','magma','melter','mixer','splitter','distributor','receiver','evaporator','heater','injectionHeater','flashTank','cooler','dryer','compressor','thermocompressor','turbine','turboAlternator','pump','pressureReducer','contactCondenser','surfaceCondenser','reactor','separatorFilter','tank'].includes(type))return [4000,4999];
+    if(['pan','crystallizer','centrifugal2','centrifugal3','magma','melter','mixer','blender','splitter','distributor','receiver','evaporator','heater','injectionHeater','flashTank','cooler','dryer','compressor','thermocompressor','turbine','turboAlternator','pump','pressureReducer','contactCondenser','surfaceCondenser','reactor','separator','tank'].includes(type))return [4000,4999];
     return [100,9999];
   }
   function stationNumberAvailable(num,nodeId=null,nodes=state.nodes){
@@ -1653,6 +1881,11 @@
       y:Math.max(10,Math.min(WORLD_H-140,y)),
       params:clone(def.defaults)
     };
+    // X-01: commit the visible default name to the model so the V-01 check
+    // reads what the user sees (evaporator Station Name is required, ≤20).
+    if(type==='evaporator'&&!String(node.params.stationName||'').trim()){
+      node.params.stationName=String(node.label||'Evaporator Effect').slice(0,20);
+    }
     state.nodes.push(node);
     renderAll();
     selectItem('node',node.id);
@@ -1773,6 +2006,11 @@
   }
 
   function migrateLegacyStreamToConnector(s,index=0){
+    if(s?.linkHalf===true){
+      // Link halves are already new-shape drawing handles — never rebuild them.
+      installConnectorLegacyAccessors(s);
+      return s;
+    }
     if(s?.source && s?.target){
       s.manual_segment_offsets=Array.isArray(s.manual_segment_offsets)?s.manual_segment_offsets:[];
       s.routing_mode=(s.routing_mode==='MANUAL'&&Array.isArray(s.route_points)&&s.route_points.length>=2)?'MANUAL':'AUTO';
@@ -1822,9 +2060,15 @@
   function prepareState(obj){
     obj=obj||{};
     obj.version=5;
+    // Schema v2 adds project-level state.flows[] (shared cross-page/on-page link
+    // flow records). v1 files simply load with zero flows — nothing is discarded.
+    obj.schemaVersion=2;
+    obj.flows=Array.isArray(obj.flows)?obj.flows:[];
     obj.name=obj.name||'Untitled Scheme';
     obj.flowLegendsOn=!!obj.flowLegendsOn;
     obj.showSheetFrame=obj.showSheetFrame!==false;
+    obj.unitSystem=obj.unitSystem==='US'?'US':'SI';
+    obj.modelAtmosphericKPa=(Number.isFinite(Number(obj.modelAtmosphericKPa))&&Number(obj.modelAtmosphericKPa)>0)?Number(obj.modelAtmosphericKPa):101.325;
 
     if (obj.pages && Array.isArray(obj.pages) && obj.pages.length > 0) {
       obj.pages.forEach((p, idx) => {
@@ -1835,8 +2079,11 @@
         p.orientation = p.orientation || 'landscape';
         p.nodes = Array.isArray(p.nodes) ? p.nodes : [];
         normalizeEquipmentTags(p.nodes);
+        migrateSeparatorNodes(p.nodes);
+        migrateEvaporatorNodes(p.nodes);
         const rawConn = Array.isArray(p.connectors) ? p.connectors : (Array.isArray(p.streams) ? p.streams : []);
         p.connectors = rawConn.map((c, i) => migrateLegacyStreamToConnector(c, i));
+        remapEvaporatorConnectorPorts(p.nodes, p.connectors);
       });
       obj.activePageId = (obj.activePageId && obj.pages.some(p => p.id === obj.activePageId)) ? obj.activePageId : obj.pages[0].id;
       const act = obj.pages.find(p => p.id === obj.activePageId) || obj.pages[0];
@@ -1847,8 +2094,11 @@
     } else {
       obj.nodes = Array.isArray(obj.nodes) ? obj.nodes : [];
       normalizeEquipmentTags(obj.nodes);
+      migrateSeparatorNodes(obj.nodes);
+      migrateEvaporatorNodes(obj.nodes);
       const raw = Array.isArray(obj.connectors) ? obj.connectors : (Array.isArray(obj.streams) ? obj.streams : []);
       obj.connectors = raw.map((c, i) => migrateLegacyStreamToConnector(c, i));
+      remapEvaporatorConnectorPorts(obj.nodes, obj.connectors);
       obj.pages = [{
         id: 'page_1',
         name: 'Page 1',
@@ -1864,6 +2114,32 @@
       obj.activePageId = 'page_1';
     }
 
+    // Drop flow ends whose station no longer exists (delete-page, hand edits).
+    // v1 files load with zero flows, so this is a no-op for legacy projects.
+    // Also reinstall legacy accessors (lost in JSON round-trips) and normalize
+    // stored kind to the derived kind (L007) for hand-edited files.
+    obj.flows.forEach(f=>{
+      repairFlowEnds(f,obj.pages);
+      installConnectorLegacyAccessors(f);
+      const d=deriveLinkKind(f);
+      if(d){
+        f.linkKind=d;
+        for(const p of (obj.pages||[]))for(const c of (p.connectors||[])){
+          if(c.linkHalf===true&&c.flowId===f.id)c.linkKind=d;
+        }
+      }
+    });
+
+    installStreamsLiveView(obj);
+    return obj;
+  }
+
+  // Solver-visible streams are ALWAYS a live filtered view of connectors —
+  // never a separate array that can go stale. Installed on loaded projects
+  // by prepareState and on fresh boot below (fresh sessions were solver-blind
+  // until their first load: state.streams stayed a dead empty array).
+  function installStreamsLiveView(obj){
+    if(!obj)return obj;
     try{delete obj.streams;}catch(_){}
     Object.defineProperty(obj,'streams',{
       get(){return this.connectors.filter(connectorSolverActive);},
@@ -1872,7 +2148,6 @@
     });
     return obj;
   }
-
   function renderAll(){
     renderNodes();
     renderWires();
@@ -1910,6 +2185,7 @@
       el.dataset.id=node.id;
       el.style.left=node.x+'px';
       el.style.top=node.y+'px';
+      { const _sz=nodeVisualSize(node); el.style.width=_sz.w+'px'; el.style.height=_sz.h+'px'; }
       const outgoing=state.connectors.filter(s=>connectorEndpointIsPort(s.source)&&s.source.station_id===node.id);
       const hasR=outgoing.some(s=>s.quantityMode==='REQUIRED');
       const hasP=outgoing.some(s=>s.pressureMode==='FEEDBACK');
@@ -1954,6 +2230,8 @@
         selected={kind:'node',id:node.id};
         nodesEl.querySelectorAll('.node.selected').forEach(x=>x.classList.remove('selected'));
         el.classList.add('selected');
+        clearAllNodeResizeHandles();
+        setupNodeResize(el,node,def);
         renderWires();renderProps();
       });
       el.addEventListener('dblclick',e=>{
@@ -1963,10 +2241,13 @@
       el.addEventListener('contextmenu',e=>{
         e.preventDefault(); selectItem('node',node.id); showNodeMenu(e.clientX,e.clientY,node.id);
       });
-      setupNodeDrag(el,node);
+      setupNodeDrag(el,node,def);
       const portLayer=el.querySelector('.ports');
       addPorts(portLayer,node,def.inputs,'in');
       addPorts(portLayer,node,def.outputs,'out');
+      if(selected?.kind==='node'&&selected.id===node.id){
+        setupNodeResize(el,node,def);
+      }
       nodesEl.appendChild(el);
     });
 
@@ -2026,7 +2307,12 @@
   }
 
   function nodeVisualSize(node){
-    return node.type==='source' ? {w:160,h:54} : {w:210,h:132};
+    const base = node.type==='source' ? {w:160,h:54} : {w:210,h:132};
+    const min = nodeMinSize(node);
+    return {
+      w: Math.max(min.w, node.w||base.w),
+      h: Math.max(min.h, node.h||base.h)
+    };
   }
 
   function sidePortIndex(node,port,dir){
@@ -2225,6 +2511,27 @@
 
   function glueConnectorEndpointToPort(c,which,node,port,dir,{consumeDangling=true}={}){
     if(!connectorCanGlueToPort(c,which,node,port,dir))return false;
+
+    if(c.linkHalf===true){
+      // Halves carry no engineering payload: attach, fill the shared flow end
+      // by port direction, and stop — none of the stream-class/medium logic
+      // below applies (it assumes a properties-bearing stream).
+      // L003: a pair needs one output and one input end — reject same-side glue.
+      const conflict=linkGlueDirectionConflict(c,dir,state.activePageId);
+      if(conflict){
+        toast(`Cannot glue: mate is on a ${dir==='out'?'output':'input'} port — a link pair needs one output and one input end (L003).`);
+        return false;
+      }
+      attachEndpointNormalized(c,which,node,port,dir);
+      afterLinkHalfGlued(c);
+      const flow=c.flowId?getFlow(c.flowId):null;
+      selected={kind:'connector',id:c.id};
+      markChanged();
+      renderAll();
+      const complete=flow?flowLinkComplete(flow):false;
+      toast(complete?`Link complete — mate text ${linkMateLabel(c)||''}.`:`Link half glued to ${node.label} · ${port.name}.`);
+      return true;
+    }
 
     if(which==='target' && consumeDangling){
       mergeDanglingInputOccupant(c,node,port);
@@ -2437,7 +2744,6 @@
 
         // A selected free Universal Flow can be glued directly.
         if(tryGlueSelectedConnectorAtPort(node,p,dir,e))return;
-
         e.stopPropagation();
         e.preventDefault();
 
@@ -2453,6 +2759,13 @@
         }
 
         beginUniversalConnectionFromPort(node.id,p.id,dir,e);
+      });
+      dot.addEventListener('contextmenu',e=>{
+        // Spec §5.1C shortcut: right-click an output port → Send to page…
+        if(dir!=='out')return;
+        e.preventDefault();
+        e.stopPropagation();
+        showPortSendMenu(e.clientX,e.clientY,node,p);
       });
       layer.appendChild(dot);
 
@@ -2473,7 +2786,7 @@
     });
   }
 
-  function setupNodeDrag(el,node){
+  function setupNodeDrag(el,node,def){
     const head=el.querySelector('.node-head') || el.querySelector('.boundary-card');
     head.addEventListener('mousedown',e=>{
       if(e.button!==0) return;
@@ -2481,6 +2794,8 @@
       selected={kind:'node',id:node.id};
       nodesEl.querySelectorAll('.node.selected').forEach(x=>x.classList.remove('selected'));
       el.classList.add('selected');
+      clearAllNodeResizeHandles();
+      setupNodeResize(el,node,def);
       renderWires();renderProps();
       const startX=e.clientX,startY=e.clientY;
       const ox=node.x,oy=node.y;
@@ -2493,8 +2808,9 @@
           moved=true;
           if(!histPushed){pushHistory();histPushed=true;}
         }
-        node.x=Math.max(0,Math.min(WORLD_W-200,ox+dx));
-        node.y=Math.max(0,Math.min(WORLD_H-120,oy+dy));
+        const _sz=nodeVisualSize(node);
+        node.x=Math.max(0,Math.min(WORLD_W-_sz.w,ox+dx));
+        node.y=Math.max(0,Math.min(WORLD_H-_sz.h,oy+dy));
         el.style.left=node.x+'px';
         el.style.top=node.y+'px';
         renderWires();
@@ -2506,6 +2822,97 @@
       }
       document.addEventListener('mousemove',move);
       document.addEventListener('mouseup',up);
+    });
+  }
+
+  function clearAllNodeResizeHandles(){
+    nodesEl.querySelectorAll('.node-resize-handle').forEach(h=>h.remove());
+  }
+
+  // Visio-style resize handles: 8 handles (4 corners + 4 edge midpoints),
+  // shown only on the single selected node. Ports are NOT touched directly —
+  // portPosition()/addPorts() already derive port location from
+  // nodeVisualSize(node), so re-running addPorts() after a size change is
+  // enough to keep every port glued to the (possibly moved/resized) edge.
+  const RESIZE_HANDLES=[
+    {name:'nw',dx:-1,dy:-1,cursor:'nwse-resize',style:{left:'-5px',top:'-5px'}},
+    {name:'n', dx:0, dy:-1,cursor:'ns-resize',  style:{left:'50%',top:'-5px',transform:'translateX(-50%)'}},
+    {name:'ne',dx:1, dy:-1,cursor:'nesw-resize',style:{right:'-5px',top:'-5px'}},
+    {name:'e', dx:1, dy:0, cursor:'ew-resize',  style:{right:'-5px',top:'50%',transform:'translateY(-50%)'}},
+    {name:'se',dx:1, dy:1, cursor:'nwse-resize',style:{right:'-5px',bottom:'-5px'}},
+    {name:'s', dx:0, dy:1, cursor:'ns-resize',  style:{left:'50%',bottom:'-5px',transform:'translateX(-50%)'}},
+    {name:'sw',dx:-1,dy:1, cursor:'nesw-resize',style:{left:'-5px',bottom:'-5px'}},
+    {name:'w', dx:-1,dy:0, cursor:'ew-resize',  style:{left:'-5px',top:'50%',transform:'translateY(-50%)'}}
+  ];
+
+  function setupNodeResize(el,node,def){
+    RESIZE_HANDLES.forEach(h=>{
+      const handle=document.createElement('div');
+      handle.className='node-resize-handle node-resize-'+h.name;
+      Object.assign(handle.style,{
+        position:'absolute',width:'10px',height:'10px',
+        background:'#00BFB3',border:'1.5px solid #06202a',borderRadius:'2px',
+        zIndex:20,cursor:h.cursor,boxSizing:'border-box'
+      },h.style);
+
+      handle.addEventListener('mousedown',e=>{
+        if(e.button!==0)return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const startX=e.clientX,startY=e.clientY;
+        const {w:ow,h:oh}=nodeVisualSize(node);
+        const ox=node.x,oy=node.y;
+        const min=nodeMinSize(node);
+        let moved=false,histPushed=false;
+
+        function move(ev){
+          const dx=(ev.clientX-startX)/zoom;
+          const dy=(ev.clientY-startY)/zoom;
+          if(Math.abs(dx)+Math.abs(dy)>2){
+            moved=true;
+            if(!histPushed){pushHistory();histPushed=true;}
+          }
+
+          let nw=ow,nh=oh,nx=ox,ny=oy;
+          if(h.dx===1) nw=ow+dx;
+          else if(h.dx===-1) nw=ow-dx;
+          if(h.dy===1) nh=oh+dy;
+          else if(h.dy===-1) nh=oh-dy;
+
+          nw=Math.max(min.w,nw);
+          nh=Math.max(min.h,nh);
+
+          // Dragging a west/north handle moves the origin too — but only by
+          // however much the size actually changed, so the box doesn't jump
+          // once it hits its minimum size.
+          if(h.dx===-1) nx=ox+(ow-nw);
+          if(h.dy===-1) ny=oy+(oh-nh);
+
+          nx=Math.max(0,Math.min(WORLD_W-nw,nx));
+          ny=Math.max(0,Math.min(WORLD_H-nh,ny));
+
+          node.x=nx;node.y=ny;node.w=nw;node.h=nh;
+          el.style.left=nx+'px';el.style.top=ny+'px';
+          el.style.width=nw+'px';el.style.height=nh+'px';
+
+          const portLayer=el.querySelector('.ports');
+          portLayer.innerHTML='';
+          addPorts(portLayer,node,def.inputs,'in');
+          addPorts(portLayer,node,def.outputs,'out');
+
+          renderWires();
+        }
+        function up(){
+          document.removeEventListener('mousemove',move);
+          document.removeEventListener('mouseup',up);
+          if(moved) markChanged();
+        }
+        document.addEventListener('mousemove',move);
+        document.addEventListener('mouseup',up);
+      });
+
+      el.appendChild(handle);
     });
   }
 
@@ -3010,10 +3417,476 @@
     return c;
   }
 
+  // ---- Cross-page / on-page link model (Helpbook mated pair, single shared record) ----
+  // Each half in a page's connectors[] is a drawing handle (linkHalf:true, no
+  // engineering payload). The flow record in state.flows[] is the single source
+  // of truth: ports, props/components/solution. Halves are excluded from the
+  // solver via the LINK_HALF role but count for port occupancy.
+  function createFlowRecord(seed={}){
+    const f={
+      id:uid('flow'),
+      linkKind:seed.linkKind==='onpage'?'onpage':'crosspage',
+      source:seed.source||null,   // {type:'port',pageId,station_id,port_id} | {type:'point',pageId,x,y} | null
+      sink:seed.sink||null,
+      properties:{
+        medium_class:seed.medium_class??null,
+        medium_role:seed.medium_role??null,
+        flow_kgh:seed.flow_kgh??null,
+        label:seed.label||'Link Flow',
+        color:seed.color??null,
+        boundary_intent:seed.boundary_intent||'AUTO',
+        medium_explicit:seed.medium_explicit===true
+      },
+      props:seed.props||{},
+      components:seed.components||null,
+      solubility:seed.solubility||{basis:'Not Required — dissolved nonsugar = 0',a:'0',b:'0',c:'0'},
+      quantityMode:seed.quantityMode||'CALCULATED',
+      pressureMode:seed.pressureMode||'CALCULATED',
+      solveStatus:'UNCONNECTED',
+      solverMessage:'Link flow has no connected ends yet.',
+      requiredPath:[],
+      pressurePath:[],
+      updatedAt:Date.now()
+    };
+    installConnectorLegacyAccessors(f);
+    if(!f.props.flow && seed.flow_kgh!=null)f.properties.flow_kgh=seed.flow_kgh;
+    return f;
+  }
+
+  function createLinkHalf(flowId,linkRole,linkKind,gluedEndpoint,stubPoint){
+    // gluedEndpoint:{type:'port',station_id,port_id} or null for a free stencil
+    // (both endpoints neutral points). stubPoint:{x,y} visual tail.
+    // Conventional orientation is kept (port end + stub point) so existing
+    // wire rendering draws a stub from the port without special cases.
+    const dir=gluedEndpoint?portDefForEndpoint(gluedEndpoint)?.dir:null;
+    const hasPort=connectorEndpointIsPort(gluedEndpoint);
+    const portEnd=hasPort?{type:'port',station_id:gluedEndpoint.station_id,port_id:gluedEndpoint.port_id}:null;
+    const stubA={type:'point',x:Number(stubPoint?.x)||0,y:Number(stubPoint?.y)||0};
+    const stubB={type:'point',x:(Number(stubPoint?.x)||0)+84,y:Number(stubPoint?.y)||0};
+    const h={
+      id:uid('link'),
+      linkHalf:true,
+      flowId:flowId||null,
+      linkRole:linkRole==='b'?'b':'a',
+      linkKind:linkKind==='onpage'?'onpage':'crosspage',
+      source:!hasPort?stubA:(dir==='in'?stubA:portEnd),
+      target:!hasPort?stubB:(dir==='in'?portEnd:stubA),
+      manual_segment_offsets:[],
+      routing_mode:'AUTO',
+      route_points:[],
+      solveStatus:'LINK_HALF',
+      solverMessage:'Link half — engineering lives on the shared flow record.',
+      requiredPath:[],
+      pressurePath:[],
+      status:'unknown'
+    };
+    installConnectorLegacyAccessors(h);
+    return h;
+  }
+
+  function getFlow(id){return (state.flows||[]).find(f=>f.id===id)||null;}
+
+  function getNodeAnywhere(nodeId){
+    if(!nodeId)return null;
+    for(const p of (state.pages||[])){
+      const n=(p.nodes||[]).find(n=>n.id===nodeId);
+      if(n)return {node:n,page:p};
+    }
+    return null;
+  }
+
+  function halfGluedPort(half){
+    if(!half)return null;
+    if(connectorEndpointIsPort(half.source))return half.source;
+    if(connectorEndpointIsPort(half.target))return half.target;
+    return null;
+  }
+
+  function findLinkMate(half,halfPageId){
+    // Helpbook search scope: on-page mates live on the same page,
+    // cross-page mates live on the other pages.
+    if(!half?.flowId)return null;
+    const pages=(state.pages||[]);
+    const scope=half.linkKind==='onpage'
+      ? pages.filter(p=>p.id===(halfPageId||state.activePageId))
+      : pages.filter(p=>p.id!==(halfPageId||state.activePageId));
+    for(const p of scope){
+      const m=(p.connectors||[]).find(c=>c.linkHalf===true&&c.flowId===half.flowId&&c.id!==half.id);
+      if(m)return {half:m,page:p};
+    }
+    return null;
+  }
+
+  function flowLinkComplete(flow){
+    return !!(flow&&flow.source?.station_id&&flow.sink?.station_id);
+  }
+
+  function halfLinkComplete(half,halfPageId){
+    if(!half?.flowId)return false;
+    if(!flowLinkComplete(getFlow(half.flowId)))return false;
+    return !!findLinkMate(half,halfPageId);
+  }
+
+  function fillFlowEndFromHalf(flow,half,pageId){
+    // The glued port's direction decides which flow end this half fills
+    // (out-port → source end, in-port → sink end). Caller must have the
+    // half's page active so portDefForEndpoint resolves.
+    const ep=halfGluedPort(half);
+    if(!flow||!ep)return null;
+    const def=portDefForEndpoint(ep);
+    if(!def)return null;
+    const end={type:'port',pageId:pageId||state.activePageId,station_id:ep.station_id,port_id:ep.port_id};
+    if(def.dir==='out')flow.source=end;
+    else if(def.dir==='in')flow.sink=end;
+    else return null;
+    flow.updatedAt=Date.now();
+    return def.dir;
+  }
+
+  function linkMateLabel(half){
+    // Helpbook text: mate's stationNumber-portId, e.g. "3010-1".
+    const flow=half?.flowId?getFlow(half.flowId):null;
+    const my=halfGluedPort(half);
+    if(!flow||!my)return '';
+    const isSourceEnd=flow.source?.station_id===my.station_id&&flow.source?.port_id===my.port_id;
+    const other=isSourceEnd?flow.sink:flow.source;
+    if(!other?.station_id)return '';
+    const found=getNodeAnywhere(other.station_id);
+    const num=found?.node?.stationNumber??'?';
+    return `${num}-${other.port_id||'?'}`;
+  }
+
+  function portDirAnywhere(stationId,portId){
+    // Page-aware port direction (the active-page-only portDefForEndpoint cannot
+    // see mates on other pages). Returns 'in' | 'out' | null.
+    const found=stationId?getNodeAnywhere(stationId):null;
+    if(!found||!portId)return null;
+    const def=(typeof nodeDefs!=='undefined'?nodeDefs[found.node.type]:null)||{};
+    if((def.inputs||[]).some(p=>p.id===portId))return 'in';
+    if((def.outputs||[]).some(p=>p.id===portId))return 'out';
+    return null;
+  }
+
+  function deriveLinkKind(flow){
+    // kind is derived from the halves' pages, never a separate stored type:
+    // both ends on one page → on-page, otherwise cross-page.
+    if(!flow||!flow.source?.pageId||!flow.sink?.pageId)return null;
+    return flow.source.pageId===flow.sink.pageId?'onpage':'crosspage';
+  }
+
+  function syncLinkKindToPages(flow){
+    // Keep stored kind equal to the derived kind (shape + mate search follow
+    // it). Returns true when the kind flipped (L007 info).
+    const derived=deriveLinkKind(flow);
+    if(!derived)return false;
+    let flipped=false;
+    if(flow.linkKind!==derived){flow.linkKind=derived;flipped=true;}
+    for(const p of (state.pages||[]))for(const c of (p.connectors||[])){
+      if(c.linkHalf===true&&c.flowId===flow.id&&c.linkKind!==derived){c.linkKind=derived;flipped=true;}
+    }
+    if(flipped)flow.updatedAt=Date.now();
+    return flipped;
+  }
+
+  function linkHalvesSameDirection(flow){
+    // L003: both halves glued to same-direction ports (both out or both in).
+    // A valid pair needs one output and one input end.
+    if(!flow)return false;
+    const dirs=[];
+    for(const p of (state.pages||[]))for(const c of (p.connectors||[])){
+      if(c.linkHalf!==true||c.flowId!==flow.id)continue;
+      const ep=halfGluedPort(c);
+      if(!ep)continue;
+      dirs.push(portDirAnywhere(ep.station_id,ep.port_id));
+    }
+    return dirs.length>=2&&!!dirs[0]&&dirs[0]===dirs[1];
+  }
+
+  function findLinkMateAnywhere(half){
+    // Unscoped mate lookup (glue-time checks): the mate may live on any page.
+    if(!half?.flowId)return null;
+    for(const p of (state.pages||[])){
+      const m=(p.connectors||[]).find(c=>c.linkHalf===true&&c.flowId===half.flowId&&c.id!==half.id);
+      if(m)return {half:m,page:p};
+    }
+    return null;
+  }
+
+  function linkGlueDirectionConflict(half,myDir,pageId){
+    // True when the mate half is already glued to a same-direction port.
+    const flow=half?.flowId?getFlow(half.flowId):null;
+    if(!flow||!myDir)return null;
+    const mate=findLinkMateAnywhere(half);
+    const mep=mate?halfGluedPort(mate.half):null;
+    if(!mep)return null;
+    const mateDir=portDirAnywhere(mep.station_id,mep.port_id);
+    return (mateDir&&mateDir===myDir)?mate:null;
+  }
+
+  function afterLinkHalfGlued(c){
+    // Shared tail for every half-glue path: fill the flow end, then derive kind.
+    const flow=c.flowId?getFlow(c.flowId):null;
+    if(flow)fillFlowEndFromHalf(flow,c,state.activePageId);
+    if(flow&&flowLinkComplete(flow)){
+      flow.wasComplete=true; // L005 can later tell orphaned mates from never-paired halves.
+      if(syncLinkKindToPages(flow)){
+        toast(`Link kind switched to ${flow.linkKind==='onpage'?'on-page':'cross-page'} (derived from halves' pages).`);
+      }
+    }
+  }
+
+  function deleteLinkPair(flowId){
+    // §5.5 "Delete both": one undo step removes both halves and the record.
+    const flow=getFlow(flowId);
+    if(!flow){toast('Link flow not found.');return false;}
+    pushHistory();
+    for(const p of (state.pages||[])){
+      p.connectors=(p.connectors||[]).filter(x=>!(x.linkHalf===true&&x.flowId===flowId));
+    }
+    state.connectors=activePage().connectors;
+    state.flows=(state.flows||[]).filter(f=>f.id!==flowId);
+    selected=null;renderAll();markChanged();
+    toast('Link pair and shared flow deleted.');
+    return true;
+  }
+
+  function createLinkHalfStencil(x,y,kind){
+    // Palette drop: new shared flow record + first unpaired half (free stub).
+    // Drag either endpoint onto a station port, then create its mate at the
+    // other station (switch page first for a cross-page link).
+    pushHistory();
+    const flow=createFlowRecord({linkKind:kind});
+    state.flows.push(flow);
+    const h=createLinkHalf(flow.id,'a',kind,null,{x:x-42,y});
+    state.connectors.push(h);
+    selected={kind:'connector',id:h.id};
+    renderAll();
+    markChanged();
+    toast((kind==='onpage'?'On-page':'Cross-page')+' link created — drag an endpoint onto a station port, then create its mate at the other station.');
+  }
+
+  function linkStubEndpoint(half){
+    if(!half)return null;
+    if(half.source?.type==='point')return {which:'source',ep:half.source};
+    if(half.target?.type==='point')return {which:'target',ep:half.target};
+    return null;
+  }
+
+  function createLinkMate(halfId){
+    const half=state.connectors.find(c=>c.id===halfId&&c.linkHalf===true);
+    if(!half){toast('Select a link half first.');return;}
+    const flow=half.flowId?getFlow(half.flowId):null;
+    if(!flow){toast('This half has no shared flow record.');return;}
+    const existing=findLinkMate(half,state.activePageId);
+    if(existing){
+      activatePage(existing.page.id);
+      selectItem('connector',existing.half.id);
+      toast('Mate already exists — jumped to its page.');
+      return;
+    }
+    pushHistory();
+    const stub=linkStubEndpoint(half);
+    const at=stub?{x:stub.ep.x+60,y:stub.ep.y+40}:{x:420,y:260};
+    const mate=createLinkHalf(flow.id,half.linkRole==='a'?'b':'a',half.linkKind,null,at);
+    state.connectors.push(mate);
+    selected={kind:'connector',id:mate.id};
+    renderAll();
+    markChanged();
+    toast('Mate created'+(half.linkKind==='crosspage'?' — switch to the other page first if it belongs elsewhere, then':'')+' drag its endpoint onto the other station.');
+  }
+
+  function clearFlowEndForHalf(flow,half){
+    // Deleting/detaching a half clears only the flow end it was glued to.
+    // The flow record and the mate half are retained (recoverable).
+    if(!flow||!half)return false;
+    const ep=halfGluedPort(half);
+    if(!ep)return false;
+    let cleared=false;
+    if(flow.source?.station_id===ep.station_id&&flow.source?.port_id===ep.port_id){flow.source=null;cleared=true;}
+    if(flow.sink?.station_id===ep.station_id&&flow.sink?.port_id===ep.port_id){flow.sink=null;cleared=true;}
+    if(cleared)flow.updatedAt=Date.now();
+    return cleared;
+  }
+
+  function repairFlowEnds(flow,pages){
+    // Drop flow ends whose station no longer exists anywhere (delete-page,
+    // legacy loads). Never touches payload or halves.
+    if(!flow)return false;
+    const nodesOf=pages||state.pages||[];
+    const exists=id=>id&&nodesOf.some(p=>(p.nodes||[]).some(n=>n.id===id));
+    let fixed=false;
+    for(const k of ['source','sink']){
+      const e=flow[k];
+      if(e?.station_id&&!exists(e.station_id)){flow[k]=null;fixed=true;}
+    }
+    if(fixed)flow.updatedAt=Date.now();
+    return fixed;
+  }
+
+  function openLinkFlowProperties(half){
+    // Helpbook rule: double-clicking either mate opens the SAME Internal Flow
+    // Properties — trivially true with one shared flow record.
+    const flow=half?.flowId?getFlow(half.flowId):null;
+    if(!flow){toast('This link half has no shared flow record yet.');return;}
+    selectItem('connector',half.id);
+    openFlowProperties(flow.id);
+  }
+
+  function goToLinkMate(halfId){
+    const half=state.connectors.find(c=>c.id===halfId&&c.linkHalf===true);
+    if(!half){toast('Select a link half first.');return;}
+    const found=findLinkMate(half,state.activePageId);
+    if(!found){toast('No mate found — create one at the other station.');return;}
+    activatePage(found.page.id);
+    selectItem('connector',found.half.id);
+  }
+
+  function showPortSendMenu(x,y,node,port){
+    // Spec §5.1C: right-click an output port → send a link to a chosen page.
+    // Creates the origin half glued here plus an unglued mate half there.
+    const others=(state.pages||[]).filter(p=>p.id!==state.activePageId);
+    if(!others.length){toast('No other page exists — add a page first.');return;}
+    contextMenu.innerHTML=`<div style="padding:6px 10px;font-weight:700;font-size:12px;">Send link to page…</div>`+
+      others.map(p=>`<button data-page="${p.id}">⇢ ${escapeHtml(p.name||p.id)}</button>`).join('');
+    contextMenu.style.left=x+'px';contextMenu.style.top=y+'px';contextMenu.style.display='block';
+    contextMenu.onclick=e=>{
+      const pid=e.target.dataset?.page;if(!pid)return;
+      contextMenu.style.display='none';
+      sendLinkToPage(node.id,port.id,pid);
+    };
+  }
+
+  function sendLinkToPage(nodeId,portId,targetPageId){
+    const node=getNode(nodeId);
+    const target=(state.pages||[]).find(p=>p.id===targetPageId);
+    if(!node||!target||targetPageId===state.activePageId)return false;
+    pushHistory();
+    const flow=createFlowRecord({linkKind:'crosspage'});
+    state.flows.push(flow);
+    const origin=createLinkHalf(flow.id,'a','crosspage',{type:'port',station_id:nodeId,port_id:portId},{x:node.x,y:node.y});
+    state.connectors.push(origin);
+    afterLinkHalfGlued(origin);
+    const mate=createLinkHalf(flow.id,freeLinkRole(flow.id)||'b','crosspage',null,{x:420,y:260});
+    target.connectors.push(mate);
+    selected={kind:'connector',id:origin.id};
+    renderAll();
+    markChanged();
+    toast(`Link sent to ${target.name||target.id} — switch page and glue the mate.`);
+    return true;
+  }
+
+  // ---- Link clipboard (Helpbook copy-as-mate gesture, §5.2) ----
+  // There is no OS clipboard involved: the app keeps one internal slot.
+  // Paste never mints a flowId — it always reuses the copied half's flow.
+  let linkClipboard=null; // {flowId, fromPageId, cut:boolean, at:number}
+  let linkPasteCount=0;
+
+  function copySelectedHalf(cut=false){
+    const id=(selected?.kind==='connector'||selected?.kind==='stream')?selected.id:null;
+    const half=id?state.connectors.find(c=>c.id===id&&c.linkHalf===true):null;
+    if(!half){toast('Select a link half to copy.');return false;}
+    if(!half.flowId||!getFlow(half.flowId)){toast('This half has no shared flow record.');return false;}
+    linkClipboard={flowId:half.flowId,fromPageId:state.activePageId,cut:!!cut,at:Date.now()};
+    toast((cut?'Cut':'Copied')+' link half — paste on this or another page to create its mate.');
+    return true;
+  }
+
+  function freeLinkRole(flowId){
+    // First unused mate role for this flow, or null when both halves exist.
+    const used=new Set();
+    for(const p of (state.pages||[]))for(const c of (p.connectors||[])){
+      if(c.linkHalf===true&&c.flowId===flowId)used.add(c.linkRole);
+    }
+    if(!used.has('a'))return 'a';
+    if(!used.has('b'))return 'b';
+    return null;
+  }
+
+  function planHalfPaste(clip){
+    // Pure §5.2 decision table for a single copied half (unit-testable).
+    const cb=(clip===undefined)?linkClipboard:clip;
+    if(!cb?.flowId)return {action:'empty'};
+    const flow=getFlow(cb.flowId);
+    if(!flow)return {action:'stale'};
+    if(flowLinkComplete(flow))return {action:'block-complete',flow};
+    return {action:'mate',flow};
+  }
+
+  function pastePoint(){
+    // Viewport centre in world coordinates + stagger (mirrors palette placement).
+    try{
+      const rect=world.getBoundingClientRect();
+      const vpRect=viewport.getBoundingClientRect();
+      const rawX=((vpRect.width/2)+viewport.scrollLeft-(rect.left-vpRect.left+viewport.scrollLeft))/zoom;
+      const rawY=((vpRect.height/2)+viewport.scrollTop-(rect.top-vpRect.top+viewport.scrollTop))/zoom;
+      const stagger=(linkPasteCount%7)*26;linkPasteCount++;
+      return {
+        x:(Number.isFinite(rawX)&&rawX>60&&rawX<WORLD_W-100)?rawX+stagger:(420+stagger),
+        y:(Number.isFinite(rawY)&&rawY>60&&rawY<WORLD_H-100)?rawY+stagger:(260+stagger)
+      };
+    }catch(_){return {x:420,y:260};}
+  }
+
+  function pasteClipboardAsMate(at){
+    const plan=planHalfPaste();
+    if(plan.action==='empty'){toast('Clipboard is empty — copy a link half first.');return false;}
+    if(plan.action==='stale'){linkClipboard=null;toast('Copied link no longer exists.');return false;}
+    if(plan.action==='block-complete'){toast('This link already has both halves. Duplicate the flow instead.');return false;}
+    const flow=plan.flow;
+    const role=freeLinkRole(flow.id);
+    if(!role){toast('This link already has both halves. Duplicate the flow instead.');return false;}
+    pushHistory();
+    const pos=at||pastePoint();
+    const mate=createLinkHalf(flow.id,role,flow.linkKind,null,pos);
+    state.connectors.push(mate);
+    if(linkClipboard.cut){
+      // Cut = copy + delete: remove the original half; its flow end clears so
+      // the mate is left unpaired and flagged, per the §5.2 cut row.
+      const wasCutFrom=linkClipboard.fromPageId;
+      for(const p of (state.pages||[])){
+        const orig=(p.connectors||[]).find(c=>c.linkHalf===true&&c.flowId===flow.id&&c.id!==mate.id&&p.id===wasCutFrom)
+          || (p.connectors||[]).find(c=>c.linkHalf===true&&c.flowId===flow.id&&c.id!==mate.id);
+        if(orig){
+          clearFlowEndForHalf(flow,orig);
+          p.connectors=(p.connectors||[]).filter(x=>x.id!==orig.id);
+          break;
+        }
+      }
+      state.connectors=activePage().connectors;
+      linkClipboard=null;
+    }
+    selected={kind:'connector',id:mate.id};
+    renderAll();
+    markChanged();
+    toast('Mate pasted — drag its endpoint onto the other station.');
+    return true;
+  }
+
   function beginNewConnectorFromPort(nodeId,portId,dir,e){
     beginUniversalConnectionFromPort(nodeId,portId,dir,e);
   }
 
+
+  function ctrlDragMateFromHalf(c,e){
+    // Helpbook Ctrl+drag: drag a copy of the half; dropping it glues the mate.
+    // Creation and the subsequent glue share one undo step (history pushes on
+    // first drag movement; an unmoved click removes the copy again below).
+    if(e.button!==0)return;
+    e.stopPropagation();
+    e.preventDefault();
+    const flow=c.flowId?getFlow(c.flowId):null;
+    if(!flow){toast('This half has no shared flow record.');return;}
+    if(flowLinkComplete(flow)){toast('This link already has both halves. Duplicate the flow instead.');return;}
+    const role=freeLinkRole(flow.id);
+    if(!role){toast('This link already has both halves. Duplicate the flow instead.');return;}
+    const wp=clampWorldPoint(worldPointFromEvent(e));
+    const mate=createLinkHalf(flow.id,role,flow.linkKind,null,{x:wp.x,y:wp.y});
+    state.connectors.push(mate);
+    selected={kind:'connector',id:mate.id};
+    beginExistingEndpointDrag(mate,'source',e);
+    if(connectorDrag)connectorDrag.createdMateId=mate.id;
+    renderAll();
+  }
 
   function beginExistingEndpointDrag(c,which,e){
     if(e.button!==0)return;
@@ -3060,8 +3933,49 @@
     };
   }
 
-  function finishConnectorEndpointDrag(c,which,p,snapResult=null){
+  function finishLinkHalfEndpointDrag(c,which,p,snapResult=null,originalEndpoint=null){
+    // Half-specific drop path: the shared finish() below assumes a
+    // properties-bearing stream (c.properties access, medium bookkeeping,
+    // stream semantics) — none of which applies to drawing handles.
     clearPortSnapFeedback();
+    if(snapResult?.endpoint){
+      // The snap was taken during mousemove; re-verify at drop time in case
+      // occupancy or compatibility changed mid-drag.
+      if(!portCompatibilityForEndpoint(c,which,snapResult.node,snapResult.port,snapResult.dir)){
+        if(originalEndpoint)c[which]=clone(originalEndpoint);
+        toast(portRejectionMessage(c,which,{node:snapResult.node,port:snapResult.port,dir:snapResult.dir}));
+        return;
+      }
+      const myDir=snapResult.dir;
+      const conflict=linkGlueDirectionConflict(c,myDir,state.activePageId);
+      if(conflict){
+        if(originalEndpoint)c[which]=clone(originalEndpoint);
+        toast(`Cannot glue: mate is on a ${myDir==='out'?'output':'input'} port — a link pair needs one output and one input end (L003).`);
+        return;
+      }
+      c[which]={type:'port',station_id:snapResult.node.id,port_id:snapResult.port.id};
+      afterLinkHalfGlued(c);
+      const flow=c.flowId?getFlow(c.flowId):null;
+      c.solveStatus='LINK_HALF';
+      c.solverMessage=(flow&&flowLinkComplete(flow))
+        ?`Link complete — mate text ${linkMateLabel(c)||''}.`
+        :`Link half glued to ${snapResult.node.label} · ${snapResult.port.name}.`;
+      return;
+    }
+    // Dropped on empty canvas: detach. The shared record must forget this end
+    // or flow.from/to would diverge from the halves' actual glue.
+    const wasGlued=connectorEndpointIsPort(originalEndpoint)?originalEndpoint:halfGluedPort(c);
+    c[which]={type:'point',x:p.x,y:p.y};
+    const flow=c.flowId?getFlow(c.flowId):null;
+    if(flow&&wasGlued){
+      const tmp={source:which==='source'?wasGlued:c.source,target:which==='target'?wasGlued:c.target};
+      clearFlowEndForHalf(flow,tmp);
+    }
+  }
+
+  function finishConnectorEndpointDrag(c,which,p,snapResult=null,originalEndpoint=null){
+    clearPortSnapFeedback();
+    if(c.linkHalf===true)return finishLinkHalfEndpointDrag(c,which,p,snapResult,originalEndpoint);
     if(snapResult?.endpoint){
       if(which==='target' && snapResult.occupant && !connectorFullyAttached(snapResult.occupant)){
         // User has two unfinished halves (exactly the situation shown in the screenshot).
@@ -3270,6 +4184,14 @@
 
     if(drag.type==='endpoint'){
       if(!drag.moved){
+        if(drag.createdMateId){
+          // Ctrl+click without a drag: remove the unmoved copy, no history entry.
+          state.connectors=state.connectors.filter(x=>x.id!==drag.createdMateId);
+          selected=null;
+          clearNormalConnectionFeedback();
+          renderAll();
+          return;
+        }
         clearNormalConnectionFeedback();
         selected={kind:'connector',id:c.id};
         renderProps();
@@ -3284,7 +4206,7 @@
         applyAutomaticConnectorSemantics(c);
         toast(portRejectionMessage(c,drag.which,blocked));
       }else{
-        finishConnectorEndpointDrag(c,drag.which,p,snap);
+        finishConnectorEndpointDrag(c,drag.which,p,snap,drag.originalEndpoint);
       }
     }
     clearNormalConnectionFeedback();
@@ -3399,6 +4321,7 @@
     if(e){e.preventDefault();e.stopPropagation();}
     if(connectorSingleClickTimer){clearTimeout(connectorSingleClickTimer);connectorSingleClickTimer=null;}
     if(!getConnector(c.id))return;
+    if(c.linkHalf===true){openLinkFlowProperties(c);return;}
     selected={kind:'connector',id:c.id};
     renderWires();
     renderProps();
@@ -3417,7 +4340,10 @@
     hit.setAttribute('cx',p.x);hit.setAttribute('cy',p.y);
     hit.setAttribute('r',(boundaryTerminal?14:10)/zoom);
     hit.setAttribute('class','connector-endpoint-hit');
-    hit.addEventListener('mousedown',e=>beginExistingEndpointDrag(c,which,e));
+    hit.addEventListener('mousedown',e=>{
+      if(e.button===0&&(e.ctrlKey||e.metaKey)&&c.linkHalf===true){ctrlDragMateFromHalf(c,e);return;}
+      beginExistingEndpointDrag(c,which,e);
+    });
     hit.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c);});
     hit.addEventListener('dblclick',e=>openConnectorPropertiesByDoubleClick(c,e));
     wireLayer.appendChild(hit);
@@ -3814,7 +4740,7 @@
 
     const records=(state.connectors||[]).map(c=>{
       installConnectorLegacyAccessors(c);
-      if(!connectorSolverActive(c)){
+      if(!connectorSolverActive(c) && !c.linkHalf){
         c.solveStatus='UNCONNECTED';
         c.solverMessage=c.solverMessage||'Free Universal Flow stencil — skipped by process solver.';
       }
@@ -3828,7 +4754,8 @@
     records.forEach(({c,vertices})=>{
       const pathD=pathWithJumps(vertices,jumpMap.get(c.id),6);
       const selectedHere=selected?.id===c.id&&(selected.kind==='stream'||selected.kind==='connector');
-      const floating=!connectorSolverActive(c);
+      const linkComplete=c.linkHalf===true?halfLinkComplete(c,state.activePageId):false;
+      const floating=c.linkHalf===true?!linkComplete:!connectorSolverActive(c);
 
       // Segment hit targets are separate so middle segments can be dragged.
       for(let i=0;i<vertices.length-1;i++){
@@ -3862,6 +4789,7 @@
         (selectedHere?' selected':'')+
         (floating?' floating connector-unconnected':'')+
         (c.status==='invalid'?' unresolved':'')+
+        (c.linkHalf===true?(' link-half link-'+(c.linkKind||'crosspage')+(linkComplete?' link-complete':' link-pending')):'')+
         solverWireClass
       );
       if(c.properties?.color)path.style.stroke=c.properties.color;
@@ -3871,6 +4799,16 @@
       const mid=connectorLabelPoint(vertices);
       const label=document.createElementNS('http://www.w3.org/2000/svg','text');
       label.setAttribute('x',mid.x);label.setAttribute('y',mid.y);label.setAttribute('text-anchor','middle');
+      if(c.linkHalf===true){
+        label.textContent=linkMateLabel(c)||'unpaired link';
+        label.setAttribute('class','wire-label link-half-label'+(linkComplete?' link-complete':' link-pending'));
+        label.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c);});
+        label.addEventListener('dblclick',e=>{e.stopPropagation();openLinkFlowProperties(c);});
+        label.addEventListener('contextmenu',e=>{
+          e.preventDefault();e.stopPropagation();selectItem('connector',c.id);
+          showStreamMenu(e.clientX,e.clientY,c.id,null,vertices,worldPointFromEvent(e));
+        });
+      }else{
       label.setAttribute('class','wire-label');
       label.textContent=c.properties?.label||c.name||'Connector';
       label.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c);});
@@ -3879,10 +4817,11 @@
         e.preventDefault();e.stopPropagation();selectItem('connector',c.id);
         showStreamMenu(e.clientX,e.clientY,c.id,null,vertices,worldPointFromEvent(e));
       });
+      }
       wireLayer.appendChild(label);
 
-      let badgeX=mid.x+Math.max(24,(c.name||'').length*2.7);
-      if(c.quantityMode==='REQUIRED'){
+      let badgeX=mid.x+Math.max(24,(c.linkHalf===true?(linkMateLabel(c)||'unpaired link'):(c.name||'')).length*2.7);
+      if(!c.linkHalf&&c.quantityMode==='REQUIRED'){
         const r=document.createElementNS('http://www.w3.org/2000/svg','text');
         r.setAttribute('x',badgeX);r.setAttribute('y',mid.y);r.setAttribute('class','wire-badge r');r.textContent='R';
         wireLayer.appendChild(r);badgeX+=13;
@@ -3899,8 +4838,10 @@
         wireLayer.appendChild(m);
       }
 
-      renderFlowLegendForConnector(c,vertices,flowLegendNodeBoxMap,flowLegendPlacedRects);
-      renderConnectorEditHandles(c,vertices);
+      if(!c.linkHalf){
+        renderFlowLegendForConnector(c,vertices,flowLegendNodeBoxMap,flowLegendPlacedRects);
+        renderConnectorEditHandles(c,vertices);
+      }
       renderConnectorEndpoint(c,'source');
       renderConnectorEndpoint(c,'target');
     });
@@ -4007,7 +4948,11 @@
     stationFloat.classList.toggle('centrifugal-modern', n.type==='centrifugal2'||n.type==='centrifugal3');
     stationFloat.classList.toggle('has-modern-pan', modernTypes.includes(n.type));
     stationFloatTitle.textContent=n.type==='pan'?'Pan Properties':(n.label||nodeDefs[n.type]?.title||'Station Properties');
-    stationFloatSub.textContent=`#${n.stationNumber} · ${n.equipmentTag||'—'} · ${nodeDefs[n.type]?.title||n.type}`;
+    // X-02: one identifier only — the header shows station number and name,
+    // never a second tag field (the Equipment ID lives in the dialog body).
+    stationFloatSub.textContent=n.type==='evaporator'
+      ?`#${n.stationNumber} · ${nodeDefs[n.type]?.title||n.type}`
+      :`#${n.stationNumber} · ${n.equipmentTag||'—'} · ${nodeDefs[n.type]?.title||n.type}`;
     renderNodeProps(n,stationFloatBody);restoreFloatingGeometry(stationFloat,'station');stationFloat.classList.add('show');bringFloatingToFront(stationFloat);
   }
   window.openStationProperties=openStationProperties;
@@ -4037,6 +4982,13 @@
       propsContent.innerHTML=n?`<div class="selection-hint"><b>#${escapeHtml(n.stationNumber||'—')} · ${escapeHtml(n.equipmentTag||'—')}</b><br>${escapeHtml(n.label)}<br><br>Double-click the station on the flowsheet to open its floating engineering property window.</div>`:'';
     }else{
       const s=getStream(selected.id);
+      if(s?.linkHalf===true){
+        const flow=s.flowId?getFlow(s.flowId):null;
+        const mate=flow?findLinkMate(s,state.activePageId):null;
+        const label=linkMateLabel(s);
+        propsContent.innerHTML=`<div class="selection-hint"><b>${s.linkKind==='onpage'?'On-page':'Cross-page'} link half</b><br>${label?`Mate: ${escapeHtml(label)}${mate?` (page ${escapeHtml(mate.page.name||mate.page.id)})`:''}`:'Unpaired — glue to a port and create its mate.'}<br><br>Double-click the link to open its shared flow properties.</div>`;
+        return;
+      }
       propsContent.innerHTML=s?`<div class="selection-hint"><b>${escapeHtml(s.name||'Flow')}</b><br>${escapeHtml(streamBoundaryType(s))}<br><br>Double-click the flow line to open its floating Universal Flow property window.</div>`:'';
     }
   }
@@ -4267,7 +5219,26 @@
     if(!n||n.type!=='evaporator')return;
     n.params=n.params||{};
     const d=nodeDefs.evaporator?.defaults||{};
-    Object.entries(d).forEach(([k,v])=>{if(n.params[k]===undefined)n.params[k]=v;});
+    Object.entries(d).forEach(([k,v])=>{
+      if(v&&typeof v==='object'){
+        const cur=(n.params[k]&&typeof n.params[k]==='object')?n.params[k]:{};
+        n.params[k]={...clone(v),...cur};
+      }else if(n.params[k]===undefined)n.params[k]=v;
+    });
+    // INTERIM (remove in Phase 3 solver rewrite): backfill legacy flat keys from
+    // the spec model so the current solver/panels keep working on migrated nodes.
+    const P=n.params, vp=(P.vaporPressure&&typeof P.vaporPressure==='object')?P.vaporPressure:null;
+    if(P.vapourPressure===undefined&&vp&&vp.value!==undefined&&vp.value!=='')P.vapourPressure=vp.value;
+    if(P.vaporPressure===undefined&&vp&&vp.value!==undefined)P.vaporPressure=vp.value;
+    if(P.vapourTemp===undefined&&P.satTemp_C!==undefined&&P.satTemp_C!=='')P.vapourTemp=P.satTemp_C;
+    if(P.satTemperature===undefined&&P.satTemp_C!==undefined)P.satTemperature=P.satTemp_C;
+    if(P.targetBrix===undefined&&P.totalSolidsPct!==undefined&&P.totalSolidsPct!==''&&parseFloat(P.totalSolidsPct)!==0)P.targetBrix=P.totalSolidsPct;
+    if(P.heatLossPercent===undefined&&P.heatLossPct!==undefined)P.heatLossPercent=P.heatLossPct;
+    if(P.condensateSubcooling===undefined&&P.condensateDropK!==undefined)P.condensateSubcooling=P.condensateDropK;
+    if(P.condensateDropK===undefined&&P.condensateSubcooling!==undefined)P.condensateDropK=P.condensateSubcooling;
+    if(P.flowOutTemp===undefined&&P.flowOutTemp_C!==undefined&&P.flowOutTemp_C!=='')P.flowOutTemp=P.flowOutTemp_C;
+    if(P.entrainmentPpm===undefined&&P.entrainment_mgPerKg!==undefined)P.entrainmentPpm=P.entrainment_mgPerKg;
+    if(P.effectNumber===undefined&&P.effectNo!==undefined)P.effectNumber=P.effectNo;
   }
 
   function evaporatorParamHtml(n){
@@ -4437,6 +5408,238 @@
     `;
   }
 
+  function ensureBlenderDefaults(n){
+    if(!n||n.type!=='blender')return;
+    n.params=n.params||{};
+    const d=nodeDefs.blender?.defaults||{};
+    Object.entries(d).forEach(([k,v])=>{if(n.params[k]===undefined)n.params[k]=v;});
+  }
+
+  // Canonical separator component keys (CORE_COMPONENT_KEYS subset + gas keys).
+  // Legacy flat names (SUCROSE_CRYSTALS, DISSOLVED_SUCROSE, WATER, NON_SUCROSE_1/2, ...)
+  // are translated here on load/ensure so the solver always sees canonical keys.
+  const SEP_CANONICAL_MAP={
+    SUCROSE_CRYSTALS:'crystals',CRYSTALS:'crystals',CRYSTAL:'crystals',
+    DISSOLVED_SUCROSE:'sucrose',SUCROSE:'sucrose',
+    WATER:'water',H2O:'water',
+    INVERT:'invert',ASH:'ash',
+    NON_SUCROSE_1:'ns1',NS1:'ns1',DISSOLVEDNS1:'ns1',
+    NON_SUCROSE_2:'ns2',NS2:'ns2',DISSOLVEDNS2:'ns2',
+    CACO3:'caco3',CAO:'cao',FIBER:'fiber',FIBRE:'fiber',
+    ETHANOL_L:'ethanolL',ETHANOL:'ethanolL',ETHANOLLIQUID:'ethanolL',ETHANOLL:'ethanolL',
+    ETHANOLGAS:'ethanolG',CO2:'co2',AMMONIA:'ammonia',NH3:'ammonia',
+    STEAM_VAPOUR:'steamVapour',STEAM:'steamVapour',VAPOUR:'steamVapour',VAPOR:'steamVapour'
+  };
+  function sepCanonicalComponent(raw){
+    const s=String(raw||'').toUpperCase().replace(/[\s\-\.#]+/g,'');
+    if(!s||s==='TOTAL'||s==='OTHER'||s==='OTHERCOMPONENTS')return null;
+    const hit=CORE_COMPONENT_KEYS.find(k=>k.toUpperCase()===s);
+    if(hit)return hit;
+    return SEP_CANONICAL_MAP[s]||null;
+  }
+
+  function ensureSeparatorDefaults(n){
+    if(!n||n.type!=='separator')return;
+    n.params=n.params||{};
+    const d=clone(nodeDefs.separator?.defaults?.separator||{});
+    const cur=n.params.separator||{};
+    const merged={...d,...cur};
+    merged.splits=Array.isArray(cur.splits)?cur.splits.slice(0,4).map(r=>({
+      component:sepCanonicalComponent(r?.component)||'',
+      pctToOut1:Number.isFinite(Number(r?.pctToOut1))?Number(r.pctToOut1):0
+    })):[];
+    while(merged.splits.length<4)merged.splits.push({component:'',pctToOut1:0});
+    merged.otherComponentsPctToOut1=Number.isFinite(Number(cur.otherComponentsPctToOut1))?Number(cur.otherComponentsPctToOut1):Number(d.otherComponentsPctToOut1);
+    merged.colorPctToOut1=Number.isFinite(Number(cur.colorPctToOut1))?Number(cur.colorPctToOut1):Number(d.colorPctToOut1);
+    const cd={...(d.diluent||{}),...((cur.diluent)||{})};
+    if(!['NO_RATIO','RATIO','NONE'].includes(String(cd.mode||'').toUpperCase()))cd.mode='NO_RATIO';
+    else cd.mode=String(cd.mode).toUpperCase();
+    if(cd.ratio===''||cd.ratio===null||cd.ratio===undefined)cd.ratio='';
+    else if(!Number.isFinite(Number(cd.ratio)))cd.ratio=Number(d.diluent?.ratio??0.15);
+    else cd.ratio=Number(cd.ratio);
+    cd.ratioComponent=sepCanonicalComponent(cd.ratioComponent)||(String(cd.ratioComponent||'TOTAL').toUpperCase()==='TOTAL'?'TOTAL':'TOTAL');
+    if(!Number.isFinite(Number(cd.outFlow1Pct)))cd.outFlow1Pct=Number(d.diluent?.outFlow1Pct??30);
+    else cd.outFlow1Pct=Number(cd.outFlow1Pct);
+    merged.diluent=cd;
+    if(typeof merged.notes!=='string')merged.notes=String(cur.notes??d.notes??'');
+    n.params.separator=merged;
+  }
+
+  // Load-time migration: legacy separatorFilter / separatorFilterNoDiluent nodes
+  // (flat params) -> unified `separator` with the nested §4 model. Unknown fields
+  // on n.params are preserved; legacy flat separator keys are removed after mapping.
+  const SEP_LEGACY_FLAT_KEYS=['diluentMode','diluentRatio','diluentRatioBasis','diluentOut1Pct','comp1Name','comp1Out1Pct','comp2Name','comp2Out1Pct','comp3Name','comp3Out1Pct','comp4Name','comp4Out1Pct','otherCompOut1Pct','colorOut1Pct','presetProfile','filtrateRecoveryPct','cakeMoisturePct','polInCakePct'];
+  function migrateSeparatorNode(n){
+    if(!n||(n.type!=='separatorFilter'&&n.type!=='separatorFilterNoDiluent'))return false;
+    const old=n.params||{};
+    const num=(v,fb)=>Number.isFinite(Number(v))?Number(v):fb;
+    const splits=[1,2,3,4].map(i=>{
+      const c=sepCanonicalComponent(old['comp'+i+'Name']);
+      return {component:c||'',pctToOut1:num(old['comp'+i+'Out1Pct'],0)};
+    });
+    const basisRaw=String(old.diluentRatioBasis||'TOTAL');
+    n.type='separator';
+    n.stationTypeCode=stationTypeCode('separator');
+    if(!n.equipmentTag||/^FLT-/.test(String(n.equipmentTag)))n.equipmentTag=n.equipmentTag||nextEquipmentTag('separator',n.id,n.stationNumber);
+    const sep={
+      splits,
+      otherComponentsPctToOut1:num(old.otherCompOut1Pct,0),
+      colorPctToOut1:num(old.colorOut1Pct,100),
+      diluent:{
+        mode:String(old.diluentMode||'NO_RATIO').toUpperCase()==='RATIO'?'RATIO':'NO_RATIO',
+        ratio:(old.diluentRatio===''||old.diluentRatio===undefined)?'':num(old.diluentRatio,0.15),
+        ratioComponent:basisRaw.toUpperCase()==='TOTAL'?'TOTAL':(sepCanonicalComponent(basisRaw)||'TOTAL'),
+        outFlow1Pct:num(old.diluentOut1Pct,30)
+      },
+      notes:String(old.notes??'')
+    };
+    const keep={};
+    Object.entries(old).forEach(([k,v])=>{if(!SEP_LEGACY_FLAT_KEYS.includes(k))keep[k]=v;});
+    n.params={...keep,separator:sep};
+    ensureSeparatorDefaults(n);
+    return true;
+  }
+  function migrateSeparatorNodes(nodes){
+    let count=0;
+    (nodes||[]).forEach(n=>{if(migrateSeparatorNode(n))count++;});
+    return count;
+  }
+
+  // Evaporator stencil spec Rev 3, Phase 0: legacy flat params + old port ids
+  // (steam/juice/syrup/vapour/condensate) become the spec §4 model and
+  // in0/in1/out0/out1/out2 ports. Unknown/unmapped keys are preserved, never dropped.
+  const EVAP_PORT_MAP={steam:'in1',juice:'in0',syrup:'out0',vapour:'out1',condensate:'out2'};
+  function migrateEvaporatorNode(n){
+    if(!n||n.type!=='evaporator')return false;
+    const old=n.params||{};
+    const str=(v,fb='')=>(v===undefined||v===null||v==='')?fb:String(v);
+    const modeRaw=String(old.specMode||'');
+    let mode='PRESSURE';
+    if(modeRaw==='HTC_AREA')mode='HTC';
+    else if(modeRaw==='VAPOUR_P_T')mode='PRESSURE';
+    else if(modeRaw==='FLOW_OUT_TEMP')mode='FLOW_TEMP';
+    else if(modeRaw==='PRESSURE_FEEDBACK')mode='FEEDBACK';
+    else if(['HTC','PRESSURE','FEEDBACK','FLOW_TEMP'].includes(modeRaw))mode=modeRaw;
+    else if(old.pressureMode==='VAPOUR_PRESSURE'||old.pressureMode==='VAPOUR_TEMP')mode='PRESSURE';
+    const sc=old.solidsControl;
+    let ts='';
+    if(!sc||sc==='TARGET_BRIX')ts=str(old.targetBrix,'');
+    else if(sc==='EVAPORATION_RATE')ts=(old.totalSolidsPct!==undefined&&old.totalSolidsPct!=='65.0')?str(old.totalSolidsPct,''):'';
+    else ts=str(old.totalSolidsPct,'');
+    const tag=String(n.equipmentTag||'');
+    const mapped={
+      shapeVariant:str(old.shapeVariant,'Robert'),
+      equipmentId:tag.length<=11?tag:'',
+      stationName:str(n.label,''),
+      effectNo:str(old.effectNumber,'1'),
+      mode,
+      htc_W_m2K:mode==='HTC'?str(old.heatTransferCoefficient,''):'',
+      heatingSurface_m2:str(old.heatingSurface,'0.0'),
+      heatLossPct:str(old.heatLossPercent,'0.00'),
+      condensateDropK:str(old.condensateSubcooling??old.condensateDropK,'0.0'),
+      vaporPressure:{value:str(old.vapourPressure??old.vaporPressure,'0.0'),unit:'kPa'},
+      satTemp_C:str(old.vapourTemp??old.satTemperature,'0.0'),
+      entrainment_mgPerKg:str(old.entrainmentPpm,'0'),
+      flowOutTemp_C:mode==='FLOW_TEMP'?str(old.flowOutTemp,''):'',
+      totalSolidsPct:ts,
+      colorRise:{value:str(old.colorRise,'0.00'),unit:'%'},
+      notes:str(old.notes,'')
+    };
+    const drop=['effectNumber','specMode','heatTransferCoefficient','heatingSurface','vaporPressure','satTemperature','flowOutTemp','pressureFeedback','totalSolidsPct','heatLossPercent','condensateDropK','entrainmentPpm','bpeFactor','colorRise','vapourPressure','vapourTemp','condensateSubcooling'];
+    const keep={};
+    Object.entries(old).forEach(([k,v])=>{if(!drop.includes(k))keep[k]=v;});
+    n.params={...keep,...mapped};
+    return true;
+  }
+  function migrateEvaporatorNodes(nodes){
+    let count=0;
+    (nodes||[]).forEach(n=>{if(migrateEvaporatorNode(n))count++;});
+    return count;
+  }
+  function remapEvaporatorConnectorPorts(nodes,connectors){
+    const typeOf={};
+    (nodes||[]).forEach(n=>{typeOf[n.id]=n.type;});
+    (connectors||[]).forEach(c=>{
+      if(!c||c.linkHalf===true)return;
+      if(c.source&&c.target){
+        if(c.source.type==='port'&&typeOf[c.source.station_id]==='evaporator'&&EVAP_PORT_MAP[c.source.port_id])c.source.port_id=EVAP_PORT_MAP[c.source.port_id];
+        if(c.target.type==='port'&&typeOf[c.target.station_id]==='evaporator'&&EVAP_PORT_MAP[c.target.port_id])c.target.port_id=EVAP_PORT_MAP[c.target.port_id];
+      }
+      if(c.fromNodeId&&typeOf[c.fromNodeId]==='evaporator'&&EVAP_PORT_MAP[c.fromPortId])c.fromPortId=EVAP_PORT_MAP[c.fromPortId];
+      if(c.toNodeId&&typeOf[c.toNodeId]==='evaporator'&&EVAP_PORT_MAP[c.toPortId])c.toPortId=EVAP_PORT_MAP[c.toPortId];
+    });
+  }
+
+  function blenderParamHtml(n){
+    ensureBlenderDefaults(n);
+    const p=n.params;
+    const res=n.stationResult;
+    const opt=(v,label,cur)=>`<option value="${v}" ${cur===v?'selected':''}>${label}</option>`;
+
+    let calcHtml='';
+    if(res && res.ok){
+      calcHtml=`
+        <div class="prop-calc-box">
+          <div class="prop-calc-title">Blender Results <span class="sp-badge-pass">SOLVED</span></div>
+          <div class="prop-calc-grid">
+            <div class="prop-calc-item"><span class="lbl">Primary Flow:</span> <span class="val">${(res.primaryFlow||0).toFixed(2)} kg/h</span></div>
+            <div class="prop-calc-item"><span class="lbl">Blend Flow:</span> <span class="val">${(res.blendFlow||0).toFixed(2)} kg/h</span></div>
+            <div class="prop-calc-item"><span class="lbl">Outlet Flow:</span> <span class="val">${(res.outletFlow||0).toFixed(2)} kg/h</span></div>
+            <div class="prop-calc-item"><span class="lbl">Outlet T:</span> <span class="val">${res.outletTemp!=null?res.outletTemp.toFixed(1):'—'} °C</span></div>
+          </div>
+          <div class="prop-check-row">
+            <span class="prop-badge ${res.closure<=0.001?'pass':'warn'}">✓ Mass Closure: ${res.closure.toFixed(4)}%</span>
+          </div>
+        </div>`;
+    } else {
+      calcHtml=`
+        <div class="prop-calc-box pending">
+          <div class="prop-calc-title">Blender Results <span class="sp-badge-warn">AWAITING SOLVE</span></div>
+          <div class="prop-calc-hint">Run Network Solver (Ribbon &gt; Solve) to compute blend flow and outlet state.</div>
+        </div>`;
+    }
+
+    return `
+      <div class="pan-section">
+        <div class="pan-section-title">Blend Control</div>
+        <div class="pan-input-grid">
+          <div class="pan-field"><label>Control Mode</label><select data-param="controlMode">
+            ${opt('RATIO','Ratio to Primary Flow',p.controlMode)}
+            ${opt('BLEND_QTY','Blend Quantity',p.controlMode)}
+            ${opt('OUTPUT_SPEC','Output Flow Spec',p.controlMode)}
+          </select></div>
+        </div>
+        <div class="pan-field" style="margin-top:10px">
+          ${p.controlMode==='RATIO'?`
+            <label>Ratio</label>
+            <input type="number" step="0.0001" min="0" data-param="ratio" value="${escapeHtml(p.ratio)}" style="width:120px">
+            <select data-param="ratioBasis" style="margin-left:8px">
+              ${opt('TOTAL','of Total Primary Flow',p.ratioBasis)}
+              ${opt('COMPONENT','of a Component',p.ratioBasis)}
+            </select>
+            ${p.ratioBasis==='COMPONENT'?`<select data-param="ratioComponent" style="margin-left:8px">${opt('Total','Total',p.ratioComponent)}${opt('CaO','CaO',p.ratioComponent)}${opt('Water','Water',p.ratioComponent)}</select>`:''}
+          `:(p.controlMode==='BLEND_QTY'?`
+            <label>Blend Quantity (kg/h)</label>
+            <input type="number" step="0.0001" min="0" data-param="blendQuantity" value="${escapeHtml(p.blendQuantity)}" style="width:140px">
+          `:`<label>Output Specification</label>
+          <select data-param="outputSpecMode" style="width:180px">
+            ${opt('NONE','None',p.outputSpecMode)}
+            ${opt('NSWATER_RATIO','Non-Sugar to Water Ratio',p.outputSpecMode)}
+            ${opt('QUANTITY','Quantity',p.outputSpecMode)}
+            ${opt('DS','Dry Substance',p.outputSpecMode)}
+            ${opt('PURITY','Purity',p.outputSpecMode)}
+            ${opt('TEMP','Temperature',p.outputSpecMode)}
+            ${opt('COMPONENT','Component %',p.outputSpecMode)}
+          </select>
+          ${p.outputSpecMode!=='NONE'?`<input type="number" step="0.0001" data-param="output${p.outputSpecMode==='COMPONENT'?'ComponentPct':p.outputSpecMode==='NSWATER_RATIO'?'NSWaterRatio':p.outputSpecMode==='QUANTITY'?'Quantity':p.outputSpecMode==='DS'?'DS':p.outputSpecMode==='PURITY'?'Purity':'Temp'}" value="${escapeHtml(p.outputSpecMode==='COMPONENT'?p.outputComponentPct:p.outputSpecMode==='NSWATER_RATIO'?p.outputNSWaterRatio:p.outputSpecMode==='QUANTITY'?p.outputQuantity:p.outputSpecMode==='DS'?p.outputDS:p.outputSpecMode==='PURITY'?p.outputPurity:p.outputTemp)}" style="width:140px;margin-left:8px">`:''}
+          ${p.outputSpecMode==='COMPONENT'?`<select data-param="outputComponent" style="margin-left:8px">${opt('Total','Total',p.outputComponent)}${opt('CaO','CaO',p.outputComponent)}${opt('Water','Water',p.outputComponent)}</select>`:''}`)}
+        </div>
+        <div class="pan-note" style="margin-top:8px">Help Book rule: the blend (port 1) flow is always a Required Flow [R] — Sugars calculates its quantity. Outlet pressure equals the minimum of the two inlet pressures; outlet temperature is the heat-content result. Sucrose crystals may dissolve but not grow. Solubility coefficients are a mass-weighted average of the inlets.</div>
+      </div>
+      ${calcHtml}
+    `;
+  }
+
   function ensureDistributorDefaults(n){
     if(!n||n.type!=='distributor')return;
     n.params=n.params||{};
@@ -4445,12 +5648,187 @@
     if(!Array.isArray(n.params.q9))n.params.q9=[];
   }
 
-  function distributorParamHtml(n){
-    ensureDistributorDefaults(n);
-    const p=n.params;
+  // --- SEPARATOR / FILTER MODERN PROPERTY WINDOW ---
+  // Faithful to Sugars Helpbook "Separator/Filter Properties" (SeparatorProperties_Scn-1.png):
+  // left group = Input Flow Components Out Flow No.1 (4 + Other + Color),
+  // right group = Diluent Flow (No Ratio | Ratio + Component, Out Flow No.1 %).
+  // Separator dropdown options use canonical CORE keys (§3). TOTAL is offered
+  // on the diluent-ratio selector only.
+  const SEP_COMPONENT_OPTIONS=[
+    ['crystals','Sucrose Crystals'],
+    ['sucrose','Sucrose'],
+    ['water','Water'],
+    ['invert','Invert'],
+    ['ash','Ash'],
+    ['ns1','Dissolved N.S. #1 (color-bearing)'],
+    ['ns2','Dissolved N.S. #2'],
+    ['caco3','CaCO3 (insoluble)'],
+    ['cao','CaO (insoluble)'],
+    ['fiber','Fiber / insolubles'],
+    ['ethanolL','Ethanol (liquid)'],
+    ['co2','CO2 (gas)'],
+    ['ammonia','Ammonia (gas)'],
+    ['steamVapour','Steam / vapour']
+  ];
+  const SEP_RATIO_BASIS_OPTIONS=[['TOTAL','Total'],...SEP_COMPONENT_OPTIONS];
+  const SEP_COMPONENT_LABEL=Object.fromEntries(SEP_COMPONENT_OPTIONS);
+
+  // Nested-model binder: controls carry data-sep="<path>" with optional
+  // data-sep-num="1" for numeric fields (blank preserved as '' for Ratio).
+  function setSeparatorParam(n,path,raw){
+    ensureSeparatorDefaults(n);
+    const sep=n.params.separator;
+    const m=String(path).match(/^splits\.(\d+)\.(component|pctToOut1)$/);
+    if(m){
+      const i=Math.min(3,Math.max(0,parseInt(m[1],10)||0));
+      sep.splits[i]=sep.splits[i]||{component:'',pctToOut1:0};
+      sep.splits[i][m[2]]=(m[2]==='component')?String(raw||''):raw;
+      return;
+    }
+    if(path==='otherComponentsPctToOut1'||path==='colorPctToOut1'){sep[path]=raw;return;}
+    if(path==='notes'){sep.notes=String(raw??'');return;}
+    const dm=String(path).match(/^diluent\.(mode|ratio|ratioComponent|outFlow1Pct)$/);
+    if(dm){
+      if(dm[1]==='mode'){if(['NO_RATIO','RATIO'].includes(String(raw)))sep.diluent.mode=String(raw);}
+      else sep.diluent[dm[1]]=raw;
+      return;
+    }
+  }
+  function bindSeparatorNestedInputs(n,target){
+    target.querySelectorAll('[data-sep]').forEach(el=>{
+      el.addEventListener('change',e=>{
+        pushHistory();
+        const path=e.target.dataset.sep;
+        let val=e.target.value;
+        if(e.target.dataset.sepNum==='1')val=(String(val).trim()==='')?'':Number(val);
+        setSeparatorParam(n,path,val);
+        n.stationResult=null;
+        markChanged();
+        renderNodeProps(n,target);
+      });
+    });
+  }
+
+  function separatorStationParamHtml(n){
+    ensureSeparatorDefaults(n);
+    const sep=n.params.separator||{};
+    const dil=sep.diluent||{};
     const res=n.stationResult;
-    const opt=(v,label,cur)=>`<option value="${v}" ${cur===v?'selected':''}>${label}</option>`;
-    const ports=['out0','out1','out2','out3','out4','out5','out6','out7','out8','out9'];
+    // Diluent panel state is derived from the Port 1 connection (§4): unconnected
+    // forces NONE and dims the panel. Stored values are preserved (not wiped) so
+    // reconnecting restores the previous Ratio setup.
+    const washConnected=!!state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='washWater');
+    const effMode=washConnected?String(dil.mode||'NO_RATIO').toUpperCase():'NONE';
+    const noRatio=effMode!=='RATIO';
+    const compOpt=(cur)=>`<option value="" ${!cur?'selected':''}>—</option>`+SEP_COMPONENT_OPTIONS.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('');
+    const basisOpt=(cur)=>SEP_RATIO_BASIS_OPTIONS.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('');
+    const dis=washConnected?'':'disabled';
+    const rows=[0,1,2,3].map(i=>{
+      const r=(sep.splits||[])[i]||{component:'',pctToOut1:''};
+      const ord=['1st','2nd','3rd','4th'][i];
+      return `
+      <div class="pan-modern-field"><label>${ord} — Component</label><select data-sep="splits.${i}.component">${compOpt(r.component)}</select></div>
+      <div class="pan-modern-field"><label>% to Out 1</label><input type="number" step="0.01" min="0" max="100" data-sep="splits.${i}.pctToOut1" data-sep-num="1" value="${escapeHtml(r.pctToOut1??'')}"></div>`;
+    }).join('');
+
+    const feedName=escapeHtml(state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='feedIn')?.name||'Not connected');
+    const washName=washConnected?escapeHtml(state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='washWater')?.name||'Not connected'):'— (Port 1 unconnected → diluent NONE)';
+    const out1Name=escapeHtml(state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='filtrateOut')?.name||'Not connected');
+    const out2Name=escapeHtml(state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='cakeOut')?.name||'Not connected');
+
+    let calcHtml='';
+    if(res && res.ok){
+      const splitRows=(sep.splits||[]).map(r=>{
+        const nm=SEP_COMPONENT_LABEL[r.component]||r.component||'—';
+        return `<tr><td>${escapeHtml(nm)}</td><td>${escapeHtml(r.pctToOut1??'—')} %</td><td>→ Out 1</td></tr>`;
+      }).join('');
+      const bal=res.balanceClosure;
+      calcHtml=`
+        <div class="pan-modern-card wide">
+          <div class="pan-modern-card-head"><span>Separator Balance Results</span><span>SOLVED</span></div>
+          <div class="pan-modern-card-body" style="padding:10px">
+            <div class="pan-summary-grid">
+              <div class="pan-readout"><div class="k">Feed In (Port 0)</div><div class="v">${(res.feedFlow||0).toFixed(2)} kg/h</div></div>
+              <div class="pan-readout"><div class="k">Diluent In (Port 1)</div><div class="v">${res.diluentPending?'Pending — enter Ratio':((res.diluentFlow||0).toFixed(2)+' kg/h')}</div></div>
+              <div class="pan-readout"><div class="k">Out Flow No. 1</div><div class="v">${(res.out1Flow||0).toFixed(2)} kg/h</div></div>
+              <div class="pan-readout"><div class="k">Out Flow No. 2</div><div class="v">${(res.out2Flow||0).toFixed(2)} kg/h</div></div>
+            </div>
+            ${res.diluentPending?'<div class="pan-design-note" style="margin-top:8px">Diluent Ratio is blank — wash is held as a Required flow and excluded from the split. Enter a Ratio to include diluent.</div>':''}
+            <div class="prop-check-row" style="margin-top:8px">
+              <span class="prop-badge ${(res.closure||0)<=0.001?'pass':'warn'}">✓ Mass Closure: ${(res.closure||0).toFixed(4)}%</span>
+              ${bal?`<span class="prop-badge ${bal.ok?'pass':'warn'}">Max component residual: ${(bal.maxResidualKgH||0).toFixed(6)} kg/h</span>`:''}
+            </div>
+            <table class="pan-connection-table" style="margin-top:8px"><thead><tr><th>Component</th><th>% to Out 1</th><th>Direction</th></tr></thead><tbody>${splitRows}<tr><td>All other components</td><td>${escapeHtml(sep.otherComponentsPctToOut1??'—')} %</td><td>→ Out 1</td></tr></tbody></table>
+          </div>
+        </div>`;
+    } else {
+      calcHtml=`
+        <div class="pan-modern-card wide">
+          <div class="pan-modern-card-head"><span>Separator Results</span><span>AWAITING SOLVE</span></div>
+          <div class="pan-modern-card-body" style="padding:10px">
+            <div class="pan-design-note">Connect Port 0 feed${washConnected?'':' (Port 1 diluent optional)'} and both outputs, then Run Network Solver (Ribbon &gt; Solve).</div>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="pan-modern-card wide">
+        <div class="pan-modern-card-head"><span>Diluent Flow — Port 1</span><span>${washConnected?(noRatio?'NO RATIO':'RATIO'):'NONE (PORT 1 UNCONNECTED)'}</span></div>
+        <div class="pan-modern-card-body" style="padding:10px">
+          <div style="display:flex;gap:8px;margin-bottom:9px">
+            <label title="Helpbook magenta group: only one of No Ratio / Ratio can be active" style="flex:1;display:flex;align-items:center;gap:6px;border:1.5px solid ${noRatio?'#0b6ed1':'#a9c5df'};border-left:4px solid ${noRatio?'#d744c5':'#a9c5df'};border-radius:5px;padding:7px 9px;font-size:9px;font-weight:800;color:#315b80;cursor:${washConnected?'pointer':'not-allowed'};background:${noRatio?'#eaf5ff':'#fff'}">
+              <input type="radio" name="sepDiluentMode" data-sep="diluent.mode" value="NO_RATIO" ${noRatio?'checked':''} ${dis}>
+              No Ratio <span style="font-weight:400;color:#7a8a97">known qty</span>
+            </label>
+            <label title="Helpbook magenta group: only one of No Ratio / Ratio can be active" style="flex:1;display:flex;align-items:center;gap:6px;border:1.5px solid ${!noRatio?'#0b6ed1':'#a9c5df'};border-left:4px solid ${!noRatio?'#d744c5':'#a9c5df'};border-radius:5px;padding:7px 9px;font-size:9px;font-weight:800;color:#315b80;cursor:${washConnected?'pointer':'not-allowed'};background:${!noRatio?'#eaf5ff':'#fff'}">
+              <input type="radio" name="sepDiluentMode" data-sep="diluent.mode" value="RATIO" ${!noRatio?'checked':''} ${dis}>
+              Ratio <span style="font-weight:400;color:#7a8a97">required flow</span>
+            </label>
+          </div>
+          <div class="pan-modern-grid three">
+            <div class="pan-modern-field"><label>Ratio (diluent ÷ basis)</label><input type="number" step="0.001" min="0" data-sep="diluent.ratio" data-sep-num="1" value="${escapeHtml(dil.ratio??'')}" ${dis||noRatio?'disabled':''}></div>
+            <div class="pan-modern-field"><label>Ratio Basis Component</label><select data-sep="diluent.ratioComponent" ${dis||noRatio?'disabled':''}>${basisOpt(dil.ratioComponent)}</select></div>
+            <div class="pan-modern-field"><label>Out Flow No. 1 — % diluent to Out 1</label><input type="number" step="0.01" min="0" max="100" data-sep="diluent.outFlow1Pct" data-sep-num="1" value="${escapeHtml(dil.outFlow1Pct??'')}" ${dis}></div>
+          </div>
+          <div class="pan-design-note">No Ratio = diluent qty is known (external / upstream). Ratio = diluent is a Required Flow — Sugars writes the wash quantity automatically (Ratio × input Total or component); remainder goes to Out 2.${washConnected?'':' Port 1 is unconnected: this panel is dimmed and the station solves feed-only.'}</div>
+        </div>
+      </div>
+      <div class="pan-modern-card wide">
+        <div class="pan-modern-card-head"><span>Input Flow Components → Out Flow No. 1</span><span>SPLIT %</span></div>
+        <div class="pan-modern-card-body" style="padding:10px">
+          <div class="pan-modern-grid">${rows}</div>
+          <div class="pan-modern-grid" style="margin-top:7px">
+            <div class="pan-modern-field"><label>Other Components — % to Out 1</label><input type="number" step="0.01" min="0" max="100" data-sep="otherComponentsPctToOut1" data-sep-num="1" value="${escapeHtml(sep.otherComponentsPctToOut1??'')}"></div>
+            <div class="pan-modern-field"><label>Color — % to Out 1 (NS1 only, Phase 2)</label><input type="number" step="0.01" min="0" max="100" data-sep="colorPctToOut1" data-sep-num="1" value="${escapeHtml(sep.colorPctToOut1??'')}"></div>
+          </div>
+          <div class="pan-design-note">Each % leaves via Out 1, rest via Out 2. Rows are independent — unlisted components fall under Other. Color is stored now and takes effect with the Phase 2 color model.</div>
+        </div>
+      </div>
+      <div class="pan-modern-card wide">
+        <div class="pan-modern-card-head"><span>Connections</span><span>1–2 IN / 2 OUT</span></div>
+        <div class="pan-modern-card-body" style="padding:10px">
+          <table class="pan-connection-table">
+            <tr><th>Role</th><th>Dir</th><th>Port</th><th>Connected Stream</th></tr>
+            <tr><td>Process Feed</td><td>IN</td><td>feedIn (0)</td><td>${feedName}</td></tr>
+            <tr><td>Diluent / Wash</td><td>IN</td><td>washWater (1)</td><td>${washName}</td></tr>
+            <tr><td>Primary Separated</td><td>OUT</td><td>filtrateOut (1)</td><td>${out1Name}</td></tr>
+            <tr><td>Secondary Separated</td><td>OUT</td><td>cakeOut (2)</td><td>${out2Name}</td></tr>
+          </table>
+          <div class="pan-design-note">Port 0 input becomes Required if either output is Required. Both outputs Required at once is unsatisfiable.</div>
+        </div>
+      </div>
+      <div class="pan-modern-card wide">
+        <div class="pan-modern-card-head"><span>Notes</span><span>USER</span></div>
+        <div class="pan-modern-card-body" style="padding:10px">
+          <div class="pan-modern-field"><label>Station Notes</label><input data-sep="notes" value="${escapeHtml(sep.notes||'')}" placeholder="e.g. Thickener-separator, Beet Factory"></div>
+        </div>
+      </div>
+      ${calcHtml}
+    `;
+  }
+
+
+  function distributorParamHtml(n){
 
     let calcHtml='';
     if(res && res.ok){
@@ -4628,6 +6006,334 @@
   // Authoritative implementations strictly adhering to Sugar's Help Book
   // =========================================================================
 
+  // =========================================================================
+  // EVAPORATOR STENCIL SPEC Rev 3 — units core, multiples, validation
+  // Store SI internally. Panel converts on render/commit. Model atmospheric
+  // pressure (abs kPa) backs gauge units and FEEDBACK fallback (§2, §3.4).
+  // =========================================================================
+  const EVAP_PRESSURE_UNITS=[
+    {value:'kPa',label:'kPa'},
+    {value:'bar',label:'bar'},
+    {value:'mm Hg',label:'mm Hg'},
+    {value:'in Hg',label:'in Hg'}
+  ];
+  const EVAP_SHAPE_VARIANTS=['Robert','Falling Film','Long Tube','Calandria','Forced Circulation','Steam Pulp Dryer'];
+  const EVAP_MODES=['HTC','PRESSURE','FEEDBACK','FLOW_TEMP'];
+  const KPA_PER_BAR=100, KPA_PER_MMHG=0.133322, KPA_PER_INHG=3.38639;
+  const W_M2K_PER_BTUPHRFT2F=5.678263, M2_PER_FT2=0.092903, KG_PER_LB=0.453592;
+
+  function modelUnitSystem(){return state.unitSystem==='US'?'US':'SI';}
+  function modelPatmKPa(){
+    const v=Number(state.modelAtmosphericKPa);
+    return (Number.isFinite(v)&&v>0)?v:101.325;
+  }
+  // Pressure field value (in `unit`) -> absolute kPa. mmHg/inHg are gauge
+  // relative to atmosphere and are entered negative below atmospheric [HB].
+  function evapPressureToAbsKPa(value,unit){
+    const v=Number(value);
+    if(!Number.isFinite(v))return NaN;
+    const patm=modelPatmKPa();
+    if(unit==='bar')return v*KPA_PER_BAR;
+    if(unit==='mm Hg')return patm+v*KPA_PER_MMHG;
+    if(unit==='in Hg')return patm+v*KPA_PER_INHG;
+    return v;
+  }
+  function evapAbsKPaToUnit(absKPa,unit){
+    const a=Number(absKPa);
+    if(!Number.isFinite(a))return '';
+    const patm=modelPatmKPa();
+    if(unit==='bar')return a/KPA_PER_BAR;
+    if(unit==='mm Hg')return (a-patm)/KPA_PER_MMHG;
+    if(unit==='in Hg')return (a-patm)/KPA_PER_INHG;
+    return a;
+  }
+  const evapDispTempC=c=>{const v=Number(c);if(!Number.isFinite(v))return '';return modelUnitSystem()==='US'?(v*9/5+32):v;};
+  const evapStoreTempC=v=>{const x=Number(v);if(!Number.isFinite(x))return '';return modelUnitSystem()==='US'?((x-32)*5/9):x;};
+  const evapTempUnit=()=>modelUnitSystem()==='US'?'°F':'°C';
+  const evapDispHTC=u=>{const v=Number(u);if(!Number.isFinite(v))return '';return modelUnitSystem()==='US'?(v/W_M2K_PER_BTUPHRFT2F):v;};
+  const evapStoreHTC=v=>{const x=Number(v);if(!Number.isFinite(x))return '';return modelUnitSystem()==='US'?(x*W_M2K_PER_BTUPHRFT2F):x;};
+  const evapHTCUnit=()=>modelUnitSystem()==='US'?'BTU/(hr·ft²·°F)':'W/(m²·K)';
+  const evapDispArea=a=>{const v=Number(a);if(!Number.isFinite(v))return '';return modelUnitSystem()==='US'?(v/M2_PER_FT2):v;};
+  const evapStoreArea=v=>{const x=Number(v);if(!Number.isFinite(x))return '';return modelUnitSystem()==='US'?(x*M2_PER_FT2):x;};
+  const evapAreaUnit=()=>modelUnitSystem()==='US'?'ft²':'m²';
+  const evapDispDeltaK=k=>{const v=Number(k);if(!Number.isFinite(v))return '';return modelUnitSystem()==='US'?(v*9/5):v;};
+  const evapStoreDeltaK=v=>{const x=Number(v);if(!Number.isFinite(x))return '';return modelUnitSystem()==='US'?(x*5/9):x;};
+  const evapDeltaUnit=()=>modelUnitSystem()==='US'?'°F':'K';
+  const evapFlowUnit=()=>modelUnitSystem()==='US'?'lb/h':'kg/h';
+  const evapDispFlow=kgh=>{const v=Number(kgh);if(!Number.isFinite(v))return NaN;return modelUnitSystem()==='US'?(v/KG_PER_LB):v;};
+
+  function evapOrdinal(n){
+    const i=Math.abs(Math.trunc(Number(n)));
+    if(!Number.isFinite(i)||i<1)return String(n);
+    // SUGARS wording: words for the first six effects, numeric ordinal beyond.
+    const words={1:'First',2:'Second',3:'Third',4:'Fourth',5:'Fifth',6:'Sixth'};
+    if(words[i])return i+' - '+words[i]+' Effect';
+    const mod100=i%100;
+    const suf=(mod100>=11&&mod100<=13)?'th':({1:'st',2:'nd',3:'rd'}[i%10]||'th');
+    return i+' - '+i+suf+' Effect';
+  }
+  // Display precision (W-11): pressure 1 decimal kPa at matched resolution per
+  // unit, temperature 1 decimal, percent 2 decimals. Store keeps full precision;
+  // these formatters apply on render only.
+  function evapFmtPressure(value,unit){
+    if(value===''||value==null)return '';
+    const v=Number(value);
+    if(!Number.isFinite(v))return '';
+    const d=(unit==='bar')?3:(unit==='mm Hg')?1:(unit==='in Hg')?2:1;
+    return v.toFixed(d);
+  }
+  function evapFmtTempC(c){
+    if(c===''||c==null)return '';
+    const v=Number(c);
+    if(!Number.isFinite(v))return '';
+    const d=modelUnitSystem()==='US'?evapDispTempC(v):v;
+    return Number(d).toFixed(1);
+  }
+  function evapFmtPct(p){
+    if(p===''||p==null)return '';
+    const v=Number(p);
+    if(!Number.isFinite(v))return '';
+    return v.toFixed(2);
+  }
+  function evapFmtDropK(k){
+    if(k===''||k==null)return '';
+    const v=Number(k);
+    if(!Number.isFinite(v))return '';
+    const d=modelUnitSystem()==='US'?evapDispDeltaK(k):v;
+    return Number(d).toFixed(1);
+  }
+  function evapEffectCount(){
+    return Math.max(1,state.nodes.filter(n=>n.type==='evaporator').length);
+  }
+  // Effect Number dropdown entries: exactly 1..N where N is the number of
+  // Evaporator stencils in the model (spec §3.5b). A stored effectNo above N
+  // is kept, flagged out of range, and raises V-03 — never changed silently.
+  function evapEffectOptions(N,effNo){
+    const count=Math.max(1,Math.trunc(Number(N))||1);
+    const no=parseInt(effNo,10);
+    return Array.from({length:count},(_,i)=>`<option value="${i+1}" ${no===i+1?'selected':''}>${evapOrdinal(i+1)}</option>`).join('')
+      + ((!Number.isInteger(no)||no<1||no>count)?`<option value="${escapeHtml(String(effNo??''))}" selected>${escapeHtml(String(effNo??''))} — out of range</option>`:'');
+  }
+  // A multiple = maximal station-number-ordered run of effect numbers 1..n [HB 3.5a].
+  // Returns [{members:[nodeIds], broken:boolean}]. Used by V-03/V-07 and Phase-3 solver.
+  function evaporatorMultiples(nodes){
+    const list=(nodes||state.nodes||[]).filter(n=>n&&n.type==='evaporator').map(n=>({
+      id:n.id,stationNumber:Number(n.stationNumber),no:parseInt(n.params?.effectNo,10)
+    })).sort((a,b)=>(Number.isFinite(a.stationNumber)?a.stationNumber:1e9)-(Number.isFinite(b.stationNumber)?b.stationNumber:1e9));
+    const runs=[];
+    let cur=null;
+    for(const e of list){
+      if(!cur||e.no===1){cur={members:[],broken:false};runs.push(cur);}
+      const expect=cur.members.length+1;
+      if(e.no!==expect)cur.broken=true;
+      cur.members.push(e.id);
+    }
+    return runs;
+  }
+  function evaporatorMultipleOf(nodeId,nodes){
+    for(const r of evaporatorMultiples(nodes)){if(r.members.includes(nodeId))return r;}
+    return null;
+  }
+  // Readiness topology for one evaporator: the stencil ports are
+  // in0 (juice), in1 (steam/vapor), out0 (syrup), out1 (vapor),
+  // out2 (condensate) — spec §2. Extracted for unit testing.
+  function evaporatorTopologyReady(n,ins,outs){
+    return ['in1','in0'].every(pid=>ins.some(s=>s.toPortId===pid)) &&
+      ['out1','out2','out0'].every(pid=>outs.some(s=>s.fromPortId===pid));
+  }
+
+  // Shared evaporator validation (spec §5 + property-window corrections §4).
+  // Issues carry sev FATAL/WARN/INFO. opts.includeTopology=false excludes the
+  // connection-count check (V-08) for the property dialog, which shows
+  // topology as a separate amber note; pre-flight keeps it (fatal).
+  function evaporatorStationIssues(n,opts){
+    ensureEvaporatorDefaults(n);
+    const includeTopology=!opts||opts.includeTopology!==false;
+    const p=n.params||{};
+    const out=[];
+    const push=(id,message,sev)=>out.push({id,message,sev:sev||'FATAL'});
+    if(!String(p.stationName||'').trim())push('V-01','Station Name is required.');
+    if(String(n.equipmentTag||'').length>11)push('V-17','Equipment ID must be 11 characters or fewer.');
+    const mode=String(p.mode||'').toUpperCase();
+    if(!EVAP_MODES.includes(mode))push('V-02','Exactly one performance mode (HTC, PRESSURE, FEEDBACK, FLOW_TEMP) must be active.');
+    const N=evapEffectCount();
+    const no=parseInt(p.effectNo,10);
+    if(!Number.isInteger(no)||no<1)push('V-03','Effect Number must be an integer >= 1.');
+    else{
+      if(no>N)push('V-03',`Effect Number ${no} exceeds the ${N} Evaporator stencil(s) on the sheet.`);
+      const run=evaporatorMultipleOf(n.id);
+      if(run){
+        const seq=run.members.map(id=>{const m=(state.nodes||[]).find(x=>x.id===id);return parseInt(m?.params?.effectNo,10);});
+        if(run.broken||!seq.length||!seq.every((v,i)=>v===i+1))push('V-03','Effect numbers must run 1,2,3…n in station-number order with no repeats inside one multiple.');
+      }
+    }
+    if(mode==='HTC'){
+      if(!(parseFloat(p.htc_W_m2K)>0))push('V-04','HTC mode requires Heat Transfer Coefficient U > 0.');
+      if(!(parseFloat(p.heatingSurface_m2)>0))push('V-04','HTC mode requires Heating Surface A > 0.');
+      if(!(parseFloat(p.htc_W_m2K)>0)||!(parseFloat(p.heatingSurface_m2)>0))push('V-15','HTC mode selected and U or A is empty or not positive.');
+    }
+    if(mode==='PRESSURE'){
+      const vp=(p.vaporPressure&&typeof p.vaporPressure==='object')?p.vaporPressure:{value:p.vaporPressure,unit:'kPa'};
+      const rawP=String(vp.value??'').trim();
+      const abs=evapPressureToAbsKPa(vp.value,vp.unit||'kPa');
+      const hasT=Number.isFinite(parseFloat(p.satTemp_C));
+      if(rawP===''&&!hasT)push('V-11','Vapour pressure and saturation temperature are both empty (PRESSURE mode).');
+      if(!(abs>0)&&!hasT)push('V-05','PRESSURE mode requires a valid vapor pressure (abs > 0) or saturation temperature; 0.0 is invalid.');
+    }
+    if(mode==='FLOW_TEMP'){
+      if(!Number.isFinite(parseFloat(p.flowOutTemp_C)))push('V-06','FLOW_TEMP mode requires the juice-out temperature to be set.');
+      if(!Number.isFinite(parseFloat(p.flowOutTemp_C)))push('V-16','FLOW_TEMP mode: juice-out temperature is empty.');
+      else{
+        const tsat=evaporatorDialogVaporTsatC(n);
+        if(tsat!==null&&parseFloat(p.flowOutTemp_C)<=tsat)push('V-16','Juice-out temperature must be above the vapor saturation temperature (FLOW_TEMP mode).');
+      }
+    }
+    const run7=evaporatorMultipleOf(n.id);
+    if(run7){
+      const cnt=run7.members.filter(id=>{const m=(state.nodes||[]).find(x=>x.id===id);const v=parseFloat(m?.params?.totalSolidsPct);return Number.isFinite(v)&&v>0;}).length;
+      if(cnt>1)push('V-07','At most one Total Solids entry per multiple.');
+      // V-12: descending vapor pressures expected across the multiple.
+      const tsats=run7.members.map(id=>{const m=(state.nodes||[]).find(x=>x.id===id);return m?evaporatorDialogVaporTsatC(m):null;});
+      for(let i=0;i+1<tsats.length;i++){
+        if(tsats[i]!==null&&tsats[i+1]!==null&&tsats[i+1]>=tsats[i]){
+          push('V-12',`Vapor-out saturation temperature of effect ${i+2} is not lower than that of effect ${i+1} (no temperature drop from effect ${i+1} vapor).`,'WARN');
+        }
+      }
+      // V-14: owner info.
+      const owner=evaporatorTSOwner(n).owner;
+      if(owner)push('V-14',`Total Solids target is owned by ${owner.label||owner.id} (#${owner.stationNumber}); Effect-1 steam is a solved flow.`,'INFO');
+    }
+    // V-13: driving force below 2 K at solve time (names the effect).
+    if(n.stationResult&&n.stationResult.ok&&Number.isFinite(n.stationResult.DT_K)&&n.stationResult.DT_K<2){
+      push('V-13',`Driving force Tsat(in) − T juice-out is below 2 K on effect ${parseInt(p.effectNo,10)||'?'} (${n.stationResult.DT_K.toFixed(2)} K).`,'WARN');
+    }
+    if(includeTopology){
+      const streams=state.streams||[];
+      const in0=streams.filter(s=>s.toNodeId===n.id&&s.toPortId==='in0').length;
+      const in1=streams.filter(s=>s.toNodeId===n.id&&s.toPortId==='in1').length;
+      if(in0!==1||in1!==1)push('V-08','Exactly one connection each on in0 and in1.');
+    }
+    const o1=(state.streams||[]).find(s=>s.fromNodeId===n.id&&s.fromPortId==='out1');
+    const o2=(state.streams||[]).find(s=>s.fromNodeId===n.id&&s.fromPortId==='out2');
+    if((o1&&o1.quantityMode==='REQUIRED')||(o2&&o2.quantityMode==='REQUIRED'))push('V-09','out1/out2 must never be flagged Required (over-specification).');
+    return out;
+  }
+  // Vapor saturation temperature from dialog params for cross-effect checks
+  // (PRESSURE pair or satTemp field; null when not resolvable, e.g. FEEDBACK).
+  function evaporatorDialogVaporTsatC(n){
+    const p=n.params||{};
+    const t=parseFloat(p.satTemp_C);
+    if(Number.isFinite(t))return t;
+    const vp=(p.vaporPressure&&typeof p.vaporPressure==='object')?p.vaporPressure:{value:p.vaporPressure,unit:'kPa'};
+    const abs=evapPressureToAbsKPa(vp.value,vp.unit||'kPa');
+    if(!(abs>0))return null;
+    try{const ts=satTempCFromKPa(abs);return Number.isFinite(ts)?ts:null;}catch(e){return null;}
+  }
+  // Total Solids ownership inside this station's multiple (corrections §3).
+  function evaporatorTSOwner(n){
+    const run=evaporatorMultipleOf(n.id);
+    let owner=null;
+    if(run){
+      for(const id of run.members){
+        const m=(state.nodes||[]).find(x=>x.id===id);
+        const v=parseFloat(m?.params?.totalSolidsPct);
+        if(m&&Number.isFinite(v)&&v>0){owner=m;break;}
+      }
+    }else{
+      const v=parseFloat(n.params?.totalSolidsPct);
+      if(Number.isFinite(v)&&v>0)owner=n;
+    }
+    return {owner,run,isOwner:!!owner&&owner.id===n.id,locked:!!owner&&owner.id!==n.id};
+  }
+  // Single status source for the dialog check line and the footer (§5).
+  function evaporatorDisplayStatus(n){
+    ensureEvaporatorDefaults(n);
+    const issues=evaporatorStationIssues(n,{includeTopology:false});
+    const fatals=issues.filter(e=>(e.sev||'FATAL')==='FATAL');
+    const modeData=fatals.some(e=>['V-02','V-04','V-05','V-06','V-11','V-15','V-16'].includes(e.id));
+    if(modeData)return {state:'UNSPECIFIED',issues};
+    if(n.stationResult&&n.stationResult.ok)return {state:'SOLVED',issues};
+    if(n.stationResult&&n.stationResult.ok===false&&(n.stationResult.messages||[]).length)return {state:'ERROR',issues};
+    const streams=state.streams||[];
+    const in0=streams.find(s=>s.toNodeId===n.id&&s.toPortId==='in0');
+    const in1=streams.find(s=>s.toNodeId===n.id&&s.toPortId==='in1');
+    const in0ok=!!in0&&Number(in0.props?.flow)>0;
+    const own=evaporatorTSOwner(n);
+    const effNo=parseInt(n.params?.effectNo,10);
+    // An empty effect-1 steam quantity is not WAITING when a TS owner exists.
+    const in1ok=!!in1&&(Number(in1.props?.flow)>0||(effNo===1&&!!own.owner));
+    if(!in0ok||!in1ok)return {state:'WAITING_INPUT',issues};
+    return {state:'READY',issues};
+  }
+
+  // Pressure ↔ saturation-temperature linked pair (3.3a): one physical quantity
+  // in two fields. Writes partner on commit; returns {ok,message} for inline note.
+  function evapFillPressurePartner(n,from){
+    ensureEvaporatorDefaults(n);
+    const p=n.params;
+    const vp=(p.vaporPressure&&typeof p.vaporPressure==='object')?p.vaporPressure:{value:p.vaporPressure,unit:'kPa'};
+    const unit=vp.unit||'kPa';
+    if(from==='pressure'){
+      const abs=evapPressureToAbsKPa(vp.value,unit);
+      if(!(abs>0))return {ok:false,message:'Enter a pressure with abs > 0.'};
+      if(abs>=22064)return {ok:false,message:'Above the critical point (22064 kPa).'};
+      let ts=null;
+      try{ts=satTempCFromKPa(abs);}catch(e){ts=null;}
+      if(!Number.isFinite(ts))return {ok:false,message:'Outside the saturation range.'};
+      p.satTemp_C=Number(ts).toFixed(2);
+      return {ok:true};
+    }
+    const t=parseFloat(p.satTemp_C);
+    if(!Number.isFinite(t))return {ok:false,message:'Enter a numeric saturation temperature.'};
+    let abs=null;
+    try{abs=satPressureKPaFromC(t);}catch(e){abs=null;}
+    if(!Number.isFinite(abs)||!(abs>0))return {ok:false,message:'Temperature outside the saturation range.'};
+    p.vaporPressure={value:String(Number(evapAbsKPaToUnit(abs,unit)).toFixed(4)),unit};
+    return {ok:true};
+  }
+
+  function openEvapUnitsDialog(n,rerender){
+    let modal=document.getElementById('evapUnitsModal');
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id='evapUnitsModal';
+      modal.className='subdialog show';
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML=`
+      <div class="subdialog-box" style="width:420px">
+        <div class="subdialog-head"><span>Model Units System</span>
+          <button class="subdialog-close" id="evapUnitsClose">✕</button></div>
+        <div class="subdialog-body" style="padding:15px">
+          <div class="pan-modern-field" style="margin-bottom:10px"><label>Unit System (stored values stay SI)</label>
+            <select id="evapUnitsSys">
+              <option value="SI" ${modelUnitSystem()==='SI'?'selected':''}>SI — °C, kPa, W/(m²·K), m², kg/h</option>
+              <option value="US" ${modelUnitSystem()==='US'?'selected':''}>US — °F, kPa, BTU/(hr·ft²·°F), ft², lb/h</option>
+            </select></div>
+          <div class="pan-modern-field"><label>Model Atmospheric Pressure (kPa abs)</label>
+            <input id="evapUnitsPatm" type="number" step="0.001" min="0" value="${escapeHtml(String(modelPatmKPa()))}"></div>
+          <div class="info" style="margin-top:8px">Gauge pressure units (mm Hg, in Hg) are relative to this atmosphere. FEEDBACK vapor leaving the model also uses it.</div>
+        </div>
+        <div class="subdialog-foot" style="padding:10px 15px;display:flex;justify-content:flex-end;gap:8px">
+          <button class="small-btn" id="evapUnitsCancel">Cancel</button>
+          <button class="small-btn primary" id="evapUnitsOk">OK</button>
+        </div>
+      </div>`;
+    modal.classList.add('show');
+    modal.querySelector('#evapUnitsClose').onclick=()=>modal.classList.remove('show');
+    modal.querySelector('#evapUnitsCancel').onclick=()=>modal.classList.remove('show');
+    modal.querySelector('#evapUnitsOk').onclick=()=>{
+      pushHistory();
+      state.unitSystem=modal.querySelector('#evapUnitsSys').value==='US'?'US':'SI';
+      const pa=Number(modal.querySelector('#evapUnitsPatm').value);
+      if(Number.isFinite(pa)&&pa>0)state.modelAtmosphericKPa=pa;
+      markChanged();renderAll();
+      modal.classList.remove('show');
+      if(typeof rerender==='function')rerender();
+      toast('Units system saved.');
+    };
+  }
+
   let evapModernActivePage = 'overview';
   let heaterModernActivePage = 'overview';
   let injModernActivePage = 'overview';
@@ -4646,9 +6352,21 @@
   function openEvaporatorSizingModal(n){
     ensureEvaporatorDefaults(n);
     const p = n.params;
-    const res = n.stationResult || {};
-    const Q_MW = (res.qProcessKJ_h || 120000000) / 3.6e6;
-    const dT = res.deltaTEffC || 15.0;
+    // Live micro-solve (§6.5): H and DT come from a frozen single-body balance.
+    // H_gross = Hin(port-1 steam) − Hout(condensate); H = H_gross − H_loss.
+    const micro = evaporatorMicroSolve(n);
+    const microOK = micro.status==='OK' || micro.status==='STEAM_STARVED';
+    const Q_MW = microOK&&Number.isFinite(micro.H) ? micro.H/3600 : NaN;
+    const dT = microOK&&Number.isFinite(micro.DT) ? micro.DT : NaN;
+    const tsNote = (parseFloat(p.totalSolidsPct)>0 && !(n.stationResult&&n.stationResult.ok))
+      ? '<div class="info" style="margin-bottom:12px">Total Solids is set, but no global balance exists yet: the frozen steam flow may not reproduce the Total Solids target. Values below are indicative.</div>' : '';
+    const statusNote = microOK
+      ? ((micro.status==='STEAM_STARVED' ? '<div class="info" style="margin-bottom:12px">Micro-solve reports a steam-starved body (100% condensation clamp).</div>' : '')
+        + (micro.note ? ((/validated range/.test(micro.note))
+          ? `<div class="info" style="margin-bottom:12px" title="${escapeHtml(micro.note)}">BPE extrapolated outside validated range — indicative only (hover for detail).</div>`
+          : `<div class="info" style="margin-bottom:12px">${escapeHtml(micro.note)}</div>`) : '')
+        + (micro.cached ? '<div class="info" style="margin-bottom:12px">H and DT are cached from the last global balance.</div>' : ''))
+      : `<div class="pan-design-note fail" style="margin-bottom:12px">${escapeHtml(micro.message||'Micro-solve unavailable (NO_INLET_STATE).')}</div>`;
 
     let modal = document.getElementById('evapSizingModal');
     if(!modal){
@@ -4657,6 +6375,9 @@
       modal.className = 'subdialog show';
       document.body.appendChild(modal);
     }
+
+    const fmtInt=v=>Number.isFinite(v)?Math.round(v).toLocaleString('en-US'):'—';
+    const fmtT=v=>Number.isFinite(v)?v.toFixed(1):'—';
 
     modal.innerHTML = `
       <div class="subdialog-box" style="width:520px">
@@ -4669,28 +6390,33 @@
             Governed by Sugar's Help Book <i>Evaporator Properties &gt; Heat Transfer Coefficient</i>.
             Calculate Heating Surface Area (A) from Heat Transfer Coefficient (U), or U from Area.
           </div>
+          ${tsNote}
+          ${statusNote}
           <div class="pan-modern-card" style="margin-bottom:12px">
-            <div class="pan-modern-card-head"><span>Thermodynamic Working Basis</span></div>
+            <div class="pan-modern-card-head"><span>Thermodynamic Working Basis (live micro-solve)</span></div>
             <div class="pan-modern-card-body" style="padding:10px">
               <div class="grid2">
-                <div class="pan-modern-field"><label>Thermal Duty Q (MW)</label><input id="evapSizeQ" type="number" step="0.1" value="${Q_MW.toFixed(3)}"></div>
-                <div class="pan-modern-field"><label>Effective Driving ΔT (K)</label><input id="evapSizeDT" type="number" step="0.1" value="${dT.toFixed(2)}"></div>
+                <div class="pan-modern-field"><label>Thermal Duty Q (MW)</label><input id="evapSizeQ" type="number" step="0.1" value="${Number.isFinite(Q_MW)?Q_MW.toFixed(3):''}" ${microOK?'':'disabled'}></div>
+                <div class="pan-modern-field"><label>Effective Driving ΔT (K)</label><input id="evapSizeDT" type="number" step="0.1" value="${Number.isFinite(dT)?dT.toFixed(2):''}" ${microOK?'':'disabled'}></div>
               </div>
+              <div id="evapSizeHinfo" style="margin-top:8px;font-size:9px;color:#1d558b;line-height:1.5">${
+                microOK
+                ? `H = U × A × DT &nbsp;·&nbsp; H = Hin − Hout − Hloss = ${fmtInt(micro.Hin)} − ${fmtInt(micro.Hout)} − ${fmtInt(micro.Hloss)} = ${fmtInt(micro.H)} kJ/h<br>DT = Sat. Temp. vapor in − Temp. juice out = ${fmtT(micro.tSatIn)} − ${fmtT(micro.tJuiceOut)} = ${fmtT(micro.DT)} K`
+                : 'H and DT are unavailable until inlet states resolve.'
+              }</div>
             </div>
           </div>
           <div class="pan-modern-card">
             <div class="pan-modern-card-head"><span>Sizing Calculation</span></div>
             <div class="pan-modern-card-body" style="padding:10px">
-              <div class="pan-modern-field" style="margin-bottom:8px">
-                <label>Mode</label>
-                <select id="evapSizeMode">
-                  <option value="CALC_AREA">Solve for Heating Surface Area A (from U)</option>
-                  <option value="CALC_HTC">Solve for Heat Transfer Coefficient U (from A)</option>
-                </select>
-              </div>
+              <div style="font-size:8.5px;color:#7a8a97;margin-bottom:8px">Enter Heating Surface to get Heat Transfer Coefficient — or — Enter Heat Transfer Coefficient to get Heating Surface.</div>
               <div class="grid2">
-                <div class="pan-modern-field"><label>Heat Transfer Coef U (W/m²·K)</label><input id="evapSizeU" type="number" step="10" value="${escapeHtml(p.heatTransferCoefficient||'1850.0')}"></div>
-                <div class="pan-modern-field"><label>Heating Surface Area A (m²)</label><input id="evapSizeA" type="number" step="10" value="${escapeHtml(p.heatingSurface||'2000.0')}"></div>
+                <div class="pan-modern-field"><label>Heat Transfer Coef U (${evapHTCUnit()})</label><input id="evapSizeU" type="number" step="any" value="${escapeHtml(String(evapDispHTC(p.htc_W_m2K)??''))}"></div>
+                <div class="pan-modern-field"><label>Heating Surface Area A (${evapAreaUnit()})</label><input id="evapSizeA" type="number" step="any" value="${escapeHtml(String(evapDispArea(p.heatingSurface_m2)??''))}"></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="small-btn" id="evapSizeCalcU">Calculate HTC</button>
+                <button class="small-btn" id="evapSizeCalcA">Calculate Surface</button>
               </div>
               <div id="evapSizeResult" style="margin-top:10px;padding:8px;background:#eef6fc;border-radius:4px;font-size:10px;font-weight:800;color:#1d558b;">
                 Result: Ready to calculate
@@ -4699,7 +6425,6 @@
           </div>
         </div>
         <div class="subdialog-foot" style="padding:10px 15px;display:flex;justify-content:flex-end;gap:8px">
-          <button class="small-btn" id="evapSizeCompute">Calculate</button>
           <button class="small-btn primary" id="evapSizeApply">Apply to Station</button>
         </div>
       </div>
@@ -4710,42 +6435,48 @@
     const dtIn = modal.querySelector('#evapSizeDT');
     const uIn = modal.querySelector('#evapSizeU');
     const aIn = modal.querySelector('#evapSizeA');
-    const modeSel = modal.querySelector('#evapSizeMode');
     const resBox = modal.querySelector('#evapSizeResult');
 
-    function compute(){
+    function basisOK(){
       const q_W = Number(qIn.value) * 1e6;
       const dt = Number(dtIn.value);
-      if(dt <= 0 || q_W <= 0){ resBox.textContent = 'Thermal duty and ΔT must be greater than zero.'; return; }
-      if(modeSel.value === 'CALC_AREA'){
-        const u = Number(uIn.value);
-        if(u <= 0){ resBox.textContent = 'U must be greater than zero.'; return; }
-        const a = q_W / (u * dt);
-        aIn.value = a.toFixed(1);
-        resBox.textContent = `Calculated Heating Surface A = ${a.toFixed(1)} m² (at U = ${u.toFixed(1)} W/m²·K, ΔT = ${dt.toFixed(1)} K)`;
-      }else{
-        const a = Number(aIn.value);
-        if(a <= 0){ resBox.textContent = 'Heating Surface A must be greater than zero.'; return; }
-        const u = q_W / (a * dt);
-        uIn.value = u.toFixed(1);
-        resBox.textContent = `Calculated Heat Transfer Coef U = ${u.toFixed(1)} W/m²·K (at A = ${a.toFixed(1)} m², ΔT = ${dt.toFixed(1)} K)`;
-      }
+      if(dt <= 0 || q_W <= 0){ resBox.textContent = 'Thermal duty and ΔT must be greater than zero.'; return null; }
+      return {q_W, dt};
+    }
+    // SUGARS Scn-2: each field has its own Calculate button — entering one
+    // value fills the other, in either direction, with no mode to switch.
+    function calcFromU(){
+      const b=basisOK();if(!b)return;
+      const u = Number(uIn.value);
+      if(u <= 0){ resBox.textContent = 'U must be greater than zero.'; return; }
+      const a = b.q_W / (u * b.dt);
+      aIn.value = a.toFixed(1);
+      resBox.textContent = `Calculated Heating Surface A = ${a.toFixed(1)} m² (at U = ${u.toFixed(1)} W/m²·K, ΔT = ${b.dt.toFixed(1)} K)`;
+    }
+    function calcFromA(){
+      const b=basisOK();if(!b)return;
+      const a = Number(aIn.value);
+      if(a <= 0){ resBox.textContent = 'Heating Surface A must be greater than zero.'; return; }
+      const u = b.q_W / (a * b.dt);
+      uIn.value = u.toFixed(1);
+      resBox.textContent = `Calculated Heat Transfer Coef U = ${u.toFixed(1)} W/m²·K (at A = ${a.toFixed(1)} m², ΔT = ${b.dt.toFixed(1)} K)`;
     }
 
-    modeSel.onchange = ()=>{
-      if(modeSel.value === 'CALC_AREA'){ uIn.disabled = false; aIn.disabled = true; }
-      else{ uIn.disabled = true; aIn.disabled = false; }
-      compute();
-    };
-    modeSel.onchange();
+    if(!microOK){
+      uIn.disabled=true;aIn.disabled=true;
+      modal.querySelector('#evapSizeCalcU').disabled=true;
+      modal.querySelector('#evapSizeCalcA').disabled=true;
+      resBox.textContent=micro.message||'Micro-solve unavailable.';
+    }
 
     modal.querySelector('#evapSizeClose').onclick = ()=> modal.classList.remove('show');
-    modal.querySelector('#evapSizeCompute').onclick = compute;
+    modal.querySelector('#evapSizeCalcU').onclick = calcFromA;
+    modal.querySelector('#evapSizeCalcA').onclick = calcFromU;
     modal.querySelector('#evapSizeApply').onclick = ()=>{
       pushHistory();
-      n.params.heatTransferCoefficient = uIn.value;
-      n.params.heatingSurface = aIn.value;
-      n.params.specMode = 'HTC_AREA';
+      n.params.htc_W_m2K = String(evapStoreHTC(uIn.value)??'');
+      n.params.heatingSurface_m2 = String(evapStoreArea(aIn.value)??'');
+      n.params.mode = 'HTC';
       markChanged();
       renderAll();
       modal.classList.remove('show');
@@ -4866,143 +6597,184 @@
   }
 
   // --- EVAPORATOR MODERN PROPERTY WINDOW ---
+  // Specification-checks box (dialog scope: fields only, no topology) and the
+  // amber topology note (X-04). Shared by full render and live refresh.
+  function evapIssuesHtml(n,issues){
+    const list=issues||evaporatorStationIssues(n,{includeTopology:false});
+    if(!list.length)return `<div class="pan-design-note" style="margin-bottom:10px;border:1px solid #b8d3ea;background:#f2f9ff;border-radius:6px;padding:7px 8px;font-size:8.4px;color:#315b80">✓ All specification checks pass.</div>`;
+    const hasFatal=list.some(e=>(e.sev||'FATAL')==='FATAL');
+    const hasWarn=list.some(e=>e.sev==='WARN');
+    const box=hasFatal?'border-color:#e1a6a6;background:#fff0f0;color:#923535':(hasWarn?'border-color:#e5c46e;background:#fff9e9;color:#80621b':'border-color:#b8d3ea;background:#f2f9ff;color:#315b80');
+    const tag=e=>`<i>[${(e.sev||'FATAL')==='FATAL'?'error':(e.sev==='WARN'?'warning':'info')}]</i>`;
+    return `<div class="pan-design-note" style="margin-bottom:10px;border:1px solid;border-radius:6px;padding:7px 8px;font-size:8.4px;${box}"><b>Specification checks (${list.length}):</b><br>${list.map(e=>`• <b>${e.id}</b> ${tag(e)} — ${escapeHtml(e.message)}`).join('<br>')}</div>`;
+  }
+  function evapTopologyNote(n){
+    const streams=state.streams||[];
+    const in0=streams.filter(s=>s.toNodeId===n.id&&s.toPortId==='in0').length;
+    const in1=streams.filter(s=>s.toNodeId===n.id&&s.toPortId==='in1').length;
+    const outs=['out0','out1','out2'].filter(pt=>streams.some(s=>s.fromNodeId===n.id&&s.fromPortId===pt)).length;
+    const ok=in0===1&&in1===1&&outs===3;
+    const msg=ok?`Connected: 2 of 2 inputs, 3 of 3 outputs.`:`${in0+in1} of 2 inputs connected · ${outs} of 3 outputs connected.`;
+    return {ok,msg};
+  }
   function renderModernEvaporatorProps(n, target){
+    if(evapModernActivePage==='losses')evapModernActivePage='overview';
     ensureEvaporatorDefaults(n);
     const p = n.params;
     const r = n.stationResult || {};
-    const mode = p.specMode || 'HTC_AREA';
-    const isHTC = mode === 'HTC_AREA';
-    const isVap = mode === 'VAPOUR_P_T';
-    const isFlowT = mode === 'FLOW_OUT_TEMP';
-    const isPF = mode === 'PRESSURE_FEEDBACK';
+    const mode = String(p.mode||'PRESSURE').toUpperCase();
+    const isHTC = mode === 'HTC';
+    const isVap = mode === 'PRESSURE';
+    const isFlowT = mode === 'FLOW_TEMP';
+    const isPF = mode === 'FEEDBACK';
     const st = escapeHtml(n.solveStatus || 'UNSOLVED');
     const f = (v, d=3) => Number.isFinite(v) ? Number(v).toFixed(d) : '—';
+    const vp = (p.vaporPressure&&typeof p.vaporPressure==='object')?p.vaporPressure:{value:p.vaporPressure,unit:'kPa'};
+    const vpUnit = EVAP_PRESSURE_UNITS.some(u=>u.value===vp.unit)?vp.unit:'kPa';
+    const unitOpts = (cur)=>EVAP_PRESSURE_UNITS.map(u=>`<option value="${u.value}" ${cur===u.value?'selected':''}>${u.label}</option>`).join('');
+    const N = evapEffectCount();
+    const effNo = parseInt(p.effectNo,10);
+    const effOpts = evapEffectOptions(N,p.effectNo);
+    // X-02: the single Equipment ID is the node tag; adopt a legacy params
+    // equipmentId once when the tag is still the auto form (EVAP-0000).
+    if(p.equipmentId&&String(p.equipmentId).trim()&&/^EVAP-\d{4}(-\d+)?$/.test(String(n.equipmentTag||''))&&String(n.equipmentTag)!==String(p.equipmentId).trim()){
+      n.equipmentTag=String(p.equipmentId).trim().toUpperCase().slice(0,11);
+    }
+    if(p.equipmentId)p.equipmentId='';
+    const disp = evaporatorDisplayStatus(n);
+    const issues = disp.issues;
+    const issuesHtml = `<div id="evapIssuesBox">${evapIssuesHtml(n,issues)}</div>`;
+    const steamInLabel = effNo>1 ? 'Steam / Vapor In' : 'Motive Steam In';
+    const tsOwn = evaporatorTSOwner(n);
+    const tsShown = parseFloat(p.totalSolidsPct)>0 ? p.totalSolidsPct : '0.00';
+    const tsResult = (r&&r.ok&&Number.isFinite(r.dsOutPct))?`Result: ${Number(r.dsOutPct).toFixed(2)} %`:'Result: --';
+    let tsUnder='';
+    if(tsOwn.isOwner)tsUnder='Owner. Steam to effect 1 is calculated.';
+    else if(tsOwn.locked&&tsOwn.owner)tsUnder=`Set on ${escapeHtml(tsOwn.owner.label||tsOwn.owner.id)} (#${escapeHtml(String(tsOwn.owner.stationNumber||''))}).`;
+    const topo = evapTopologyNote(n);
+    const cr = (p.colorRise&&typeof p.colorRise==='object')?p.colorRise:{value:p.colorRise,unit:'%'};
+    const crUnit = cr.unit==='CU'?'CU':'%';
+    const T_DIV = modelUnitSystem()==='US'?907.185:1000, T_LBL = modelUnitSystem()==='US'?'ton/h':'t/h';
 
     target.innerHTML = `
       <div class="pan-modern-shell">
         <div class="pan-modern-top">
-          <div class="pan-modern-field"><label>Station Name</label><input id="evapNodeLabel" value="${escapeHtml(n.label||'')}"></div>
-          <div class="pan-modern-field"><label>Station No.</label><input id="evapNodeNumber" type="number" min="1" max="9999" value="${escapeHtml(n.stationNumber||'')}"></div>
-          <div class="pan-modern-field"><label>Equipment Tag</label><input id="evapNodeTag" value="${escapeHtml(n.equipmentTag||'')}"></div>
-          <div class="pan-modern-field"><label>Effect Sequence No.</label><input data-param="effectNumber" type="number" min="1" max="10" value="${escapeHtml(p.effectNumber||'1')}"></div>
+          <div class="pan-modern-field"><label>Station Name (≤20, required)</label><input id="evapNodeLabel" maxlength="20" value="${escapeHtml(p.stationName||n.label||'')}"></div>
+          <div class="pan-modern-field"><label>Station No. (read-only — Renumber Stations)</label><input id="evapNodeNumber" readonly value="${escapeHtml(String(n.stationNumber??''))}"></div>
+          <div class="pan-modern-field"><label>Equipment ID (≤11 chars)</label><input id="evapEquipmentId" maxlength="11" value="${escapeHtml(n.equipmentTag||'')}"></div>
+          <div class="pan-modern-field"><label>Effect Sequence No.</label><select id="evapEffectNo">${effOpts}</select></div>
         </div>
         <div class="pan-modern-main">
           <nav class="pan-modern-nav" aria-label="Evaporator quick navigation">
             <span class="workspace-jump-label">Sections</span>
             <button class="${evapModernActivePage==='overview'?'active':''}" data-evap-page="overview">Evaporator Specs</button>
-            <button class="${evapModernActivePage==='losses'?'active':''}" data-evap-page="losses">Losses & Entrainment</button>
             <button class="${evapModernActivePage==='connections'?'active':''}" data-evap-page="connections">Connections</button>
             <button class="${evapModernActivePage==='results'?'active':''}" data-evap-page="results">Results & Balances</button>
           </nav>
           <div class="pan-modern-content">
             <section class="pan-page ${evapModernActivePage==='overview'?'active':''}" data-evap-page-panel="overview">
-              <div class="pan-panel-grid">
-                <div class="pan-modern-card wide">
-                  <div class="pan-modern-card-head">
-                    <span>Operating Control Mode (Sugar's Help Book Mutual Exclusivity)</span>
-                    <span class="magenta-badge">MAGENTA EXCLUSIVE CONTROLS</span>
-                  </div>
-                  <div class="pan-modern-card-body" style="padding:12px">
-                    <div style="font-size:9px;color:#7a8a97;margin-bottom:10px">
-                      Magenta border indicates mutually exclusive controls: selecting one entry disables all others per Sugar's Help Book <i>Evaporator Properties</i>.
-                    </div>
-                    
-                    <!-- Option A -->
-                    <div class="magenta-field ${isHTC?'':'disabled'}" style="margin-bottom:9px;padding:8px">
-                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                        <label style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#900060;cursor:pointer">
-                          <input type="radio" name="evapModeRadio" value="HTC_AREA" ${isHTC?'checked':''}>
-                          Option A: Heat Transfer Coefficient (U) & Heating Surface Area (A)
-                        </label>
-                        <button class="sizing-tool-btn" id="evapOpenSizingBtn" ${isHTC?'':'disabled'}>Calc U / Surface Area</button>
-                      </div>
-                      <div class="grid2">
-                        <div class="pan-modern-field"><label>Heat Transfer Coef U (W/m²·K)</label><input data-param="heatTransferCoefficient" value="${escapeHtml(p.heatTransferCoefficient||'1850.0')}" ${isHTC?'':'disabled'}></div>
-                        <div class="pan-modern-field"><label>Heating Surface Area A (m²)</label><input data-param="heatingSurface" value="${escapeHtml(p.heatingSurface||'2000.0')}" ${isHTC?'':'disabled'}></div>
-                      </div>
-                    </div>
-
-                    <!-- Option B -->
-                    <div class="magenta-field ${isVap?'':'disabled'}" style="margin-bottom:9px;padding:8px">
-                      <label style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#900060;margin-bottom:6px;cursor:pointer">
-                        <input type="radio" name="evapModeRadio" value="VAPOUR_P_T" ${isVap?'checked':''}>
-                        Option B: Vapour Out Pressure & Saturation Temperature
-                      </label>
-                      <div class="grid2">
-                        <div class="pan-modern-field"><label>Vapour Pressure (kPa abs)</label><input data-param="vaporPressure" value="${escapeHtml(p.vaporPressure||'20.0')}" ${isVap?'':'disabled'}></div>
-                        <div class="pan-modern-field"><label>Saturation Temperature (°C)</label><input data-param="satTemperature" value="${escapeHtml(p.satTemperature||'60.1')}" ${isVap?'':'disabled'}></div>
-                      </div>
-                    </div>
-
-                    <!-- Option C -->
-                    <div class="magenta-field ${isFlowT?'':'disabled'}" style="margin-bottom:9px;padding:8px">
-                      <label style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#900060;margin-bottom:6px;cursor:pointer">
-                        <input type="radio" name="evapModeRadio" value="FLOW_OUT_TEMP" ${isFlowT?'checked':''}>
-                        Option C: Juice Flow Out Temperature
-                      </label>
-                      <div class="pan-modern-field" style="max-width:240px">
-                        <label>Juice Out Temperature (°C)</label><input data-param="flowOutTemp" value="${escapeHtml(p.flowOutTemp||'102.5')}" ${isFlowT?'':'disabled'}>
-                      </div>
-                    </div>
-
-                    <!-- Option D -->
-                    <div class="magenta-field ${isPF?'':'disabled'}" style="padding:8px">
-                      <label style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#900060;cursor:pointer">
-                        <input type="radio" name="evapModeRadio" value="PRESSURE_FEEDBACK" ${isPF?'checked':''}>
-                        Option D: Pressure Feedback (Inherited from downstream condenser or barometric pressure)
-                      </label>
-                    </div>
-
-                  </div>
-                </div>
-
-                <div class="pan-modern-card">
-                  <div class="pan-modern-card-head"><span>Concentration Target</span><span>PROCESS SPEC</span></div>
-                  <div class="pan-modern-card-body" style="padding:10px">
-                    <div class="pan-modern-field" style="margin-bottom:8px">
-                      <label>Target Outlet Dry Substance (% DS / °Brix)</label>
-                      <input data-param="totalSolidsPct" value="${escapeHtml(p.totalSolidsPct||'65.0')}">
-                    </div>
-                    <div style="font-size:8.5px;color:#7a8a97;line-height:1.4">
-                      Specifying Total Solids (%) on effect 1 automatically computes the required motive steam. In multiple-effects, downstream bodies concentrate according to inter-effect vapor cascade.
-                    </div>
-                  </div>
-                </div>
-
-                <div class="pan-modern-card">
-                  <div class="pan-modern-card-head"><span>Vapour Bleed</span><span>EXTRACTION</span></div>
-                  <div class="pan-modern-card-body" style="padding:10px">
-                    <div class="pan-modern-field">
-                      <label>Process Vapour Bleed Flow (t/h)</label>
-                      <input data-param="vaporBleedFlow" value="${escapeHtml(p.vaporBleedFlow||'0.0')}">
-                    </div>
-                    <div style="font-size:8.5px;color:#7a8a97;margin-top:6px;line-height:1.4">
-                      Vapour extracted to raw juice heaters, deaerators, or vacuum pans.
-                    </div>
-                  </div>
-                </div>
+              <div style="font-size:9px;color:#7a8a97;margin-bottom:10px">
+                Magenta border indicates mutually exclusive controls: selecting one entry disables all others per Sugar's Help Book <i>Evaporator Properties</i>. The four modes form one radio group across the three panels below.
               </div>
-            </section>
-
-            <section class="pan-page ${evapModernActivePage==='losses'?'active':''}" data-evap-page-panel="losses">
               <div class="pan-panel-grid">
-                <div class="pan-modern-card">
-                  <div class="pan-modern-card-head"><span>Heat Loss & Subcooling</span><span>THERMAL</span></div>
-                  <div class="pan-modern-card-body" style="padding:10px">
-                    <div class="pan-modern-grid">
-                      <div class="pan-modern-field"><label>Heat Loss (% gross duty)</label><input data-param="heatLossPercent" value="${escapeHtml(p.heatLossPercent||'1.5')}"></div>
-                      <div class="pan-modern-field"><label>Condensate Drop / Subcooling (K)</label><input data-param="condensateDropK" value="${escapeHtml(p.condensateDropK||'2.0')}"></div>
+                <div>
+                  <div class="pan-modern-card">
+                    <div class="pan-modern-card-head"><span>Heat Transfer</span><span class="magenta-badge">HTC · MAGENTA</span></div>
+                    <div class="pan-modern-card-body" style="padding:10px">
+                      <div class="magenta-field ${isHTC?'':'disabled'}" style="margin-bottom:8px;padding:8px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                          <label style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#900060;cursor:pointer">
+                            <input type="radio" name="evapModeRadio" value="HTC" ${isHTC?'checked':''}>
+                            Heat Transfer Coefficient (U)
+                          </label>
+                          <button class="sizing-tool-btn" id="evapOpenSizingBtn">Coefficient</button>
+                        </div>
+                        <div class="pan-modern-field"><label>Heat Transfer Coef U (${evapHTCUnit()})</label><input id="evapHTC" type="number" step="any" min="0" value="${escapeHtml(String(evapDispHTC(p.htc_W_m2K)??''))}" ${isHTC?'':'disabled'}></div>
+                      </div>
+                      <div class="pan-modern-field" style="margin-bottom:8px"><label>Heating Surface A (${evapAreaUnit()})${isHTC?' — required in HTC':''}</label><input id="evapSurf" type="number" step="any" min="0" value="${escapeHtml(String(evapDispArea(p.heatingSurface_m2)??''))}"></div>
+                      <div class="grid2">
+                        <div class="pan-modern-field"><label>Heat Loss (% gross duty)</label><input data-param="heatLossPct" type="number" step="0.01" min="0" value="${escapeHtml(evapFmtPct(p.heatLossPct??'0.00'))}"></div>
+                        <div class="pan-modern-field"><label>Condensate Drop (${evapDeltaUnit()})</label><input id="evapCondDrop" type="number" step="0.1" min="0" value="${escapeHtml(evapFmtDropK(p.condensateDropK??'0.0'))}"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
-
-                <div class="pan-modern-card">
-                  <div class="pan-modern-card-head"><span>Sugar Carryover & Degradation</span><span>QUALITY</span></div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div class="pan-modern-card">
+                    <div class="pan-modern-card-head"><span>Vapor Out</span><span class="magenta-badge">VAPOR · MAGENTA</span></div>
+                    <div class="pan-modern-card-body" style="padding:10px">
+                      <div class="magenta-field ${isVap?'':'disabled'}" style="margin-bottom:8px;padding:8px">
+                        <label style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#900060;margin-bottom:6px;cursor:pointer">
+                          <input type="radio" name="evapModeRadio" value="PRESSURE" ${isVap?'checked':''}>
+                          Vapour Out Pressure & Saturation Temperature (linked pair)
+                        </label>
+                        <div class="grid2">
+                          <div class="pan-modern-field"><label>Vapour Pressure</label>
+                            <div style="display:flex;gap:6px">
+                              <input id="evapVapP" type="number" step="any" value="${escapeHtml(evapFmtPressure(vp.value,vpUnit))}" ${isVap?'':'disabled'} style="flex:1">
+                              <select id="evapVapUnit" style="width:86px" ${isVap?'':'disabled'}>${unitOpts(vpUnit)}</select>
+                            </div></div>
+                          <div class="pan-modern-field"><label>Saturation Temperature (${evapTempUnit()})</label><input id="evapSatT" type="number" step="any" value="${escapeHtml(evapFmtTempC(p.satTemp_C))}" ${isVap?'':'disabled'}></div>
+                        </div>
+                        <div id="evapPTMsg" style="font-size:8.5px;margin-top:6px;color:#7a8a97">Enter either field — the other fills from saturated-water P–T on commit.</div>
+                      </div>
+                      <div class="magenta-field ${isPF?'':'disabled'}" style="margin-bottom:8px;padding:8px">
+                        <label style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#900060;cursor:pointer">
+                          <input type="radio" name="evapModeRadio" value="FEEDBACK" ${isPF?'checked':''}>
+                          Pressure Feedback (downstream station, else model atmosphere ${f(modelPatmKPa(),2)} kPa)
+                        </label>
+                      </div>
+                      <div class="pan-modern-field"><label>Entrainment Sugar Loss (mg/kg, integer)</label><input data-param="entrainment_mgPerKg" type="number" step="1" min="0" value="${escapeHtml(p.entrainment_mgPerKg??'0')}"></div>
+                      <div style="font-size:8.5px;color:#7a8a97;margin-top:6px">No BPE controls on this window (strict SUGARS parity) — BPE runs internally.</div>
+                    </div>
+                  </div>
+                  <div class="pan-modern-card">
+                    <div class="pan-modern-card-head"><span>Flow Out</span><span class="magenta-badge">FLOW · MAGENTA</span></div>
+                    <div class="pan-modern-card-body" style="padding:10px">
+                      <div class="magenta-field ${isFlowT?'':'disabled'}" style="margin-bottom:8px;padding:8px">
+                        <label style="display:flex;align-items:center;gap:6px;font-size:9.5px;font-weight:900;color:#900060;margin-bottom:6px;cursor:pointer">
+                          <input type="radio" name="evapModeRadio" value="FLOW_TEMP" ${isFlowT?'checked':''}>
+                          Juice Flow Out Temperature
+                        </label>
+                        <div class="pan-modern-field" style="max-width:240px">
+                          <label>Juice Out Temperature (${evapTempUnit()})</label><input id="evapFlowT" type="number" step="any" value="${escapeHtml(evapFmtTempC(p.flowOutTemp_C))}" ${isFlowT?'':'disabled'}>
+                        </div>
+                      </div>
+                      <div class="pan-modern-field" style="margin-bottom:4px">
+                        <label>Total Solids (% leaving this body, 0.00 = unspecified)</label>
+                        <input id="evapTS" type="number" step="0.01" min="0" value="${escapeHtml(evapFmtPct(tsShown))}" ${tsOwn.locked?'disabled':''}>
+                      </div>
+                      <div style="font-size:8.5px;color:#7a8a97;line-height:1.5;margin-bottom:8px">${tsUnder?escapeHtml(tsUnder)+'<br>':''}${escapeHtml(tsResult)}</div>
+                      <div class="grid2">
+                        <div class="pan-modern-field"><label>Color Rise</label><input id="evapColorRise" type="number" step="0.01" min="0" value="${escapeHtml(crUnit==='%'?evapFmtPct(cr.value??'0.00'):String(cr.value??''))}"></div>
+                        <div class="pan-modern-field"><label>Color Unit</label>
+                          <div class="evap-color-units">
+                            <label><input type="radio" name="evapColorUnit" value="%" ${crUnit==='%'?'checked':''}> %</label>
+                            <label><input type="radio" name="evapColorUnit" value="CU" ${crUnit==='CU'?'checked':''}> CU</label>
+                          </div></div>
+                      </div>
+                      <div style="font-size:8.5px;color:#7a8a97;line-height:1.4;margin-top:6px">
+                        Any one effect of a multiple may carry Total Solids; setting it makes Effect-1 steam a solved flow. Vapor bleeds are drawn with Splitter stations on the vapor line (Distributor rule: required, specified, overflow).
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="pan-modern-card wide">
+                  <div class="pan-modern-card-head"><span>Specification Checks</span><span id="evapStatusChip">${escapeHtml(disp.state)}</span></div>
+                  <div class="pan-modern-card-body" style="padding:10px">${issuesHtml}</div>
+                </div>
+                <div class="pan-modern-card wide">
+                  <div class="pan-modern-card-head"><span>Connections</span><span>TOPOLOGY</span></div>
                   <div class="pan-modern-card-body" style="padding:10px">
-                    <div class="pan-modern-grid">
-                      <div class="pan-modern-field"><label>Entrainment Sugar Loss (ppm)</label><input data-param="entrainmentPpm" value="${escapeHtml(p.entrainmentPpm||'50')}"></div>
-                      <div class="pan-modern-field"><label>BPE Adjustment Factor</label><input data-param="bpeFactor" value="${escapeHtml(p.bpeFactor||'1.0')}"></div>
-                      <div class="pan-modern-field"><label>Color Rise (% or CU)</label><input data-param="colorRise" value="${escapeHtml(p.colorRise||'5.0')}"></div>
+                    <div class="pan-design-note" style="margin:0;border:1px solid ${topo.ok?'#b8d3ea':'#e5c46e'};background:${topo.ok?'#f2f9ff':'#fff9e9'};border-radius:6px;padding:7px 8px;font-size:8.4px;color:${topo.ok?'#315b80':'#80621b'}">${escapeHtml(topo.ok?'✓ '+topo.msg:'◷ '+topo.msg+' — full port table under Connections.')}</div>
+                  </div>
+                </div>
+                <div class="pan-modern-card wide">
+                  <div class="pan-modern-card-head"><span>Identity & Variant</span><span>STATION</span></div>
+                  <div class="pan-modern-card-body" style="padding:10px">
+                    <div class="pan-input-grid">
+                      <div class="pan-field"><label>Shape Variant (same calculation)</label><select id="evapShapeVariant">${EVAP_SHAPE_VARIANTS.map(v=>`<option ${p.shapeVariant===v?'selected':''}>${v}</option>`).join('')}</select></div>
+                      <div class="pan-field"><label>Notes</label><input data-param="notes" value="${escapeHtml(p.notes||'')}"></div>
                     </div>
                   </div>
                 </div>
@@ -5015,11 +6787,11 @@
                 <div class="pan-modern-card-body" style="padding:10px">
                   <table class="pan-connection-table">
                     <tr><th>Role</th><th>Direction</th><th>Port</th><th>Connected Stream</th></tr>
-                    <tr><td>Juice In</td><td>IN</td><td>juice</td><td>${escapeHtml(state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='juice')?.name||'Not connected')}</td></tr>
-                    <tr><td>Motive Steam In</td><td>IN</td><td>steam</td><td>${escapeHtml(state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='steam')?.name||'Not connected')}</td></tr>
-                    <tr><td>Evaporated Vapour Out</td><td>OUT</td><td>vapour</td><td>${escapeHtml(state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='vapour')?.name||'Not connected')}</td></tr>
-                    <tr><td>Calandria Condensate Out</td><td>OUT</td><td>condensate</td><td>${escapeHtml(state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='condensate')?.name||'Not connected')}</td></tr>
-                    <tr><td>Concentrated Syrup Out</td><td>OUT</td><td>syrup</td><td>${escapeHtml(state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='syrup')?.name||'Not connected')}</td></tr>
+                    <tr><td>Juice In</td><td>IN</td><td>in0</td><td>${escapeHtml(state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='in0')?.name||'Not connected')}</td></tr>
+                    <tr><td>${steamInLabel}</td><td>IN</td><td>in1</td><td>${escapeHtml(state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='in1')?.name||'Not connected')}</td></tr>
+                    <tr><td>Evaporated Vapour Out</td><td>OUT</td><td>out1</td><td>${escapeHtml(state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='out1')?.name||'Not connected')}</td></tr>
+                    <tr><td>Calandria Condensate Out</td><td>OUT</td><td>out2</td><td>${escapeHtml(state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='out2')?.name||'Not connected')}</td></tr>
+                    <tr><td>Concentrated Syrup Out</td><td>OUT</td><td>out0</td><td>${escapeHtml(state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='out0')?.name||'Not connected')}</td></tr>
                   </table>
                 </div>
               </div>
@@ -5032,9 +6804,9 @@
                   <div class="pan-modern-card-body" style="padding:12px">
                     ${r.ok ? `
                       <div class="pan-summary-grid">
-                        <div class="pan-readout"><div class="k">Water Evaporated</div><div class="v">${f(r.evaporationKgH/1000, 3)} t/h</div></div>
-                        <div class="pan-readout"><div class="k">Syrup Flow Out</div><div class="v">${f(r.syrupFlowKgH/1000, 3)} t/h</div></div>
-                        <div class="pan-readout"><div class="k">Motive Steam Flow</div><div class="v">${f(r.steamConsumptionKgH/1000, 3)} t/h</div></div>
+                        <div class="pan-readout"><div class="k">Water Evaporated</div><div class="v">${f(r.evaporationKgH/T_DIV, 3)} ${T_LBL}</div></div>
+                        <div class="pan-readout"><div class="k">Syrup Flow Out</div><div class="v">${f(r.syrupFlowKgH/T_DIV, 3)} ${T_LBL}</div></div>
+                        <div class="pan-readout"><div class="k">${steamInLabel} Flow</div><div class="v">${f(r.steamConsumptionKgH/T_DIV, 3)} ${T_LBL}</div></div>
                         <div class="pan-readout"><div class="k">Steam Economy</div><div class="v">${f(r.steamEconomy, 3)} kg/kg</div></div>
                         <div class="pan-readout"><div class="k">Boiling Juice Temp</div><div class="v">${f(r.boilingTempC, 2)} °C</div></div>
                         <div class="pan-readout"><div class="k">BPE Elevation</div><div class="v">${f(r.bpeC, 2)} °C</div></div>
@@ -5057,13 +6829,14 @@
         </div>
         <div class="pan-legend">
           <span><i class="p" style="background:#e00099"></i>Magenta = Mutually exclusive governing control mode</span>
-          <span><i class="r"></i>Red = Editable process input</span>
+          <span><i class="e"></i>Outlined = Editable process input</span>
           <span><i class="b"></i>Blue = Solved thermodynamic state</span>
         </div>
         <div class="pan-modern-footer">
-          <div class="left"><b>${st}</b> · Station #${escapeHtml(n.stationNumber||'—')} · ${escapeHtml(n.equipmentTag||'—')} · Effect #${escapeHtml(p.effectNumber||'1')}</div>
+          <div class="left" id="evapStatusLine"><b>Status: ${escapeHtml(disp.state)}</b> · Station #${escapeHtml(String(n.stationNumber??'—'))} · ${escapeHtml(n.equipmentTag||'—')} · Effect #${escapeHtml(String(p.effectNo??'1'))} · Model: ${escapeHtml(state.name||'Untitled Scheme')} · Units: ${modelUnitSystem()} · Patm ${f(modelPatmKPa(),2)} kPa</div>
           <div class="actions">
             <button id="evapHelpBtn">Help</button>
+            <button id="evapUnitsBtn">Units</button>
             <button id="evapPrintBtn">Print</button>
             <button id="evapCancelBtn">Cancel</button>
             <button class="primary" id="evapOkBtn">OK</button>
@@ -5075,7 +6848,20 @@
     bindModernEvaporatorProps(n, target);
   }
 
+  // Live dialog chrome refresh (no full rerender, keeps focus): spec box,
+  // status chip and footer line always show the same station state (§5, test 8).
+  function refreshEvapChrome(n){
+    const box=document.getElementById('evapIssuesBox');
+    if(box)box.innerHTML=evapIssuesHtml(n);
+    const disp=evaporatorDisplayStatus(n);
+    const chip=document.getElementById('evapStatusChip');
+    if(chip)chip.textContent=disp.state;
+    const line=document.getElementById('evapStatusLine');
+    if(line)line.innerHTML=`<b>Status: ${escapeHtml(disp.state)}</b> · Station #${escapeHtml(String(n.stationNumber??'—'))} · ${escapeHtml(n.equipmentTag||'—')} · Effect #${escapeHtml(String(n.params?.effectNo??'1'))} · Model: ${escapeHtml(state.name||'Untitled Scheme')} · Units: ${modelUnitSystem()} · Patm ${Number(modelPatmKPa()).toFixed(2)} kPa`;
+    return disp;
+  }
   function bindModernEvaporatorProps(n, target){
+    const rerender=()=>renderModernEvaporatorProps(n, target);
     target.querySelectorAll('[data-evap-page]').forEach(b=>b.onclick=()=>{
       evapModernActivePage=b.dataset.evapPage;
       target.querySelectorAll('[data-evap-page]').forEach(x=>x.classList.toggle('active',x===b));
@@ -5083,52 +6869,140 @@
       if(pane) pane.scrollIntoView({behavior:'smooth',block:'start'});
     });
 
-    const num=target.querySelector('#evapNodeNumber');
-    if(num) num.onchange=e=>{
-      const v=Number(e.target.value);
-      if(!Number.isInteger(v)||v<1||v>9999||!stationNumberAvailable(v,n.id)){e.target.value=n.stationNumber;toast('Station number must be unique and in 1–9999');return;}
-      pushHistory();n.stationNumber=v;markChanged();renderAll();renderModernEvaporatorProps(n,target);
-    };
-
     const lab=target.querySelector('#evapNodeLabel');
-    if(lab) lab.onchange=e=>{pushHistory();n.label=e.target.value||'Evaporator Effect';markChanged();renderAll();};
+    if(lab){
+      // X-01/R2.4-12: validate the model value on every keystroke.
+      lab.oninput=e=>{
+        const v=String(e.target.value||'').slice(0,20);
+        n.params.stationName=v;n.label=v||'Evaporator Effect';
+        markChanged();renderAll();refreshEvapChrome(n);
+      };
+      lab.onchange=e=>{
+        const v=String(e.target.value||'').slice(0,20);
+        pushHistory();n.params.stationName=v;n.label=v||'Evaporator Effect';markChanged();renderAll();
+      };
+    }
 
-    const tag=target.querySelector('#evapNodeTag');
-    if(tag) tag.onchange=e=>{
+    // X-02: single Equipment ID = node tag, 11 chars, unique. Reject (never
+    // silently truncate) over-length or duplicate values (V-17 backstop).
+    const eid=target.querySelector('#evapEquipmentId');
+    if(eid) eid.onchange=e=>{
       const v=String(e.target.value||'').trim().toUpperCase();
-      if(!v||!equipmentTagAvailable(v,n.id)){e.target.value=n.equipmentTag||'';toast('Equipment tag already in use');return;}
-      pushHistory();n.equipmentTag=v;markChanged();renderAll();
+      if(!v||v.length>11||!equipmentTagAvailable(v,n.id)){e.target.value=n.equipmentTag||'';toast(!v?'Equipment ID is required.':(v.length>11?'Equipment ID must be 11 characters or fewer (V-17).':'Equipment ID already in use'));return;}
+      pushHistory();n.equipmentTag=v;markChanged();renderAll();rerender();
     };
+
+    const svar=target.querySelector('#evapShapeVariant');
+    if(svar) svar.onchange=e=>{pushHistory();n.params.shapeVariant=e.target.value;markChanged();rerender();};
+
+    const eff=target.querySelector('#evapEffectNo');
+    if(eff) eff.onchange=e=>{pushHistory();n.params.effectNo=String(e.target.value);n.stationResult=null;markChanged();rerender();};
 
     target.querySelectorAll('input[name="evapModeRadio"]').forEach(r=>{
       r.onchange=e=>{
         pushHistory();
-        n.params.specMode = e.target.value;
+        n.params.mode = e.target.value;
+        n.stationResult=null;
         markChanged();
-        renderModernEvaporatorProps(n, target);
+        rerender();
       };
     });
 
+    const htcEl=target.querySelector('#evapHTC');
+    if(htcEl) htcEl.onchange=e=>{pushHistory();const r=String(e.target.value||'').trim();n.params.htc_W_m2K=r===''?'':String(evapStoreHTC(r)??'');n.stationResult=null;markChanged();rerender();};
+    const surfEl=target.querySelector('#evapSurf');
+    if(surfEl) surfEl.onchange=e=>{pushHistory();const r=String(e.target.value||'').trim();n.params.heatingSurface_m2=r===''?'':String(evapStoreArea(r)??'');n.stationResult=null;markChanged();rerender();};
+    const flowTEl=target.querySelector('#evapFlowT');
+    if(flowTEl) flowTEl.onchange=e=>{pushHistory();const r=String(e.target.value||'').trim();n.params.flowOutTemp_C=r===''?'':String(evapStoreTempC(r)??'');n.stationResult=null;markChanged();rerender();};
+    const condEl=target.querySelector('#evapCondDrop');
+    if(condEl) condEl.onchange=e=>{pushHistory();const r=String(e.target.value||'').trim();n.params.condensateDropK=r===''?'':String(evapStoreDeltaK(r)??'');n.stationResult=null;markChanged();rerender();};
+    const colEl=target.querySelector('#evapColorRise');
+    if(colEl) colEl.onchange=e=>{
+      pushHistory();
+      const cur=(n.params.colorRise&&typeof n.params.colorRise==='object')?n.params.colorRise:{value:'',unit:'%'};
+      const r=String(e.target.value||'').trim();
+      n.params.colorRise={value:r===''?'':r,unit:cur.unit||'%'};
+      n.stationResult=null;markChanged();rerender();
+    };
+    target.querySelectorAll('input[name="evapColorUnit"]').forEach(r=>{
+      r.onchange=e=>{
+        pushHistory();
+        const cur=(n.params.colorRise&&typeof n.params.colorRise==='object')?n.params.colorRise:{value:'',unit:'%'};
+        n.params.colorRise={value:cur.value??'',unit:e.target.value};
+        n.stationResult=null;markChanged();rerender();
+      };
+    });
+
+    // Linked P <-> Tsat pair (3.3a): commit in either field fills the partner.
+    const ptMsg=target.querySelector('#evapPTMsg');
+    const say=(ok,msg)=>{if(ptMsg){ptMsg.textContent=msg||'';ptMsg.style.color=ok?'#7a8a97':'#b00020';}};
+    const vapP=target.querySelector('#evapVapP'), vapU=target.querySelector('#evapVapUnit'), satT=target.querySelector('#evapSatT');
+    if(vapP) vapP.onchange=()=>{
+      pushHistory();
+      const cur=(n.params.vaporPressure&&typeof n.params.vaporPressure==='object')?n.params.vaporPressure:{value:'',unit:'kPa'};
+      cur.value=String(vapP.value??'');
+      n.params.vaporPressure=cur;
+      const res=evapFillPressurePartner(n,'pressure');
+      say(res.ok,'Enter either field — the other fills from saturated-water P–T on commit.'+(res.ok?'':(' '+res.message)));
+      n.stationResult=null;markChanged();rerender();
+    };
+    if(vapU) vapU.onchange=()=>{
+      // Changing unit re-expresses the stored pressure at full precision;
+      // display decimals are a render concern only (W-11).
+      pushHistory();
+      const cur=(n.params.vaporPressure&&typeof n.params.vaporPressure==='object')?n.params.vaporPressure:{value:'',unit:'kPa'};
+      const abs=evapPressureToAbsKPa(cur.value,cur.unit||'kPa');
+      cur.unit=vapU.value;
+      if(Number.isFinite(abs))cur.value=String(evapAbsKPaToUnit(abs,cur.unit));
+      n.params.vaporPressure=cur;
+      n.stationResult=null;markChanged();rerender();
+    };
+    if(satT) satT.onchange=()=>{
+      pushHistory();
+      const raw=String(satT.value??'').trim();
+      n.params.satTemp_C=raw===''?'':String(evapStoreTempC(raw)??'');
+      const res=evapFillPressurePartner(n,'satTemp');
+      say(res.ok,'Enter either field — the other fills from saturated-water P–T on commit.'+(res.ok?'':(' '+res.message)));
+      n.stationResult=null;markChanged();rerender();
+    };
+
+    // Total Solids with cross-effect lock (§3): a locked box never writes.
+    const tsEl=target.querySelector('#evapTS');
+    if(tsEl) tsEl.onchange=e=>{
+      const own=evaporatorTSOwner(n);
+      if(own.locked){e.target.value=evapFmtPct(n.params.totalSolidsPct??'0.00');return;}
+      pushHistory();
+      const raw=String(e.target.value??'').trim();
+      const v=raw===''?'0.00':raw;
+      n.params.totalSolidsPct=(parseFloat(v)>0)?String(parseFloat(v).toFixed(2)):'0.00';
+      n.stationResult=null;markChanged();rerender();
+    };
+
     target.querySelectorAll('[data-param]').forEach(inp=>inp.onchange=e=>{
       pushHistory();
-      n.params[e.target.dataset.param]=e.target.value;
-      if(e.target.dataset.param==='vaporPressure'){
-        const pKPa = Number(e.target.value);
-        if(pKPa > 0 && typeof water_sat_temp_c === 'function'){
-          n.params.satTemperature = water_sat_temp_c(pKPa).toFixed(2);
-        }
-      }
+      let v=e.target.value;
+      if(e.target.type==='number'&&String(v).trim()==='')v='';
+      if(e.target.dataset.param==='entrainment_mgPerKg')v=String(Math.max(0,Math.trunc(Number(v)||0)));
+      n.params[e.target.dataset.param]=v;
       n.stationResult=null;
       markChanged();
-      renderModernEvaporatorProps(n, target);
+      rerender();
     });
 
     const szBtn = target.querySelector('#evapOpenSizingBtn');
     if(szBtn) szBtn.onclick = ()=> openEvaporatorSizingModal(n);
 
+    const unitsBtn = target.querySelector('#evapUnitsBtn');
+    if(unitsBtn) unitsBtn.onclick = ()=> openEvapUnitsDialog(n, ()=>rerender());
+
     target.querySelector('#evapCancelBtn').onclick=()=>cancelStationPropertyTransaction();
-    target.querySelector('#evapOkBtn').onclick=()=>{commitStationPropertyTransaction();editingStationId=null;stationFloat.classList.remove('show');renderAll();toast('Evaporator properties saved.');};
-    target.querySelector('#evapHelpBtn').onclick=()=>alert("Sugar's Help Book Evaporator Station: Mutually exclusive Magenta modes dictate whether evaporation is computed from heat transfer surface area (Option A), vapor saturation conditions (Option B), juice boiling temperature (Option C), or downstream condenser vacuum feedback (Option D).");
+    target.querySelector('#evapOkBtn').onclick=()=>{
+      // OK is blocked while fatal spec errors stand (test 2: blocked by V-11).
+      const chk=evaporatorStationIssues(n,{includeTopology:false}).filter(e=>(e.sev||'FATAL')==='FATAL');
+      if(chk.length){toast(`Resolve ${chk[0].id} before saving: ${chk[0].message}`);refreshEvapChrome(n);return;}
+      commitStationPropertyTransaction();editingStationId=null;stationFloat.classList.remove('show');renderAll();toast('Evaporator properties saved.');
+    };
+    target.querySelector('#evapHelpBtn').onclick=()=>alert("Sugar's Help Book Evaporator Station: exactly one magenta mode governs the body — HTC (U & A), PRESSURE (vapor P/Tsat), FLOW_TEMP (juice-out T), or FEEDBACK (downstream pressure). Total Solids on any one effect of a multiple makes Effect-1 steam a solved flow.");
     target.querySelector('#evapPrintBtn').onclick=()=>window.print();
   }
 
@@ -5895,6 +7769,11 @@
     }else if(n.type==='distributor'){
       ensureDistributorDefaults(n);
       extra=distributorParamHtml(n);
+    }else if(n.type==='blender'){
+      ensureBlenderDefaults(n);
+      extra=blenderParamHtml(n);
+    }else if(n.type==='separator'){
+      extra=separatorStationParamHtml(n);
     }else{
       Object.entries(n.params||{}).forEach(([k,v])=>{
         extra+=`<div class="field"><label>${pretty(k)}</label><input data-param="${escapeHtml(k)}" value="${escapeHtml(v)}"></div>`;
@@ -5932,7 +7811,7 @@
       </div>`:''}
 
       <div class="prop-card">
-        <div class="prop-card-head"><span>Specifications</span><span class="tag">${n.type==='crystallizer'?'Phase 4.8.1':(['pan','mixer','receiver','splitter','distributor'].includes(n.type)?'ACTIVE':(['centrifugal2','centrifugal3'].includes(n.type)?'Phase 4.9':'UI / Pending'))}</span></div>
+        <div class="prop-card-head"><span>Specifications</span><span class="tag">${n.type==='crystallizer'?'Phase 4.8.1':(['pan','mixer','blender','separator','receiver','splitter','distributor'].includes(n.type)?'ACTIVE':(['centrifugal2','centrifugal3'].includes(n.type)?'Phase 4.9':'UI / Pending'))}</span></div>
         <div class="prop-card-body">${extra || '<div class="info">No inputs defined for this station.</div>'}</div>
       </div>
 
@@ -5954,7 +7833,7 @@
         <div class="prop-card-body">${centrifugalPerformanceSummaryHtml(n)}</div>
       </div>`:''}
 
-      ${['mixer','receiver','splitter','distributor','magma','melter','evaporator','heater','flashTank'].includes(n.type)?`
+      ${['mixer','blender','separator','receiver','splitter','distributor','magma','melter','evaporator','heater','flashTank'].includes(n.type)?`
       <div class="prop-card">
         <div class="prop-card-head"><span>Station Balance Results</span><span class="tag">${escapeHtml(n.stationResult?.status||'UNSOLVED')}</span></div>
         <div class="prop-card-body">${coreStationResultHtml(n)}</div>
@@ -6113,7 +7992,7 @@
         pushHistory();
         n.params[e.target.dataset.param]=e.target.value;
         if(n.type==='pan')n.panResult=null;
-        if(['crystallizer','mixer','receiver','splitter','distributor','centrifugal2','centrifugal3','magma','melter','evaporator','heater','flashTank'].includes(n.type))n.stationResult=null;
+        if(['crystallizer','mixer','blender','separator','receiver','splitter','distributor','centrifugal2','centrifugal3','magma','melter','evaporator','heater','flashTank'].includes(n.type))n.stationResult=null;
         if(n.type==='source'){
           const meta=sourceMediumMeta(n);
           if(meta.category==='thermal'){
@@ -6134,6 +8013,9 @@
         markChanged();
       });
     });
+    if(n.type==='separator'){
+      bindSeparatorNestedInputs(n,target);
+    }
     if(n.type==='crystallizer'){
       const solMode=target.querySelector('[data-param="solubilityMode"]');
       if(solMode){
@@ -6532,13 +8414,61 @@
         const p=resolveConnectorEndpoint(c,'target');c.target={type:'point',x:p.x,y:p.y};detached=true;
       }
       if(detached)finalizeConnectorRoleIntent(c,{orphaned:true});
+      if(c.linkHalf===true&&c.flowId){
+        // The mate half and flow record survive; drop ends at the deleted station.
+        const f=getFlow(c.flowId);
+        if(f){
+          if(f.source?.station_id===id)f.source=null;
+          if(f.sink?.station_id===id)f.sink=null;
+          f.updatedAt=Date.now();
+        }
+      }
     });
     state.nodes=state.nodes.filter(n=>n.id!==id);
     selected=null;pendingConnection=null;renderAll();markChanged();
   }
 
+  function resetFlowValues(id){
+    // Helpbook Internal Flows Reset: zero a runaway recycle quantity so the
+    // loop can be re-solved. Only the quantity resets — P/T state and
+    // composition are boundary conditions the next solve needs. Works for
+    // ordinary streams and shared link flow records. One undo step.
+    const live=getStream(id)||getFlow(id);
+    if(!live){toast('Flow not found.');return false;}
+    pushHistory();
+    live.props=live.props||{};
+    live.props.flow='0';
+    live.solveStatus='UNSOLVED';
+    live.solverMessage='Flow quantity reset to 0 — re-solve to recompute.';
+    calculateUniversalStream(live);
+    markChanged();
+    renderAll();
+    toast('Flow quantity reset to 0.');
+    return true;
+  }
+
   function deleteStream(id){
-    pushHistory();state.connectors=state.connectors.filter(s=>s.id!==id);
+    const dead0=state.connectors.find(s=>s.id===id);
+    if(dead0?.linkHalf===true&&dead0.flowId){
+      // Spec §5.5: deleting one half asks about the pair. OK = delete both
+      // halves and the shared flow (one undo step via deleteLinkPair);
+      // Cancel = delete only this half, mate stays flagged as unpaired.
+      if(findLinkMateAnywhere(dead0)){
+        if(confirm('Delete both halves of this link?\n\nOK — delete both halves and the shared flow record.\nCancel — delete only this half; its mate stays flagged as unpaired.')){
+          deleteLinkPair(dead0.flowId);
+          return;
+        }
+      }
+    }
+    pushHistory();
+    const dead=state.connectors.find(s=>s.id===id);
+    if(dead?.linkHalf===true&&dead.flowId){
+      // The shared flow record and the mate half survive; only the deleted
+      // half's glued end is cleared (recoverable by re-gluing).
+      const f=getFlow(dead.flowId);
+      if(f)clearFlowEndForHalf(f,dead);
+    }
+    state.connectors=state.connectors.filter(s=>s.id!==id);
     selected=null;renderAll();markChanged();
   }
 
@@ -6595,6 +8525,34 @@
   }
 
   function showStreamMenu(x,y,id,segmentIndex=null,vertices=null,worldPoint=null){
+    const half=state.connectors.find(c=>c.id===id&&c.linkHalf===true);
+    if(half){
+      const flow=half.flowId?getFlow(half.flowId):null;
+      const mate=flow?findLinkMate(half,state.activePageId):null;
+      const complete=flow?flowLinkComplete(flow):false;
+      contextMenu.innerHTML=`
+      <button data-a="editFlow">Open shared flow properties</button>
+        ${mate
+          ? '<button data-a="goMate">Go to mate</button>'
+          : '<button data-a="makeMate">Create mate at other station</button>'}
+        <button data-a="copyHalf">Copy half (Ctrl+C)</button>
+        <button data-a="pasteMate">Paste mate (Ctrl+V)</button>
+        <button data-a="resetFlow">Reset shared flow values</button>
+        <button data-a="delete" class="danger">Delete link half</button>`;
+      contextMenu.style.left=x+'px';contextMenu.style.top=y+'px';contextMenu.style.display='block';
+      contextMenu.onclick=e=>{
+        const a=e.target.dataset.a;if(!a)return;
+        if(a==='editFlow')openLinkFlowProperties(half);
+        if(a==='makeMate')createLinkMate(id);
+        if(a==='goMate')goToLinkMate(id);
+        if(a==='copyHalf'){selectItem('connector',id);copySelectedHalf(false);}
+        if(a==='pasteMate')pasteClipboardAsMate();
+        if(a==='resetFlow')resetFlowValues(half.flowId);
+        if(a==='delete')deleteStream(id);
+        contextMenu.style.display='none';
+      };
+      return;
+    }
     const s=getStream(id);
     const boundary=s?streamBoundaryType(s):'INTERNAL';
     const legendEligible=s&&boundary!=='UNCONNECTED'&&connectorSolverActive(s);
@@ -6606,6 +8564,7 @@
       ${legendEligible?`<button data-a="toggleLegend">${flowLegendEligible(s)?'Hide Flow Legend':'Show Flow Legend'}</button>`:''}
       ${boundary==='EXTERNAL_IN'?`<button data-a="toggleR">${s?.quantityMode==='REQUIRED'?'Clear Required Flow':'Mark Required Flow (R)'}</button>
       <button data-a="toggleP">${s?.pressureMode==='FEEDBACK'?'Clear Pressure Feedback':'Mark Pressure Feedback (P)'}</button>`:''}
+      <button data-a="resetFlow" title="Helpbook Internal Flows Reset: zero a runaway recycle quantity">Reset flow values</button>
       <button data-a="delete" class="danger">Delete connector</button>`;
     contextMenu.style.left=x+'px';contextMenu.style.top=y+'px';contextMenu.style.display='block';
     contextMenu.onclick=e=>{
@@ -6634,6 +8593,7 @@
         const st=getStream(id);
         if(st){pushHistory();st.pressureMode=st.pressureMode==='FEEDBACK'?'SPECIFIED':'FEEDBACK';renderAll();markChanged();}
       }
+      if(a==='resetFlow')resetFlowValues(id);
       if(a==='delete')deleteStream(id);
       contextMenu.style.display='none';
     };
@@ -6663,6 +8623,8 @@
       y = (Number.isFinite(rawY) && rawY > 60 && rawY < WORLD_H - 100) ? rawY + stagger : (260 + stagger);
     }
     if(type === 'universalFlow') createUniversalFlowStencil(x, y);
+    else if(type === 'onpageLink') createLinkHalfStencil(x, y, 'onpage');
+    else if(type === 'crosspageLink') createLinkHalfStencil(x, y, 'crosspage');
     else createNode(type, x - 95, y - 45);
   }
 
@@ -7316,7 +9278,7 @@
     if(!Number.isFinite(tw))return {ok:false,code:'BPE_TSAT_INVALID',message:'Pure-water saturation temperature is required.'};
     const AX=0.1660,BX=1.1394,CX=1.9735,DX=0.1237;
     const ratio=W/(100-W);
-    const bpe=AX*Math.pow(ratio,BX)*Math.pow((273+tw)/100,CX)*Math.pow(Q/100,DX);
+    const bpe=AX*Math.pow(ratio,BX)*Math.pow((273.15+tw)/100,CX)*Math.pow(Q/100,DX);
     if(!Number.isFinite(bpe)||bpe<0)return {ok:false,code:'BPE_CALCULATION_FAILED',message:'Saska ASI 2002 Eq. 8 calculation failed.'};
     const warnings=[];
     if(W<65||W>80)warnings.push(`WDS ${W.toFixed(3)}% is outside the paper's direct experimental concentration band (~65–80%); result is extrapolated.`);
@@ -7330,6 +9292,130 @@
       warnings,
       extrapolated:warnings.length>0
     };
+  }
+
+  // Evaporator stencil spec Rev 3 §8 — engine-internal BPE, no UI control.
+  // Batterham & Norgate (paper eq 5), valid W 47–84 %, t 40–75 °C.
+  // W = dry substance [%], Q = purity [%], t = boiling temperature of WATER
+  // at the vapor pressure (IAPWS Tsat(P)), NOT the liquor temperature.
+  // Returns a plain number per the spec; NaN on non-finite inputs.
+  function bpeBatterhamNorgate(wdsPct,purityPct,tbWaterC){
+    const W=p2num(wdsPct),Q=p2num(purityPct),t=p2num(tbWaterC);
+    if(!Number.isFinite(W)||!Number.isFinite(Q)||!Number.isFinite(t))return NaN;
+    const A=0.3604-2.5681e-2*W+6.8488e-4*W*W-8.0158e-6*W*W*W+3.5601e-8*W*W*W*W;
+    const B=50.84-3.516*W+9.122e-2*W*W-1.0492e-3*W*W*W+4.611e-6*W*W*W*W;
+    const q=Q/100;
+    const C=-0.272-2.27*q+2.542*q*q+0.05311*W*(1-q);
+    return A*t+B+C;
+  }
+
+  // Validated windows for the evaporator BPE legs (spec §8).
+  const BPE_EVAP_RANGES={
+    bn:{W:[47,84],T:[40,75],label:'Batterham & Norgate eq 5'},
+    saska:{W:[65,80],T:[55,75],label:'Saska / ASI 2002 eq 8'}
+  };
+  function bpeEvaporatorModelFor(wdsPct){
+    const W=p2num(wdsPct);
+    return (W>=47&&W<=84)?'bn':'saska';
+  }
+  // Spec bpe(): model 'auto' (default) | 'bn' | 'saska'; factor fixed 1.0 per
+  // strict SUGARS parity (no UI). Saska leg reuses the independently-written
+  // bpeSaskaASI2002Eq8 (same paper equation) instead of duplicating it.
+  function bpeEvaporator(wdsPct,purityPct,tbWaterC,model,factor){
+    const W=p2num(wdsPct),Q=p2num(purityPct),t=p2num(tbWaterC);
+    const m=String(model||'auto').toLowerCase();
+    const leg=(m==='bn'||m==='saska')?m:bpeEvaporatorModelFor(W);
+    const f=(factor===undefined||factor===null||factor==='')?1.0:Number(factor);
+    let v=NaN;
+    if(leg==='bn')v=bpeBatterhamNorgate(W,Q,t);
+    else{
+      const r=bpeSaskaASI2002Eq8(W,Q,t);
+      v=r&&r.ok?r.bpe:NaN;
+    }
+    if(!Number.isFinite(v)||!Number.isFinite(f))return NaN;
+    return f*v;
+  }
+  // Non-blocking range warning for the leg actually used (spec §8, Phase-1 panel).
+  // Returns a message string, or null when inside the validated window.
+  function bpeEvaporatorRangeWarning(wdsPct,purityPct,tbWaterC,model){
+    const W=p2num(wdsPct),t=p2num(tbWaterC);
+    const m=String(model||'auto').toLowerCase();
+    const leg=(m==='bn'||m==='saska')?m:bpeEvaporatorModelFor(W);
+    const R=BPE_EVAP_RANGES[leg];
+    const outs=[];
+    if(!(W>=R.W[0]&&W<=R.W[1]))outs.push(`DS ${W.toFixed(2)}% is outside the ${R.label} validated range (${R.W[0]}–${R.W[1]} %)`);
+    if(!(t>=R.T[0]&&t<=R.T[1]))outs.push(`temperature ${t.toFixed(1)} °C is outside the ${R.label} validated range (${R.T[0]}–${R.T[1]} °C)`);
+    return outs.length?outs.join(' '):null;
+  }
+
+  // Adopted 2026-10-03 (sugar-properties evaluation, owner ADOPT): bisection
+  // inversion of Saska Eq. 8 — measured liquor T + purity + tbW → WDS.
+  // Pure (no DOM); bpeSaskaASI2002Eq8 is the verified forward equation.
+  // Strict coercion (unlike UI-tolerant p2num): missing/blank coefficient or
+  // state inputs are rejected, never silently zeroed.
+  function p2finStrict(v){
+    if(v===null||v===undefined||v==='')return NaN;
+    const n=Number(v);return Number.isFinite(n)?n:NaN;
+  }
+  function inferBrixFromBpeSaskaEq8(measuredTempC,purityPct,tbWaterC,tol,maxIter){
+    const Tm=p2num(measuredTempC),Q=p2num(purityPct),tw=p2num(tbWaterC);
+    const tolerance=(tol===undefined||tol===null||tol==='')?0.01:Number(tol);
+    const iters=(maxIter===undefined||maxIter===null||maxIter==='')?100:Math.floor(Number(maxIter));
+    if(!Number.isFinite(Tm)||!(Q>0&&Q<=100)||!Number.isFinite(tw))
+      return {ok:false,code:'INFER_BRIX_INPUT_INVALID',message:'Measured temperature, purity 0–100% and water saturation temperature are required.'};
+    if(!(tolerance>0)||!(iters>0))
+      return {ok:false,code:'INFER_BRIX_SOLVER_INVALID',message:'Positive tolerance and iteration count are required.'};
+    const target=Tm-tw;
+    if(target<0)return {ok:false,code:'INFER_BRIX_BELOW_SATURATION',message:'Measured temperature is below the water saturation temperature.'};
+    let lo=0,hi=99;
+    for(let i=0;i<iters;i++){
+      const mid=(lo+hi)/2,r=bpeSaskaASI2002Eq8(mid,Q,tw);
+      if(!r||!r.ok)return {ok:false,code:'INFER_BRIX_FORWARD_FAILED',message:'Saska Eq. 8 forward evaluation failed during inversion.'};
+      if(Math.abs(r.bpe-target)<tolerance)
+        return {ok:true,brix:mid,targetBPE:target,achievedBPE:r.bpe,iterations:i+1,method:'INFER_BRIX_SASKA_EQ8_BISECTION'};
+      if(r.bpe<target)lo=mid;else hi=mid;
+    }
+    const brix=(lo+hi)/2,r=bpeSaskaASI2002Eq8(brix,Q,tw);
+    return {ok:true,brix,targetBPE:target,achievedBPE:r&&r.ok?r.bpe:NaN,iterations:iters,method:'INFER_BRIX_SASKA_EQ8_BISECTION',convergenceWarning:'Tolerance not met within iteration budget.'};
+  }
+
+  // Adopted 2026-10-03 (owner ADOPT): parameterized saturation-coefficient
+  // forms. Coefficients are ALWAYS caller-supplied — no hardcoded defaults
+  // (registry HB-WAGNEROWSKI: 1.0/0.088 is one factory's pair, not the eq).
+  function saturationCoefficientWagnerowski(nsw,coeffs){
+    const NSW=p2finStrict(nsw);
+    const a=coeffs?p2finStrict(coeffs.a):NaN,b=coeffs?p2finStrict(coeffs.b):NaN;
+    if(!Number.isFinite(NSW)||NSW<0)
+      return {ok:false,code:'SC_NSW_INVALID',message:'Non-sucrose/water ratio must be finite and non-negative.'};
+    if(!Number.isFinite(a)||!Number.isFinite(b))
+      return {ok:false,code:'SC_COEFFS_REQUIRED',message:'Wagnerowski coefficients a and b are required (no defaults).'};
+    const warnings=[];
+    if(NSW<1.6||NSW>3.5)warnings.push(`NSW ${NSW.toFixed(3)} is outside the Wagnerowski validated range (1.6–3.5); computed with warning.`);
+    return {ok:true,Sc:a*NSW+b,NSW,a,b,method:'SC_WAGNEROWSKI_PARAM',source:'HB-WAGNEROWSKI',warnings,extrapolated:warnings.length>0};
+  }
+  function saturationCoefficientCane(nsw,coeffs){
+    const NSW=p2finStrict(nsw);
+    const a=coeffs?p2finStrict(coeffs.a):NaN,b=coeffs?p2finStrict(coeffs.b):NaN,c=coeffs?p2finStrict(coeffs.c):NaN;
+    if(!Number.isFinite(NSW)||NSW<0)
+      return {ok:false,code:'SC_NSW_INVALID',message:'Non-sucrose/water ratio must be finite and non-negative.'};
+    if(!Number.isFinite(a)||!Number.isFinite(b)||!Number.isFinite(c))
+      return {ok:false,code:'SC_COEFFS_REQUIRED',message:'Cane Vavrinecz coefficients a, b and c are required (no defaults).'};
+    // HB rule (registry HB-VAVRINECZ-SC / HB-WAGNEROWSKI): c = 0 entered →
+    // Wagnerowski equation is used. Same 1e-14 convention as the monolith.
+    if(Math.abs(c)<1e-14)
+      return {ok:true,Sc:a*NSW+b,NSW,a,b,c,method:'SC_CANE_C0_WAGNEROWSKI',source:'HB-WAGNEROWSKI',warnings:[],extrapolated:false};
+    const Sc=a*NSW+b+(1-b)*Math.exp(c*NSW);
+    if(!(Sc>0))return {ok:false,code:'SC_NONPOSITIVE',message:'Cane saturation coefficient is not positive.'};
+    return {ok:true,Sc,NSW,a,b,c,method:'SC_CANE_VAVRINECZ_PARAM',source:'HB-VAVRINECZ-SC',warnings:[],extrapolated:false};
+  }
+  // Cane coefficient mapping from reducing-sugar/ash ratio. B0/B1/B2 are
+  // factory-specific and caller-supplied (no defaults); the mapping shape is
+  // an adopted external form, values are never invented here.
+  function caneVavrineczCoeffsFromRsAsh(rsAshRatio,B0,B1,B2){
+    const r=p2finStrict(rsAshRatio),b0=p2finStrict(B0),b1=p2finStrict(B1),b2=p2finStrict(B2);
+    if(![r,b0,b1,b2].every(Number.isFinite))
+      return {ok:false,code:'SC_CANE_MAP_INPUT_INVALID',message:'rs/ash ratio and B0, B1, B2 are all required.'};
+    return {ok:true,a:b0+b1*r+b2*r*r,rsAshRatio:r,B0:b0,B1:b1,B2:b2,method:'SC_CANE_MAP_RS_ASH_PARAM'};
   }
 
   // Saska 2002 Eq. 16: BPE-based supersaturation monitor for future Pan/control use.
@@ -8025,6 +10111,414 @@
     return result;
   }
 
+  function solveDistributorStation(n){
+    ensureDistributorDefaults(n);
+    const result={ok:false,status:'FAILED',type:'DISTRIBUTOR',messages:[],auditNotes:[],residuals:{}};
+    n.stationResult=result;
+    const ins=coreConnectedInputs(n),outs=coreConnectedOutputs(n);
+    if(ins.length!==1){result.messages.push('Distributor requires exactly one connected input stream.');return result;}
+    if(!ins.some(s=>s.toPortId==='in')){result.messages.push('Distributor input must connect to the in port.');return result;}
+    if(outs.length<1){result.messages.push('Distributor requires at least one connected output branch.');return result;}
+    if(!outs.every(s=>/^out\d$/.test(s.fromPortId))){result.messages.push('Distributor outputs must connect to out0-out9 ports.');return result;}
+    if(!inputStateResolved(ins[0])){result.messages.push('Distributor feed stream is not resolved.');return result;}
+    const mode=n.params.quantityMode;
+    if(mode!=='PERCENT' && mode!=='WEIGHT'){result.messages.push('Distributor quantity mode must be PERCENT or WEIGHT.');return result;}
+
+    const feed=ins[0],fc=calculateUniversalStream(feed);
+    if(!(fc.massKgH>0)){result.messages.push('Distributor inlet flow must be positive.');return result;}
+
+    const overflowPort=n.params.overflowPortId||'out0';
+    const rows=outs.map(s=>({out:s,portId:s.fromPortId,idx:parseInt(s.fromPortId.slice(3),10)}));
+    rows.forEach(r=>{r.key='q'+r.idx;});
+
+    // Read specified quantities. The overflow port absorbs the remainder, so its
+    // own q value is not required.
+    for(const r of rows){
+      if(r.portId===overflowPort) continue;
+      const raw=String(n.params[r.key]??'').trim();
+      if(raw===''){result.messages.push(`Quantity for Port ${r.idx} is required for connected branch ${r.out.name}.`);return result;}
+      const val=Number(raw);
+      if(!Number.isFinite(val)||val<0){result.messages.push(`Quantity for Port ${r.idx} must be a non-negative number.`);return result;}
+      if(mode==='PERCENT' && val>100){result.messages.push(`Quantity for Port ${r.idx} must be between 0 and 100% when using percentage mode.`);return result;}
+      r.spec=val;
+    }
+
+    // Required flows satisfied first, then specified branches.
+    let remaining=fc.massKgH;
+    const allocated={};
+    const order=[
+      ...rows.filter(r=>r.out.quantityMode==='REQUIRED'),
+      ...rows.filter(r=>r.out.quantityMode!=='REQUIRED' && r.portId!==overflowPort)
+    ];
+    for(const r of order){
+      const flow=mode==='PERCENT'?fc.massKgH*r.spec/100:r.spec;
+      allocated[r.portId]=flow;
+      remaining-=flow;
+    }
+
+    // Overflow port absorbs whatever remains.
+    const overflowRow=rows.find(r=>r.portId===overflowPort);
+    if(overflowRow){
+      allocated[overflowPort]=Math.max(0,remaining);
+      remaining-=allocated[overflowPort];
+    }
+
+    // Write material streams inheriting inlet composition/temperature/pressure.
+    for(const r of rows){
+      coreCopySplitState(feed,r.out,allocated[r.portId]||0);
+    }
+
+    const massOut=rows.reduce((s,r)=>s+p2num(r.out.props?.flow),0);
+    const closure=Math.abs(fc.massKgH-massOut)/Math.max(fc.massKgH,1e-9)*100;
+
+    result.ok=true;result.status='SOLVED';
+    result.input={id:feed.id,name:feed.name,flow:fc.massKgH,brix:fc.liquidBrixPct,purity:fc.truePurityPct};
+    result.outputs=rows.map(r=>{
+      return {portId:r.portId,connected:true,flow:p2num(r.out.props?.flow),allocated:allocated[r.portId]||0,role:r.out.role||''};
+    });
+    result.allocatedTotal=rows.reduce((s,r)=>s+(allocated[r.portId]||0),0);
+    result.overflow=overflowRow?(allocated[overflowPort]||0):0;
+    result.closure=closure;
+    result.residuals={wetMass:fc.massKgH-massOut};
+    result.auditNotes=['Source: Sugars Helpbook Distributor. Output flows inherit inlet pressure, temperature, component fractions, colour and solubility coefficients.'];
+    return result;
+  }
+
+  function solveBlenderStation(n){
+    ensureBlenderDefaults(n);
+    const result={ok:false,status:'FAILED',type:'BLENDER',messages:[],auditNotes:[],residuals:{}};
+    n.stationResult=result;
+    const ins=coreConnectedInputs(n),outs=coreConnectedOutputs(n);
+    const primary=ins.find(s=>s.toPortId==='primary');
+    const blend=ins.find(s=>s.toPortId==='blend');
+    if(!primary){result.messages.push('Blender requires a connected primary flow on the primary port.');return result;}
+    if(!blend){result.messages.push('Blender requires a connected blend flow on the blend port.');return result;}
+    if(outs.length!==1 || !outs.some(s=>s.fromPortId==='out')){result.messages.push('Blender requires exactly one connected output on the out port.');return result;}
+    if(!inputStateResolved(primary)){result.messages.push('Blender primary flow is not resolved.');return result;}
+    if(!inputStateResolved(blend)){result.messages.push('Blender blend flow is not resolved.');return result;}
+
+    const pc=calculateUniversalStream(primary);
+    const bc=calculateUniversalStream(blend);
+    if(pc.status==='FAIL'){result.messages.push(`Primary flow has an invalid property state: ${(pc.messages||[]).join(' ')}`);return result;}
+    if(bc.status==='FAIL'){result.messages.push(`Blend flow has an invalid property state: ${(bc.messages||[]).join(' ')}`);return result;}
+    if(!(pc.massKgH>0)){result.messages.push('Primary flow must be positive.');return result;}
+    if(!(bc.massKgH>0)){result.messages.push('Blend flow must be positive.');return result;}
+
+    const out=outs[0];
+    const inputs=[primary,blend];
+    const mix=coreMixMaterialStreams(inputs);
+    if(!mix.ok){result.messages.push(mix.message);return result;}
+
+    const calc=coreWriteMaterialStream(out,mix,{
+      mediumType:'Blender Outlet',
+      message:'Calculated by Blender primary + blend mass/component and simple enthalpy balance.'
+    });
+
+    result.ok=true;result.status='SOLVED';result.messages.push(...mix.messages);
+    result.primaryFlow=pc.massKgH;
+    result.blendFlow=bc.massKgH;
+    result.outletFlow=calc.massKgH;
+    result.outletTemp=calc.temperature;
+    result.outletPressure=mix.pressure;
+    result.inputs=inputs.map(s=>({id:s.id,name:s.name,flow:p2num(s.props?.flow)}));
+    result.output={id:out.id,name:out.name,flow:calc.massKgH,brix:calc.liquidBrixPct,purity:calc.truePurityPct,temperature:out.props.temperature,pressure:out.props.pressureAbs};
+    result.residuals=coreResidualsForMix(inputs,out);
+    result.closure=Math.abs(result.residuals.wetMass)/Math.max(pc.massKgH+bc.massKgH,1e-9)*100;
+    result.auditNotes=['Source: Sugars Helpbook Blender. Blend (port 1) flow is a Required Flow [R] — its quantity is calculated by Sugars. Outlet pressure equals the minimum of the two inlet pressures; outlet temperature is the heat-content result. Sucrose crystals may dissolve but not grow. Solubility coefficients are a mass-weighted average of the inlets.'];
+    return result;
+  }
+
+  function solveSeparatorStation(n){
+    ensureSeparatorDefaults(n);
+    const result={ok:false,status:'FAILED',type:'SEPARATOR',messages:[],auditNotes:[],residuals:{},residualUnits:{}};
+    n.stationResult=result;
+    const ins=coreConnectedInputs(n),outs=coreConnectedOutputs(n);
+    const feed=ins.find(s=>s.toPortId==='feedIn');
+    const wash=ins.find(s=>s.toPortId==='washWater')||null;
+    const hasDiluent=!!wash;
+    const out1=outs.find(s=>s.fromPortId==='filtrateOut');
+    const out2=outs.find(s=>s.fromPortId==='cakeOut');
+    if(!feed){result.messages.push('Separator requires a connected feed on the feedIn port.');return result;}
+    if(!out1){result.messages.push('Separator requires a connected output on the filtrateOut port.');return result;}
+    if(!out2){result.messages.push('Separator requires a connected output on the cakeOut port.');return result;}
+    if(separatorRequiredOutputCount(n)>1){result.messages.push('A separator cannot have both output flows Required — Sugars flags this as unsatisfiable.');return result;}
+    const sep=n.params.separator||{};
+    const dil=sep.diluent||{};
+    // Effective diluent mode is derived from the Port 1 connection (Helpbook §4):
+    // unconnected Port 1 forces NONE regardless of the stored mode.
+    const effMode=hasDiluent?String(dil.mode||'NO_RATIO').toUpperCase():'NONE';
+    const ratioModeWash=hasDiluent && effMode==='RATIO';
+    if(!inputStateResolved(feed)){result.messages.push('Separator feed stream is not resolved.');return result;}
+    if(wash && !inputStateResolved(wash) && !ratioModeWash){result.messages.push('Separator diluent/wash stream is not resolved.');return result;}
+    if(ratioModeWash){
+      const wpre=calculateUniversalStream(wash);
+      if(wpre.status==='FAIL'){result.messages.push(`Diluent/wash has an invalid property state: ${(wpre.messages||[]).join(' ')}`);return result;}
+      const wstate=(typeof externalStreamStateCheck==='function')?externalStreamStateCheck(wash):{ok:true};
+      if(!wstate.ok){result.messages.push(wstate.message||'Separator diluent/wash state is not defined. Define the wash medium (water/juice) composition first.');return result;}
+    }
+
+    const fc=calculateUniversalStream(feed);
+    if(fc.status==='FAIL'){result.messages.push(`Feed has an invalid property state: ${(fc.messages||[]).join(' ')}`);return result;}
+    if(!(fc.massKgH>0)){result.messages.push('Separator feed flow must be positive.');return result;}
+
+    const inputs=[feed];
+    if(wash)inputs.push(wash);
+
+    // Helpbook component names -> 15-component keys. Unknown names fall back to Other.
+    const sepKeyForName=(raw)=>{
+      const s=String(raw||'').toUpperCase().replace(/[\s\-\._#]+/g,'');
+      if(!s)return null;
+      if(['SUCROSECRYSTALS','CRYSTALS','CRYSTAL','SUCROSECRYSTAL'].includes(s))return ['crystals'];
+      if(['DISSOLVEDSUCROSE','SUCROSE','DISSUCROSE'].includes(s))return ['sucrose'];
+      if(['WATER','H2O'].includes(s))return ['water','steamVapour'];
+      if(['NONSUCROSE1','NONSUCROSE#1','DISSOLVEDNS1','NS1','DISSOLVEDNSS1','DISSOLVEDN.S.#1'].includes(s))return ['ns1'];
+      if(['NONSUCROSE2','NONSUCROSE#2','DISSOLVEDNS2','NS2'].includes(s))return ['ns2'];
+      if(s==='INVERT')return ['invert'];
+      if(s==='ASH')return ['ash'];
+      if(s==='CACO3')return ['caco3'];
+      if(s==='CAO')return ['cao'];
+      if(s==='FIBER'||s==='FIBRE')return ['fiber'];
+      if(['ETHANOL','ETHANOLLIQUID','ETHANOLL'].includes(s))return ['ethanolL'];
+      if(s==='ETHANOLGAS')return ['ethanolG'];
+      if(s==='CO2')return ['co2'];
+      if(s==='AMMONIA'||s==='NH3')return ['ammonia'];
+      if(s==='STEAMVAPOUR'||s==='STEAM'||s==='VAPOUR'||s==='VAPOR')return ['steamVapour'];
+      if(s==='TOTAL'||s==='OTHER'||s==='OTHERCOMPONENTS')return null;
+      return null;
+    };
+
+    // ---- Helpbook RATIO rule: diluent/wash is a Required Flow, Sugars calculates
+    // its quantity as Ratio x input (Total mass or selected component mass). The wash
+    // medium itself (water/juice composition) stays as the user defined it on the
+    // external flow; only the quantity is written, Melter-style. ----
+    // Ratio sets FLOW RATE, not composition: the connected stream's own component
+    // fractions are scaled to the computed rate (§6). ----
+    const ratioMode=ratioModeWash;
+    let ratioComputedWash=null,ratioBasisUsed=null,washExcluded=false;
+    if(wash && !ratioMode && wash.quantityMode==='REQUIRED'){
+      result.messages.push('Diluent/wash is marked Required [R] but Diluent Mode is No Ratio. Switch Diluent Mode to Ratio for Sugars to calculate the wash quantity, or clear Required on the wash stream.');
+      return result;
+    }
+    if(ratioMode){
+      const washBoundary=streamBoundaryType(wash);
+      const ratioRaw=String(dil.ratio??'').trim();
+      if(ratioRaw===''){
+        // Ratio left blank: secondary flow is NOT calculated into the separator.
+        // It stays on the flowsheet as a Required flow awaiting its quantity.
+        if(washBoundary!=='EXTERNAL_IN'){
+          const srcNode=getNode(wash.fromNodeId);
+          result.messages.push(`Diluent/wash is supplied by upstream ${srcNode?.label||'station'} with a blank Diluent Ratio. Enter a Ratio to include it via RATIO mode, or switch to NO_RATIO for a known wash quantity.`);
+          return result;
+        }
+        ensureStreamModel(wash);
+        wash.props=wash.props||{};
+        wash.props.flow='';
+        wash.quantityMode='REQUIRED';
+        wash.solveStatus='REQUIRED_WAITING_STATION';
+        wash.solverMessage=`Required diluent for ${n.label||'Separator'} — enter Diluent Ratio to calculate the quantity; excluded from this solve.`;
+        result.messages.push('Diluent Ratio is blank — wash held as Required flow and excluded from the split. Enter a Ratio to include diluent.');
+        washExcluded=true;
+      }else{
+      const ratio=parseFloat(ratioRaw);
+      if(!Number.isFinite(ratio)||ratio<0){result.messages.push('Diluent Ratio must be a non-negative number.');return result;}
+      const basisLabel=String(dil.ratioComponent||'TOTAL');
+      let basisMass=fc.massKgH;
+      ratioBasisUsed='TOTAL';
+      if(basisLabel.toUpperCase()!=='TOTAL'){
+        const basisKey=CORE_COMPONENT_KEYS.includes(String(basisLabel).toLowerCase())
+          ? String(basisLabel).toLowerCase()
+          : (sepKeyForName(basisLabel)||[])[0];
+        if(!basisKey){result.messages.push(`Diluent Ratio Basis "${basisLabel}" is not a recognised separator component.`);return result;}
+        const fcm=fc.componentMassFlows||{};
+        basisMass=p2num(fcm[basisKey]);
+        ratioBasisUsed=basisKey;
+      }
+      const desiredWash=ratio*basisMass;
+      if(!Number.isFinite(desiredWash)||desiredWash<0){result.messages.push('Diluent ratio solve produced a non-finite wash flow.');return result;}
+      if(ratio>0 && !(basisMass>1e-12)){result.messages.push(`Ratio basis ${ratioBasisUsed} has zero mass in the feed flow; the ratio target is unreachable.`);return result;}
+      if(washBoundary==='EXTERNAL_IN'){
+        const prevFlow=p2num(wash.props?.flow);
+        ensureStreamModel(wash);
+        wash.props=wash.props||{};
+        wash.props.flow=desiredWash.toFixed(8);
+        wash.quantityMode='REQUIRED';
+        wash.solveStatus='REQUIRED_SOLVED';
+        wash.solverMessage=`Required diluent by ${n.label||'Separator'}: Ratio ${ratio} x ${ratioBasisUsed} = ${desiredWash.toFixed(2)} kg/h.`;
+        if(Number.isFinite(prevFlow)&&prevFlow>1e-9&&Math.abs(prevFlow-desiredWash)>Math.max(1e-6,1e-6*prevFlow)){
+          result.messages.push(`Specified wash quantity ${prevFlow.toFixed(2)} kg/h replaced by ratio-computed ${desiredWash.toFixed(2)} kg/h (Helpbook RATIO rule).`);
+        }
+        calculateUniversalStream(wash);
+        syncStreamToBoundaryNode(wash);
+        ratioComputedWash=desiredWash;
+      }else{
+        const srcNode=getNode(wash.fromNodeId);
+        result.messages.push(`Diluent/wash is supplied by upstream ${srcNode?.label||'station'}; RATIO mode needs an external/required wash — Sugars cannot overwrite an upstream calculated flow. Use NO_RATIO or feed wash from an external boundary.`);
+        return result;
+      }
+      }
+    }
+
+    const washEff=(wash&&!washExcluded)?wash:null;
+    let wc=washEff?calculateUniversalStream(washEff):null;
+    if(wc && wc.status==='FAIL'){result.messages.push(`Diluent/wash has an invalid property state: ${(wc.messages||[]).join(' ')}`);return result;}
+    if(wc && !(wc.massKgH>0) && !(ratioMode && ratioComputedWash===0)){result.messages.push('Separator diluent/wash flow must be positive.');return result;}
+    // Splits use canonical component keys; legacy names are normalized as fallback.
+    // No cross-row sum check: each row is independent per the Helpbook (§5).
+    const compDefs=(Array.isArray(sep.splits)?sep.splits:[]).slice(0,4).map(r=>{
+      const raw=String(r?.component||'');
+      const key=CORE_COMPONENT_KEYS.includes(raw.toLowerCase())?raw.toLowerCase():(sepKeyForName(raw)||[])[0]||null;
+      return {key,pct:parseFloat(r?.pctToOut1)};
+    });
+    const otherPct=parseFloat(sep.otherComponentsPctToOut1);
+    const diluentOut1Pct=parseFloat(dil.outFlow1Pct);
+    for(let i=0;i<compDefs.length;i++){
+      const v=compDefs[i].pct;
+      if(!Number.isFinite(v)||v<0||v>100){result.messages.push(`Component ${i+1} Out-Flow-No-1 % must be between 0 and 100.`);return result;}
+      compDefs[i].pct=v;
+    }
+    if(!Number.isFinite(otherPct)||otherPct<0||otherPct>100){result.messages.push('Other Components Out-Flow-No-1 % must be between 0 and 100.');return result;}
+    const dilOut1=(washEff?(Number.isFinite(diluentOut1Pct)?diluentOut1Pct:0):0);
+    if(washEff&&(dilOut1<0||dilOut1>100)){result.messages.push('Diluent Out-Flow-No-1 % must be between 0 and 100.');return result;}
+
+    // Pct lookup per core key: explicit row wins, else Other Components.
+    const pctFor=(k)=>{
+      for(const d of compDefs){
+        if(d.key&&d.key===k)return d.pct;
+      }
+      return otherPct;
+    };
+
+    const feedMasses=fc.componentMassFlows||{};
+    const washMasses=wc?(wc.componentMassFlows||{}):null;
+    const out1Feed={},out2Feed={},out1Wash={},out2Wash={};
+    CORE_COMPONENT_KEYS.forEach(k=>{
+      const fm=p2num(feedMasses[k]);
+      const pct=pctFor(k);
+      const m1=fm*pct/100;
+      out1Feed[k]=m1;
+      out2Feed[k]=fm-m1;
+      if(washMasses){
+        const wm=p2num(washMasses[k]);
+        const w1=wm*dilOut1/100;
+        out1Wash[k]=w1;
+        out2Wash[k]=wm-w1;
+      }else{
+        out1Wash[k]=0;out2Wash[k]=0;
+      }
+    });
+
+    const out1Masses={},out2Masses={};
+    CORE_COMPONENT_KEYS.forEach(k=>{out1Masses[k]=(out1Feed[k]||0)+(out1Wash[k]||0);out2Masses[k]=(out2Feed[k]||0)+(out2Wash[k]||0);});
+    const out1Flow=Object.values(out1Masses).reduce((s,v)=>s+v,0);
+    const out2Flow=Object.values(out2Masses).reduce((s,v)=>s+v,0);
+    if(!(out1Flow>=0)||!(out2Flow>=0)){result.messages.push('Separator split produced a non-finite output flow.');return result;}
+
+    // Temperature: no-diluent -> feed T (Helpbook). With diluent -> mass-weighted
+    // enthalpy proxy of the two portions in each output; documented as Phase-1.
+    const tF=p2num(feed.props?.temperature);
+    const tW=washEff?p2num(washEff.props?.temperature):NaN;
+    const feedPortion1=Object.values(out1Feed).reduce((s,v)=>s+v,0);
+    const feedPortion2=Object.values(out2Feed).reduce((s,v)=>s+v,0);
+    const washPortion1=Object.values(out1Wash).reduce((s,v)=>s+v,0);
+    const washPortion2=Object.values(out2Wash).reduce((s,v)=>s+v,0);
+    const mixTemp=(fp,wp)=>{
+      if(!washEff)return Number.isFinite(tF)?tF:NaN;
+      const hasF=Number.isFinite(tF),hasW=Number.isFinite(tW);
+      if(!hasF&&!hasW)return NaN;
+      if(!hasF)return tW;
+      if(!hasW)return tF;
+      const m=fp+wp;
+      if(!(m>1e-12))return tF;
+      return (fp*tF+wp*tW)/m;
+    };
+    const t1=mixTemp(feedPortion1,washPortion1);
+    const t2=mixTemp(feedPortion2,washPortion2);
+
+    // Pressure: minimum of resolved inlet pressures (Blender/Receiver rule).
+    const pressures=[];
+    const pf=p2num(feed.props?.pressureAbs);
+    if(pf>0)pressures.push(pf);
+    if(washEff){const pw=p2num(washEff.props?.pressureAbs);if(pw>0)pressures.push(pw);}
+    const pOut=pressures.length?Math.min(...pressures):null;
+
+    // Solubility per output (§8): mass-weighted by each source's actual
+    // contribution to that output — not a flat inlet average. No automatic
+    // melassigenic correction (Helpbook defers that to a Reactor station).
+    const solOf=(inContrib,dilContrib)=>{
+      let aW=0,bW=0,cW=0,sM=0;
+      const fs=feed.solubility||{};
+      if(Number.isFinite(Number(fs.a))&&Number.isFinite(Number(fs.b))&&Number.isFinite(Number(fs.c))&&inContrib>0){
+        aW+=inContrib*Number(fs.a);bW+=inContrib*Number(fs.b);cW+=inContrib*Number(fs.c);sM+=inContrib;
+      }
+      const ds=washEff?(washEff.solubility||{}):{};
+      if(Number.isFinite(Number(ds.a))&&Number.isFinite(Number(ds.b))&&Number.isFinite(Number(ds.c))&&dilContrib>0){
+        aW+=dilContrib*Number(ds.a);bW+=dilContrib*Number(ds.b);cW+=dilContrib*Number(ds.c);sM+=dilContrib;
+      }
+      return sM>0?{basis:'Mass-weighted by source contributions to this output',a:String(aW/sM),b:String(bW/sM),c:String(cW/sM)}:null;
+    };
+    const feedToOut1=Object.values(out1Feed).reduce((s,v)=>s+v,0);
+    const feedToOut2=Object.values(out2Feed).reduce((s,v)=>s+v,0);
+    const dilToOut1=Object.values(out1Wash).reduce((s,v)=>s+v,0);
+    const dilToOut2=Object.values(out2Wash).reduce((s,v)=>s+v,0);
+    const sol1=solOf(feedToOut1,dilToOut1),sol2=solOf(feedToOut2,dilToOut2);
+
+    const writeSplit=(out,masses,flow,temp,sol)=>{
+      ensureStreamModel(out);
+      out.streamClass='material';
+      out.mediumType='Separator Outlet';
+      out.props=clone(feed.props||{});
+      out.props.flow=flow.toFixed(8);
+      out.props.temperature=Number.isFinite(temp)?temp.toFixed(6):'';
+      out.props.pressureAbs=(pOut===null||pOut===undefined)?'':pOut.toFixed(6);
+      out.props.colour='';
+      out.props.purityBasis=feed.props?.purityBasis||'TRUE';
+      if(out.props.purityBasis==='APPARENT')out.props.pol='';
+      out.components=Object.fromEntries(CORE_COMPONENT_KEYS.map(k=>{
+        return [k,(100*p2num(masses[k])/Math.max(flow,1e-9)).toFixed(10)];
+      }));
+      out.compositionMode='DETAILED_FRACTIONS';
+      if(sol)out.solubility={...sol};
+      calculateUniversalStream(out);
+      syncStationDefinedStreamIdentity(out);
+      out.solveStatus='CALCULATED';
+      out.solverMessage='Calculated by Separator/Filter component split.';
+    };
+    writeSplit(out1,out1Masses,out1Flow,t1,sol1);
+    writeSplit(out2,out2Masses,out2Flow,t2,sol2);
+
+    // Mass balance closure (§10): component-by-component, (input + diluent) vs
+    // (out1 + out2). Inputs are SUMMED with centAddMasses — never object spread,
+    // which would silently drop one side when both objects share every key.
+    const feedMassAll=centEmptyMasses(),dilMassAll=centEmptyMasses();
+    CORE_COMPONENT_KEYS.forEach(k=>{feedMassAll[k]=p2num((fc.componentMassFlows||{})[k]);});
+    if(wc){const wcm=wc.componentMassFlows||{};CORE_COMPONENT_KEYS.forEach(k=>{dilMassAll[k]=p2num(wcm[k]);});}
+    const combinedIn=centAddMasses(centAddMasses(centEmptyMasses(),feedMassAll),dilMassAll);
+    const closure=centrifugalBalanceClosure(combinedIn,[out1,out2]);
+    result.residuals=closure.residuals;
+    result.balanceClosure=closure;
+    if(!closure.ok){
+      result.status='FAILED';
+      result.messages.push(`Separator component balance failed (max residual ${closure.maxResidualKgH.toFixed(6)} kg/h; tolerance ${closure.toleranceKgH.toFixed(6)} kg/h).`);
+      return result;
+    }
+
+    result.ok=true;result.status='SOLVED';
+    result.feedFlow=fc.massKgH;
+    result.diluentFlow=wc?wc.massKgH:0;
+    result.out1Flow=out1Flow;
+    result.out2Flow=out2Flow;
+    result.closure=Math.abs(closure.inputTotal-closure.outputTotal)/Math.max(closure.inputTotal,1e-9)*100;
+    result.inputs=inputs.filter(s=>s!==wash||!washExcluded).map(s=>({id:s.id,name:s.name,flow:p2num(s.props?.flow)}));
+    result.outputs=[
+      {id:out1.id,name:out1.name,flow:out1Flow},
+      {id:out2.id,name:out2.name,flow:out2Flow}
+    ];
+    result.colorStatus='REFERENCE_REQUIRED';
+    if(ratioMode){result.ratioComputedWash=ratioComputedWash;result.ratioBasisUsed=ratioBasisUsed;}
+    if(washExcluded){result.diluentPending=true;}
+    result.auditNotes=[`Source: Sugars Helpbook Separator/Filter. Feed components split by Out-Flow-No-1 % (remainder to Out-2); diluent/wash splits by its own Diluent Out-Flow-No-1 %.${washExcluded?' RATIO Ratio left blank: wash held as Required flow and excluded from this solve — outputs are feed-only.':(ratioMode?` RATIO mode: wash quantity auto-computed as Ratio ${parseFloat(dil.ratio)} x ${ratioBasisUsed} = ${(ratioComputedWash||0).toFixed(2)} kg/h (Required Flow; wash medium kept as defined).`:'')} Component balance closed per-component (max residual ${closure.maxResidualKgH.toFixed(6)} kg/h). No-diluent outputs keep feed T; with diluent, each output T is the mass-weighted mix of its feed + diluent portions (Phase-1 energy proxy). Pressure is min inlet P; solubility per output is mass-weighted by source contributions. Colour split by NS1 needs Model Properties basis (Phase 2).`];
+    return result;
+  }
 
   function solveCrystallizerStation(n){
     ensureCrystallizerDefaults(n);
@@ -8930,6 +11424,8 @@
     if(n.type==='crystallizer')return solveCrystallizerStation(n);
     if(n.type==='centrifugal2'||n.type==='centrifugal3')return solveCentrifugalStation(n);
     if(n.type==='mixer')return solveGeneralMixerStation(n);
+    if(n.type==='blender')return solveBlenderStation(n);
+    if(n.type==='separator')return solveSeparatorStation(n);
     if(n.type==='receiver')return solveReceiverStation(n);
     if(n.type==='splitter')return solveSplitterStation(n);
     if(n.type==='distributor')return solveDistributorStation(n);
@@ -8942,183 +11438,817 @@
     return null;
   }
 
-  function solveEvaporatorStation(n){
-    const result={ok:false,status:'FAILED',type:'EVAPORATOR',messages:[],residuals:{}};
-    n.stationResult=result;
-    const feed=state.streams.find(s=>s.toNodeId===n.id && s.toPortId==='juice');
-    const steam=state.streams.find(s=>s.toNodeId===n.id && s.toPortId==='steam');
-    const outSyrup=state.streams.find(s=>s.fromNodeId===n.id && s.fromPortId==='syrup');
-    const outVap=state.streams.find(s=>s.fromNodeId===n.id && s.fromPortId==='vapour');
-    const outCond=state.streams.find(s=>s.fromNodeId===n.id && s.fromPortId==='condensate');
-
-    if(!feed||!steam||!outSyrup||!outVap||!outCond){
-      result.messages.push('Evaporator requires Juice In, Motive Steam In, and all 3 outputs (Syrup, Vapour, Condensate) connected.');
-      return result;
+  // ---- Evaporator stencil spec Rev 3 §7 solver ----
+  // Bracketed Illinois regula falsi (spec allows secant/Brent family).
+  // Guaranteed convergence on a sign-changing bracket; returns {ok,root,...}.
+  function evapIllinoisRoot(f,lo,hi,tol,maxIter){
+    tol=(Number.isFinite(tol)&&tol>0)?tol:1e-9;
+    maxIter=(Number.isInteger(maxIter)&&maxIter>0)?Math.min(maxIter,500):100;
+    let a=lo,b=hi,fa=f(a),fb=f(b),iter=0;
+    if(!Number.isFinite(fa)||!Number.isFinite(fb))return {ok:false,message:'Root residual is not finite at the bracket ends.'};
+    if(fa===0)return {ok:true,root:a,iterations:0};
+    if(fb===0)return {ok:true,root:b,iterations:0};
+    if(fa*fb>0)return {ok:false,message:'Root is not bracketed (no sign change).'};
+    let c=a,fc=fa;
+    for(iter=1;iter<=maxIter;iter++){
+      c=(a*fb-b*fa)/(fb-fa);
+      if(!Number.isFinite(c))return {ok:false,message:'Root iteration diverged.'};
+      fc=f(c);
+      if(!Number.isFinite(fc))return {ok:false,message:'Root residual is not finite.'};
+      if(Math.abs(fc)<=tol||Math.abs(b-a)<=1e-12*Math.max(1,Math.abs(c)))return {ok:true,root:c,iterations:iter};
+      if(fa*fc<0){b=c;fb=fc;fa*=0.5;}else{a=c;fa=fc;fb*=0.5;}
     }
-    if(!inputStateResolved(feed)){
-      result.messages.push('Evaporator is waiting for resolved Juice In feed stream.');
-      return result;
+    return {ok:false,message:'Root did not converge.',iterations:maxIter,root:c};
+  }
+
+  // Plain secant with guards (Total-Solids outer loop over Effect-1 steam).
+  function evapSecant(f,x0,x1,tol,maxIter){
+    tol=(Number.isFinite(tol)&&tol>0)?tol:1e-7;
+    maxIter=(Number.isInteger(maxIter)&&maxIter>0)?Math.min(maxIter,200):50;
+    let a=x0,fa=f(a),iter=0;
+    if(!Number.isFinite(fa))return {ok:false,message:'Secant residual is not finite at the start.'};
+    if(Math.abs(fa)<=tol)return {ok:true,root:a,iterations:0};
+    let b=x1,fb=f(b);
+    for(iter=1;iter<=maxIter;iter++){
+      if(!Number.isFinite(fb))return {ok:false,message:'Secant residual is not finite.'};
+      if(Math.abs(fb)<=tol)return {ok:true,root:b,iterations:iter};
+      const den=fb-fa;
+      if(!(Math.abs(den)>0))return {ok:false,message:'Secant denominator collapsed.'};
+      const c=b-fb*(b-a)/den;
+      if(!Number.isFinite(c))return {ok:false,message:'Secant iteration diverged.'};
+      a=b;fa=fb;b=c;fb=f(c);
     }
+    return {ok:Math.abs(fb)<=tol,root:b,iterations:maxIter,message:Math.abs(fb)<=tol?'':'Secant did not converge.'};
+  }
 
-    ensureStreamModel(feed);
-    const fc=calculateUniversalStream(feed);
-    const M_in=fc.massKgH;
-    if(!(M_in>0)){result.messages.push('Evaporator incoming juice flow must be positive.');return result;}
-    const bx_in=p2num(feed.props?.brix||fc.liquidBrixPct||0);
-    const pur_in=p2num(feed.props?.purity||fc.truePurityPct||85);
-    const T_in=p2num(feed.props?.temperature);
-    if(!Number.isFinite(T_in)){result.messages.push('Incoming juice temperature is required.');return result;}
-
-    const pVapMode=n.params.pressureMode||'VAPOUR_PRESSURE';
-    let pVap=p2num(n.params.vapourPressure||20);
-    if(pVapMode==='VAPOUR_TEMP'){
-      const tVap=p2num(n.params.vapourTemp);
-      if(tVap>0) pVap=satPressureKPaFromC(tVap);
+  // Vapor Tsat/pVap resolution. PRESSURE comes from the spec pair; every other
+  // mode needs context: vapor-line state (previous pass), downstream feedback,
+  // or model atmosphere at a sink. Otherwise waiting (global passes retry).
+  function evaporatorVaporTsat(n,outVap,mode){
+    if(mode==='PRESSURE'){
+      const vp=(n.params.vaporPressure&&typeof n.params.vaporPressure==='object')?n.params.vaporPressure:{value:n.params.vaporPressure,unit:'kPa'};
+      const abs=evapPressureToAbsKPa(vp.value,vp.unit||'kPa');
+      if(abs>0){
+        const sat=if97SaturationAtPressure(abs);
+        if(!sat||sat.unsupported)return {ok:false,message:'Vapor pressure is outside the saturation-property range.'};
+        return {ok:true,Tsat:sat.tC,pVap:abs,source:'specified pressure'};
+      }
+      const t=parseFloat(n.params.satTemp_C);
+      if(Number.isFinite(t)){
+        const p=satPressureKPaFromC(t);
+        if(!Number.isFinite(p)||!(p>0))return {ok:false,message:'Saturation temperature is outside the steam tables range.'};
+        return {ok:true,Tsat:t,pVap:p,source:'specified saturation temperature'};
+      }
+      return {ok:false,message:'PRESSURE mode needs a valid vapor pressure (abs > 0) or saturation temperature (V-05).'};
     }
-    if(!(pVap>0)){result.messages.push('Operating vapour pressure must be greater than zero.');return result;}
-    const satVap=if97SaturationAtPressure(pVap);
-    if(!satVap||satVap.unsupported){result.messages.push('Unable to evaluate vapour IF97 properties at '+pVap+' kPa.');return result;}
-    const tSat=satVap.tC;
+    const P0=p2num(outVap?.props?.pressureAbs);
+    if(outVap&&P0>0){
+      const sat=if97SaturationAtPressure(P0);
+      if(!sat||sat.unsupported)return {ok:false,message:'Vapor-line pressure is outside the saturation-property range.'};
+      return {ok:true,Tsat:sat.tC,pVap:P0,source:'vapor line state'};
+    }
+    const toNode=outVap?getNode(outVap.toNodeId):null;
+    if(toNode&&toNode.type==='sink'){
+      const pa=modelPatmKPa();
+      const ts=satTempCFromKPa(pa);
+      if(!Number.isFinite(ts))return {ok:false,message:'Model atmospheric pressure is outside the saturation range.'};
+      return {ok:true,Tsat:ts,pVap:pa,source:'model atmosphere (vapor leaves the model)'};
+    }
+    const why=mode==='FEEDBACK'
+      ?'FEEDBACK needs downstream pressure (connect the vapor line or let it leave the model).'
+      :'Modes without a specified vapor pressure need a vapor pressure reference: solve once with PRESSURE, connect the vapor line, or let it leave the model.';
+    return {ok:false,waiting:true,message:why};
+  }
 
+  // Pure single-body balance (no stream I/O — the wrapper and microSolve own I/O).
+  // F:{M,bx,pur,T,cm} feed state. S:{M|null,pKPa,hIn,TsatIn} steam (M null=solve).
+  // V:{Tsat,pVap} resolved vapor state. P:{mode,U,A,loss,subK,ts|null,flowT|null,
+  // entrPPM,colorRise{value,unit}}. ts fixes evaporation (Total Solids); without
+  // it, PRESSURE/FEEDBACK/FLOW_TEMP need known steam, HTC root-finds (TS) or goes
+  // direct (known steam). HTC or FLOW_TEMP with required steam and no TS is open
+  // (vapor pressure floats free) and fails cleanly instead of guessing.
+  function evaporatorBodyBalance(F,S,V,P){
+    const warnings=[];
+    const M_in=F.M,bx_in=F.bx,pur_in=F.pur,T_in=F.T;
+    if(!(M_in>0))return {ok:false,message:'Feed flow must be positive.'};
+    if(!Number.isFinite(T_in))return {ok:false,message:'Feed temperature is required.'};
     const D_in=M_in*(bx_in/100);
-    const solidsMode=n.params.solidsControl||'TARGET_BRIX';
-    let targetBx=p2num(n.params.targetBrix||65);
-    let M_vap=0, M_syrup=0;
+    const loss=P.loss,subK=P.subK;
+    const TsatV=V.Tsat;
+    const satV=if97SaturationAtPressure(V.pVap);
+    if(!satV||satV.unsupported)return {ok:false,message:'Vapor pressure is outside the saturation-property range.'};
+    const hVapBase=satV.hg_kJkg;
+    const mode=P.mode;
+    const steamKnown=(S.M!=null&&S.M>0);
+    const ts=(P.ts!=null&&P.ts>0)?P.ts:null;
 
-    if(solidsMode==='TARGET_BRIX'){
-      if(targetBx<=bx_in){result.messages.push(`Target Brix (${targetBx}%) must exceed incoming Brix (${bx_in.toFixed(2)}%).`);return result;}
-      if(targetBx>=95){result.messages.push('Target Brix must be less than 95%.');return result;}
-      M_syrup=D_in/(targetBx/100);
-      M_vap=M_in-M_syrup;
-    }else if(solidsMode==='EVAPORATION_RATE'){
-      M_vap=p2num(n.params.targetEvapRate);
-      if(!(M_vap>0&&M_vap<M_in)){result.messages.push('Evaporation rate must be positive and less than feed flow.');return result;}
-      M_syrup=M_in-M_vap;
-      targetBx=D_in/M_syrup*100;
-    }else{
-      M_syrup=D_in/(targetBx/100);
-      M_vap=M_in-M_syrup;
-    }
-
-    // Boiling point elevation
-    const bpeRes=bpeBubnikKadlecTechnical(targetBx,pur_in,tSat);
-    const bpe=bpeRes.ok?bpeRes.bpe:0;
-    const tBoil=tSat+bpe;
-
-    // Heat balance
-    const cpFeed=centHelpbookSyrupCpKJkgK(bx_in,T_in)||4.18;
-    const Q_sens=M_in*cpFeed*(tBoil-T_in);
-    const lambdaVap=satVap.hfg_kJkg;
-    const Q_evap=M_vap*lambdaVap;
-    const Q_process=Math.max(0,Q_sens)+Q_evap;
-    const loss=p2num(n.params.heatLossPercent||1.5)/100;
-    const Q_gross=Q_process/(1-loss);
-
-    // Steam requirements
-    const pSteam=p2num(steam.props?.pressureAbs)||150;
-    const satSteam=if97SaturationAtPressure(pSteam);
-    if(!satSteam||satSteam.unsupported){result.messages.push('Unable to evaluate motive steam IF97 properties at '+pSteam+' kPa.');return result;}
-    const subcool=p2num(n.params.condensateSubcooling||0);
-    const tCond=satSteam.tC-subcool;
-    let hCond=satSteam.hf_kJkg;
-    if(subcool>1e-6){
-      const reg1=if97Region1(pSteam,tCond);
-      if(reg1)hCond=reg1.h_kJkg;
-    }
-    const steamState=waterSteamStateFromStream(steam);
-    const hSteam=steamState?.ok?steamState.h_kJkg:satSteam.hg_kJkg;
-    const dhSteam=Math.max(100,hSteam-hCond);
-    const M_steam=Q_gross/dhSteam;
-
-    // Update steam stream
-    steam.props=steam.props||{};
-    steam.props.flow=M_steam.toFixed(6);
-    steam.quantityMode='REQUIRED';
-    steam.solveStatus='REQUIRED_SOLVED';
-    steam.solverMessage='Motive steam required by Evaporator effect energy balance.';
-    calculateUniversalStream(steam);
-    syncStreamToBoundaryNode(steam);
-
-    // Syrup component distribution
-    const cm=fc.componentMassFlows||{};
-    const W_syrup=Math.max(0,M_syrup-D_in);
-    const syrupMasses={
-      water:W_syrup,
-      sucrose:p2num(cm.sucrose),
-      crystals:0,
-      invert:p2num(cm.invert),
-      ash:p2num(cm.ash),
-      ns1:p2num(cm.ns1),
-      ns2:p2num(cm.ns2),
-      caco3:p2num(cm.caco3),
-      cao:p2num(cm.cao),
-      fiber:p2num(cm.fiber),
-      steamVapour:0
+    const cpAt=(bx,T)=>centHelpbookSyrupCpKJkgK(bx,T)||4.18;
+    const bpeAt=(DS)=>{
+      const b=bpeEvaporator(DS,pur_in,TsatV);
+      if(!Number.isFinite(b))return {ok:false,message:'BPE evaluation failed at DS '+DS.toFixed(2)+'%.'};
+      const w=bpeEvaporatorRangeWarning(DS,pur_in,TsatV);
+      if(w&&!warnings.includes(w))warnings.push(w);
+      return {ok:true,bpe:b};
+    };
+    // Droplet mass for a candidate evaporation (spec §7.5): sucrose loss anchors it.
+    const sucTotAll=p2num((F.cm||{}).sucrose)+p2num((F.cm||{}).crystals);
+    const entrainmentDroplet=(Mv,DS)=>{
+      const ppm=P.entrPPM;
+      if(!(ppm>0))return {M:0};
+      const sucLoss=Math.min(ppm/1e6*Mv,sucTotAll);
+      const dsF=DS/100,puF=pur_in/100;
+      const M=(sucLoss>0&&dsF>0&&puF>0)?sucLoss/(dsF*puF):0;
+      return {M};
     };
 
+    let M_vap=0,M_syrup=0,DS_out=0,T_out=null,BPE=0,M_steam=0,steamStarved=false,flashed=false,boilPinned=false,condVapFrac=0,HTCiters=0;
+    function satSteamHf(pKPa){
+      const s=if97SaturationAtPressure(pKPa);
+      if(!s||s.unsupported)return null;
+      let h=s.hf_kJkg;
+      const tC=s.tC-subK;
+      if(subK>1e-6){const reg1=if97Region1(pKPa,tC);if(reg1)h=reg1.h_kJkg;}
+      return h;
+    }
+    const hC0=satSteamHf(S.pKPa);
+    if(hC0===null)return {ok:false,message:'Unable to evaluate entering-steam saturation properties at '+S.pKPa+' kPa.'};
+    const satSt=if97SaturationAtPressure(S.pKPa);
+    const TsatIn=satSt.tC;
+    const tCond=TsatIn-subK;
+    if(!Number.isFinite(S.hIn))return {ok:false,message:'Entering-steam enthalpy is unavailable.'};
+    const dhSteam=Math.max(100,S.hIn-hC0);
+
+    if(ts!=null){
+      if(!(ts>bx_in))return {ok:false,message:`Total Solids target (${ts}%) must exceed incoming Brix (${bx_in.toFixed(2)}%).`};
+      if(ts>=95)return {ok:false,message:'Total Solids target must be less than 95%.'};
+      M_syrup=D_in/(ts/100);M_vap=M_in-M_syrup;DS_out=ts;
+      if(!(M_vap>0&&M_vap<M_in))return {ok:false,message:'Total Solids target cannot be met with the available flow (V-10). Revise Total Solids.'};
+      const be=bpeAt(DS_out);if(!be.ok)return be;
+      BPE=be.bpe;T_out=TsatV+BPE;
+      if(mode==='HTC'){
+        // Root-find T_out on heat-demand vs UA (M_vap fixed by TS above).
+        // M_steam follows from energy at the solution (or is checked below).
+        if(!(P.U>0&&P.A>0))return {ok:false,message:'HTC mode requires Heat Transfer Coefficient U > 0 and Heating Surface A > 0 (V-04).'};
+        if(!Number.isFinite(TsatIn))return {ok:false,message:'HTC mode needs the entering-steam saturation temperature.'};
+        const res=evapIllinoisRoot(T=>{
+          const cpO=cpAt(DS_out,T);
+          const hv=hVapBase+1.9*Math.max(0,T-TsatV);
+          const drop=entrainmentDroplet(M_vap,DS_out);
+          const Hd=(M_syrup*cpO*T+M_vap*hv+drop.M*cpO*T)-M_in*cpAt(bx_in,T_in)*T_in;
+          return Hd-P.U*P.A*(TsatIn-T)*3.6;
+        },TsatV+0.01,TsatIn-0.01,1e-3*Math.max(1,M_in*4000),100);
+        if(!res.ok)return {ok:false,message:'HTC balance did not converge: '+res.message};
+        T_out=res.root;HTCiters=res.iterations;
+      }
+    }else if(mode==='FLOW_TEMP'){
+      if(!steamKnown)return {ok:false,message:'FLOW_TEMP without Total Solids needs known steam flow (or set Total Solids).'};
+      T_out=P.flowT;
+      if(!(T_out>TsatV))return {ok:false,message:'Juice-out temperature must exceed vapor saturation temperature.'};
+      // M_vap root-find on Tcalc(Mv)-T_given (monotone increasing).
+      const be0=bpeAt(bx_in);if(!be0.ok)return be0;
+      const res=evapIllinoisRoot(Mv=>{
+        if(!(Mv>0))return NaN;
+        const Msy=M_in-Mv;if(!(Msy>0))return NaN;
+        const DS=D_in/Msy*100;if(DS>=95)return NaN;
+        const be=bpeAt(DS);if(!be.ok)return NaN;
+        return (TsatV+be.bpe)-T_out;
+      },Math.max(1e-9,M_in*1e-9),M_in-D_in/0.95-1e-9,1e-9*Math.max(1,M_in),100);
+      if(!res.ok)return {ok:false,message:'FLOW_TEMP evaporation did not converge: '+res.message};
+      M_vap=res.root;M_syrup=M_in-M_vap;DS_out=D_in/M_syrup*100;
+      const be=bpeAt(DS_out);if(!be.ok)return be;
+      BPE=be.bpe;
+    }else if(mode==='PRESSURE'||mode==='FEEDBACK'){
+      if(!steamKnown)return {ok:false,message:`${mode} without Total Solids needs known steam flow (or set Total Solids).`};
+      // M_vap root-find on energy residual (BPE-coupled, monotone decreasing).
+      const Qst=(1-loss)*S.M*dhSteam;
+      const res=evapIllinoisRoot(Mv=>{
+        if(!(Mv>0))return NaN;
+        const Msy=M_in-Mv;if(!(Msy>0))return NaN;
+        const DS=D_in/Msy*100;if(DS>=95)return NaN;
+        const be=bpeAt(DS);if(!be.ok)return NaN;
+        const T=TsatV+be.bpe;
+        const Hsens=Msy*cpAt(DS,T)-M_in*cpAt(bx_in,T_in)*T_in;
+        const hv=hVapBase+1.9*Math.max(0,T-TsatV);
+        const drop=entrainmentDroplet(Mv,DS);
+        return (M_in*cpAt(bx_in,T_in)*T_in+Qst)-(Msy*cpAt(DS,T)*T+Mv*hv+drop.M*cpAt(DS,T)*T);
+      },1e-9*Math.max(1,M_in),M_in-D_in/0.95-1e-9,1e-6*Math.max(1,M_in*4000),100);
+      if(!res.ok)return {ok:false,message:'Evaporation energy balance did not converge: '+res.message};
+      M_vap=res.root;M_syrup=M_in-M_vap;DS_out=D_in/M_syrup*100;
+      const be=bpeAt(DS_out);if(!be.ok)return be;
+      BPE=be.bpe;T_out=TsatV+BPE;
+    }else if(mode==='HTC'){
+      if(!steamKnown)return {ok:false,message:'HTC without Total Solids needs known steam flow (or set Total Solids).'};
+      if(!(P.U>0&&P.A>0))return {ok:false,message:'HTC mode requires Heat Transfer Coefficient U > 0 and Heating Surface A > 0 (V-04).'};
+      const Qav=(1-loss)*S.M*dhSteam;
+      T_out=TsatIn-(Qav*1000/3600)/(P.U*P.A);
+      // The UA temperature must clear the BOILING point (saturation + inlet
+      // BPE), not bare saturation: between the two the juice cannot boil and
+      // the energy secant below collapses to ~0.
+      const beIn=bpeAt(bx_in);
+      const TboilIn=TsatV+(beIn.ok?beIn.bpe:0);
+      if(!(T_out>TboilIn+0.01)){
+        // UA temperature at/below boiling: the surface alone cannot hold the
+        // juice above its boiling point, so the juice boils on the boiling
+        // curve and evaporation follows from energy (same form as PRESSURE
+        // branch). Covers flashing feed AND cold feed with ample steam; only
+        // heat too weak to reach boiling is genuinely starved.
+        if(!beIn.ok)return beIn;
+        const Qst=(1-loss)*S.M*dhSteam;
+        const surplus0=M_in*cpAt(bx_in,T_in)*T_in+Qst-M_in*cpAt(bx_in,TboilIn)*TboilIn;
+        if(!(surplus0>0)){
+          steamStarved=true;
+          warnings.push('Steam-starved body: available heat cannot sustain boiling — evaporation clamped to 0 with 100% condensation.');
+          M_vap=0;M_syrup=M_in;DS_out=bx_in;
+          BPE=beIn.bpe;T_out=TboilIn;
+        }else{
+          const res=evapIllinoisRoot(Mv=>{
+            if(!(Mv>0))return NaN;
+            const Msy=M_in-Mv;if(!(Msy>0))return NaN;
+            const DS=D_in/Msy*100;if(DS>=95)return NaN;
+            const be=bpeAt(DS);if(!be.ok)return NaN;
+            const T=TsatV+be.bpe;
+            const hv=hVapBase+1.9*Math.max(0,T-TsatV);
+            const drop=entrainmentDroplet(Mv,DS);
+            return (M_in*cpAt(bx_in,T_in)*T_in+Qst)-(Msy*cpAt(DS,T)*T+Mv*hv+drop.M*cpAt(DS,T)*T);
+          },1e-9*Math.max(1,M_in),M_in-D_in/0.95-1e-9,1e-6*Math.max(1,M_in*4000),100);
+          if(!res.ok)return {ok:false,message:'HTC evaporation at boiling point did not converge: '+res.message};
+          M_vap=res.root;M_syrup=M_in-M_vap;DS_out=D_in/M_syrup*100;HTCiters=res.iterations;
+          const be=bpeAt(DS_out);if(!be.ok)return be;
+          BPE=be.bpe;T_out=TsatV+BPE;boilPinned=true;
+          if(T_in>TboilIn+0.01){
+            flashed=true;
+            warnings.push('Hot feed flashes at the vapor pressure: evaporation is sustained by inlet superheat, not surface heat.');
+          }
+        }
+      }else{
+        // M_vap from energy at UA-fixed T_out (secant, BPE-coupled).
+        const Qst=(1-loss)*S.M*dhSteam;
+        const res=evapIllinoisRoot(Mv=>{
+          if(!(Mv>0))return NaN;
+          const Msy=M_in-Mv;if(!(Msy>0))return NaN;
+          const DS=D_in/Msy*100;if(DS>=95)return NaN;
+          const be=bpeAt(DS);if(!be.ok)return NaN;
+          const hv=hVapBase+1.9*Math.max(0,T_out-TsatV);
+          const drop=entrainmentDroplet(Mv,DS);
+          return (M_in*cpAt(bx_in,T_in)*T_in+Qst)-(Msy*cpAt(DS,T_out)*T_out+Mv*hv+drop.M*cpAt(DS,T_out)*T_out);
+        },1e-9*Math.max(1,M_in),M_in-D_in/0.95-1e-9,1e-6*Math.max(1,M_in*4000),100);
+        if(!res.ok)return {ok:false,message:'HTC evaporation did not converge: '+res.message};
+        M_vap=res.root;M_syrup=M_in-M_vap;DS_out=D_in/M_syrup*100;
+        const be=bpeAt(DS_out);if(!be.ok)return be;
+        BPE=be.bpe;
+        const Mis=(T_out-(TsatV+BPE));
+        if(Math.abs(Mis)>0.5)warnings.push(`Solved juice temperature differs ${Mis.toFixed(2)} K from Tsat+BPE at the solved DS.`);
+      }
+    }else{
+      return {ok:false,message:'Unknown evaporator mode.'};
+    }
+
+    // Steam quantity: required → from energy; known → consistency check vs TS.
+    const cpO=cpAt(DS_out,T_out);
+    const hvOut=hVapBase+1.9*Math.max(0,T_out-TsatV);
+    const dropF=entrainmentDroplet(M_vap,DS_out);
+    const HsensOut=M_syrup*cpO*T_out, HsensIn=M_in*cpAt(bx_in,T_in)*T_in;
+    const Hvap=M_vap*hvOut, Hentr=dropF.M*cpO*T_out;
+    const Qdemand=(HsensOut+Hvap+Hentr)-HsensIn;
+    if(steamKnown){
+      M_steam=S.M;
+      if(ts!=null){
+        const MstE=Qdemand/((1-loss)*dhSteam);
+        if(MstE>0&&Math.abs(M_steam-MstE)/Math.max(M_steam,1e-9)>0.05){
+          warnings.push(`Known steam flow ${M_steam.toFixed(1)} kg/h differs from the Total-Solids energy demand ${MstE.toFixed(1)} kg/h by >5%; Total Solids governs.`);
+        }
+      }
+    }else{
+      if(!(Qdemand>0))return {ok:false,message:'Energy balance demands no positive steam flow.'};
+      M_steam=Qdemand/((1-loss)*dhSteam);
+    }
+    // Excess steam → two-phase condensate fraction.
+    if(steamKnown&&(ts!=null||boilPinned)){
+      const Qav=(1-loss)*S.M*dhSteam;
+      const satP=if97SaturationAtPressure(S.pKPa);
+      const lam=(satP&&!satP.unsupported)?satP.hfg_kJkg:2200;
+      condVapFrac=Math.min(1,Math.max(0,(Qav-Qdemand)/Math.max(1e-9,S.M*lam)));
+      if(condVapFrac>1e-6)warnings.push(`Steam in excess: condensate leaves two-phase (vapor fraction ${condVapFrac.toFixed(3)}).`);
+    }
+    if(T_in>T_out+1e-9)warnings.push('Juice-in is hotter than juice-out: the inlet flashes (informational).');
+
+    // Entrainment ledger (§7.5): droplets carry syrup fractions; sucrose loss
+    // anchors the droplet mass. Feed volatiles flash into the vapor.
+    // Post-evaporation syrup water is M_syrup minus all non-water masses that
+    // stay behind (NOT feed water minus evaporation — same number, stated so
+    // the ledger is auditable): waterSyr = M_syrup − D_in − crystals − insolubles.
+    const cm=F.cm||{};
+    const crysM=p2num(cm.crystals);
+    const insolM=p2num(cm.caco3)+p2num(cm.cao)+p2num(cm.fiber);
+    const waterSyr=Math.max(0,M_syrup-D_in-crysM-insolM);
+    const sucTot=p2num(cm.sucrose)+crysM;
+    const Mcond=M_vap; // evaporated water is the condensable mass
+    let sucLoss=P.entrPPM>0?p2num(P.entrPPM)/1e6*Mcond:0;
+    sucLoss=Math.min(sucLoss,sucTot);
+    const dsFrac=DS_out/100, purFrac=pur_in/100;
+    let dropM=0;
+    if(sucLoss>0&&dsFrac>0&&purFrac>0)dropM=sucLoss/(dsFrac*purFrac);
+    // droplet composition follows the SYRUP liquid (post-evaporation,
+    // crystal-free) fractions, so removing it preserves syrup DS exactly
+    // for crystal-free juice (within insolubles' share otherwise).
+    const syrLiq={water:waterSyr,sucrose:p2num(cm.sucrose),invert:p2num(cm.invert),
+      ash:p2num(cm.ash),ns1:p2num(cm.ns1),ns2:p2num(cm.ns2)};
+    const liqTot=Object.values(syrLiq).reduce((s,v)=>s+v,0);
+    const drop={M:dropM};
+    ['water','sucrose','invert','ash','ns1','ns2'].forEach(k=>{drop[k]=liqTot>1e-9?dropM*Math.max(0,syrLiq[k])/liqTot:0;});
+    const syrupMasses={
+      water:Math.max(0,waterSyr-(drop.water||0)),
+      sucrose:Math.max(0,p2num(cm.sucrose)-(drop.sucrose||0)),
+      crystals:p2num(cm.crystals),
+      invert:Math.max(0,p2num(cm.invert)-(drop.invert||0)),
+      ash:Math.max(0,p2num(cm.ash)-(drop.ash||0)),
+      ns1:Math.max(0,p2num(cm.ns1)-(drop.ns1||0)),
+      ns2:Math.max(0,p2num(cm.ns2)-(drop.ns2||0)),
+      caco3:p2num(cm.caco3),cao:p2num(cm.cao),fiber:p2num(cm.fiber),
+      steamVapour:0
+    };
+    const vaporMasses={
+      water:M_vap+(drop.water||0),
+      sucrose:(drop.sucrose||0),
+      invert:(drop.invert||0),ash:(drop.ash||0),ns1:(drop.ns1||0),ns2:(drop.ns2||0),
+      crystals:0,caco3:0,cao:0,fiber:0,steamVapour:0,
+      ethanolL:p2num(cm.ethanolL),ethanolG:p2num(cm.ethanolG),co2:p2num(cm.co2),ammonia:p2num(cm.ammonia)
+    };
+    const M_vap_out=M_vap+dropM;
+
+    // Mother liquor + supersaturation (§7.6): crystals pass through, no growth.
+    // Mother liquor is the syrup liquid phase (dissolved + syrup water).
+    const dissD=p2num(cm.sucrose)+p2num(cm.invert)+p2num(cm.ash)+p2num(cm.ns1)+p2num(cm.ns2)
+      -((drop.sucrose||0)+(drop.invert||0)+(drop.ash||0)+(drop.ns1||0)+(drop.ns2||0));
+    const watMl=Math.max(0,waterSyr-(drop.water||0));
+    const DSml=(dissD+watMl)>0?100*dissD/(dissD+watMl):0;
+    const sucMl=Math.max(0,p2num(cm.sucrose)-(drop.sucrose||0));
+    const PUml=dissD>0?sucMl/dissD:0;
+    let SSml=null;
+    const ssR=supersaturationFromBpeSaskaASI2002Eq16(BPE,T_out,PUml*100);
+    if(ssR&&ssR.ok)SSml=ssR.supersaturation;
+
+    // Color (§7.7).
+    const Cin=parseFloat(F.color);
+    let colorOut='';
+    if(Number.isFinite(Cin)){
+      const r=parseFloat(P.colorRise&&P.colorRise.value);
+      const rr=Number.isFinite(r)?r:0;
+      colorOut=String(((P.colorRise&&P.colorRise.unit)==='CU')?Cin+rr:Cin*(1+rr/100));
+    }
+
+    // Heat ledger (kJ/h, 0 °C datum via cp*T convention matching Q_process).
+    const H_juice_in=HsensIn;
+    const H_gross=M_steam*dhSteam;
+    const H_loss=loss*H_gross;
+    const H_net=H_gross-H_loss;
+    const Q_W=H_net*1000/3600;
+    const DT_K=TsatIn-T_out;
+    const U_calc=(P.A>0&&DT_K>1e-9)?Q_W/(P.A*DT_K):null;
+
+    return {ok:true,warnings,M_vap,M_vap_out,M_syrup,M_steam,T_out,Tsat_vap:TsatV,pVap:V.pVap,
+      BPE,DS_out,HTCiters,H:{in_juice:H_juice_in,gross:H_gross,loss:H_loss,net:H_net,out_juice:HsensOut,vap:Hvap,entr:Hentr},
+      DT_K,U_calc,entr:{sucLoss:sucLoss,dropM:dropM},syrupMasses,vaporMasses,
+      ml:{DSml,PUml,SSml},colorOut,condVapFrac,steamStarved,flashed,boilPinned,
+      tCond:tCond,hCond:hC0,pSteam:S.pKPa,dhSteam};
+  }
+  // Spec params snapshot (SI inside), shared by the wrapper and the TS loop.
+  function evaporatorSpecParams(n){
+    const p=n.params;
+    return {
+      mode:String(p.mode||'PRESSURE').toUpperCase(),
+      U:Number.isFinite(parseFloat(p.htc_W_m2K))?parseFloat(p.htc_W_m2K):null,
+      A:Number.isFinite(parseFloat(p.heatingSurface_m2))?parseFloat(p.heatingSurface_m2):null,
+      loss:(()=>{const v=parseFloat(p.heatLossPct);return (Number.isFinite(v)&&v>=0&&v<100)?v/100:0;})(),
+      subK:Math.max(0,p2num(p.condensateDropK)),
+      ts:(()=>{const v=parseFloat(p.totalSolidsPct);return (Number.isFinite(v)&&v>0)?v:null;})(),
+      flowT:Number.isFinite(parseFloat(p.flowOutTemp_C))?parseFloat(p.flowOutTemp_C):null,
+      entrPPM:Math.max(0,p2num(p.entrainment_mgPerKg)),
+      colorRise:(p.colorRise&&typeof p.colorRise==='object')?p.colorRise:{value:p.colorRise,unit:'%'}
+    };
+  }
+
+  function writeEvaporatorOutputs(n,S5,B,opts){
+    const {feed,steam,outSyrup,outVap,outCond}=S5;
+    if(opts.solveSteam){
+      steam.props=steam.props||{};
+      steam.props.flow=B.M_steam.toFixed(6);
+      steam.quantityMode='REQUIRED';
+      steam.solveStatus='REQUIRED_SOLVED';
+      steam.solverMessage='Motive steam required by Evaporator effect energy balance.';
+      calculateUniversalStream(steam);
+      syncStreamToBoundaryNode(steam);
+    }
+    // Written syrup flow excludes entrained mist (ledger-consistent: removing a
+    // representative droplet preserves syrup DS exactly). Process rate stays M_syrup.
+    const syrupFlowWritten=Math.max(0,B.M_syrup-B.entr.dropM);
     outSyrup.streamClass='material';
     outSyrup.mediumType='Syrup';
     outSyrup.props=outSyrup.props||{};
-    outSyrup.props.flow=M_syrup.toFixed(6);
-    outSyrup.props.temperature=tBoil.toFixed(4);
-    outSyrup.props.pressureAbs=pVap.toFixed(4);
-    outSyrup.props.brix=targetBx.toFixed(4);
-    outSyrup.props.purity=pur_in.toFixed(4);
-    assignStreamComponentsFromMasses(outSyrup,M_syrup,syrupMasses);
+    outSyrup.props.flow=syrupFlowWritten.toFixed(6);
+    outSyrup.props.temperature=B.T_out.toFixed(4);
+    outSyrup.props.pressureAbs=B.pVap.toFixed(4);
+    outSyrup.props.brix=B.DS_out.toFixed(4);
+    outSyrup.props.purity=opts.pur.toFixed(4);
+    if(B.colorOut!=='')outSyrup.props.colour=B.colorOut;
+    assignStreamComponentsFromMasses(outSyrup,syrupFlowWritten,B.syrupMasses);
     reconcileDetailedFractions(outSyrup);
     calculateUniversalStream(outSyrup);
     outSyrup.solveStatus='CALCULATED';
     outSyrup.solverMessage='Calculated by Evaporator mass/solids/energy balance.';
-
-    // Evaporated Vapour
-    outVap.streamClass='thermal';
-    outVap.mediumType='Evaporator Vapour';
-    outVap.props=outVap.props||{};
-    outVap.props.flow=M_vap.toFixed(6);
-    outVap.props.temperature=tSat.toFixed(4);
-    outVap.props.pressureAbs=pVap.toFixed(4);
-    outVap.props.drynessFraction='1.0';
-    outVap.components=defaultComponents('thermal',null);
-    calculateUniversalStream(outVap);
-    outVap.solveStatus='CALCULATED';
-    outVap.solverMessage='Calculated by Evaporator evaporation balance.';
-
-    // Condensate
+    if(B.entr.dropM>0){
+      outVap.streamClass='thermal';
+      outVap.mediumType='Evaporator Vapour';
+      outVap.props=outVap.props||{};
+      outVap.props.flow=B.M_vap_out.toFixed(6);
+      outVap.props.temperature=B.Tsat_vap.toFixed(4);
+      outVap.props.pressureAbs=B.pVap.toFixed(4);
+      assignStreamComponentsFromMasses(outVap,B.M_vap_out,B.vaporMasses);
+      reconcileDetailedFractions(outVap);
+      calculateUniversalStream(outVap);
+      outVap.solveStatus='CALCULATED';
+      outVap.solverMessage='Calculated by Evaporator evaporation balance (includes entrained mist).';
+    }else{
+      outVap.streamClass='thermal';
+      outVap.mediumType='Evaporator Vapour';
+      outVap.props=outVap.props||{};
+      outVap.props.flow=B.M_vap.toFixed(6);
+      outVap.props.temperature=B.Tsat_vap.toFixed(4);
+      outVap.props.pressureAbs=B.pVap.toFixed(4);
+      outVap.props.drynessFraction='1.0';
+      outVap.components=defaultComponents('thermal',null);
+      calculateUniversalStream(outVap);
+      outVap.solveStatus='CALCULATED';
+      outVap.solverMessage='Calculated by Evaporator evaporation balance.';
+    }
     outCond.streamClass='condensate';
     outCond.mediumType='Condensate';
     outCond.props=outCond.props||{};
-    outCond.props.flow=M_steam.toFixed(6);
-    outCond.props.temperature=tCond.toFixed(4);
-    outCond.props.pressureAbs=pSteam.toFixed(4);
+    outCond.props.flow=B.M_steam.toFixed(6);
+    outCond.props.temperature=B.tCond.toFixed(4);
+    outCond.props.pressureAbs=B.pSteam.toFixed(4);
     outCond.props.brix='0';
     outCond.props.purity='0';
     outCond.components=defaultComponents('condensate',null);
     calculateUniversalStream(outCond);
     outCond.solveStatus='CALCULATED';
     outCond.solverMessage='Calculated motive steam condensate.';
+  }
 
+  function buildEvaporatorResult(n,result,S5,B,ctx){
+    const {M_in,bx_in,pur_in,T_in,mode,loss}=ctx;
     result.ok=true;
     result.status='SOLVED';
-    result.evaporationKgH=M_vap;
-    result.steamConsumptionKgH=M_steam;
-    result.steamEconomy=M_vap>0?M_vap/M_steam:0;
-    result.bpeC=bpe;
-    result.boilingTempC=tBoil;
-    result.heatDutyKJ_h=Q_process;
+    result.evaporationKgH=B.M_vap;
+    result.steamConsumptionKgH=B.M_steam;
+    result.steamEconomy=B.M_vap>0?B.M_vap/B.M_steam:0;
+    result.bpeC=B.BPE;
+    result.boilingTempC=B.T_out;
+    result.heatDutyKJ_h=B.H.net;
+    result.syrupFlowKgH=B.M_syrup;
+    result.evaporation_kgph=B.M_vap;
+    result.steamIn_kgph=B.M_steam;
+    result.H_in=B.H.gross;
+    result.H_out=B.M_steam*B.hCond;
+    result.H_loss=B.H.loss;
+    result.Q_transferred_kJph=B.H.net;
+    result.DT_K=B.DT_K;
+    result.U_calc=B.U_calc;
+    result.vaporT_C=B.Tsat_vap;
+    result.vaporP_kPa=B.pVap;
+    result.BPE_K=B.BPE;
+    result.juiceOutT_C=B.T_out;
+    result.dsOutPct=B.DS_out;
+    result.purityOut=pur_in;
+    result.crystalsPct=B.M_syrup>0?100*(B.syrupMasses.crystals||0)/B.M_syrup:0;
+    result.supersat=B.ml.SSml;
+    result.colorOut=B.colorOut;
+    result.entrainedSucrose_kgph=B.entr.sucLoss;
+    result.condensateT_C=B.tCond;
+    result.condensateVaporFrac=B.condVapFrac;
+    result.microH=B.H.net;
+    result.microDT=B.DT_K;
+    result.steamStarved=!!B.steamStarved;
+    result.feedFlashed=!!B.flashed;
+    result.boilPinned=!!B.boilPinned;
+    result.HTCiters=B.HTCiters||0;
     result.inputs=[
-      {id:feed.id,name:feed.name,role:'Juice In',flow:M_in,brix:bx_in,temp:T_in},
-      {id:steam.id,name:steam.name,role:'Steam In',flow:M_steam,press:pSteam}
+      {id:S5.feed.id,name:S5.feed.name,role:'Juice In',flow:M_in,brix:bx_in,temp:T_in},
+      {id:S5.steam.id,name:S5.steam.name,role:'Steam In',flow:B.M_steam,press:B.pSteam}
     ];
     result.outputs=[
-      {id:outSyrup.id,name:outSyrup.name,role:'Syrup Out',flow:M_syrup,brix:targetBx,temp:tBoil},
-      {id:outVap.id,name:outVap.name,role:'Vapour Out',flow:M_vap,temp:tSat,press:pVap},
-      {id:outCond.id,name:outCond.name,role:'Condensate Out',flow:M_steam,temp:tCond}
+      {id:S5.outSyrup.id,name:S5.outSyrup.name,role:'Syrup Out',flow:B.M_syrup-B.entr.dropM,brix:B.DS_out,temp:B.T_out},
+      {id:S5.outVap.id,name:S5.outVap.name,role:'Vapour Out',flow:B.M_vap_out,temp:B.Tsat_vap,press:B.pVap},
+      {id:S5.outCond.id,name:S5.outCond.name,role:'Condensate Out',flow:B.M_steam,temp:B.tCond}
     ];
+    const denom=Math.max(M_in+B.M_steam,1e-9);
+    // Ledger-consistent closure: syrup ledger excludes droplet mass while the
+    // vapor ledger includes it, so the residual below guards the bookkeeping.
+    // (Feed volatiles routed to vapor are included on both sides.)
+    const sumLedger=o=>Object.values(o||{}).reduce((s,v)=>s+p2num(v),0);
     result.residuals={
-      wetMass:(M_in+M_steam)-(M_syrup+M_vap+M_steam),
-      solids:D_in-(M_syrup*targetBx/100),
-      energy:Q_gross-(M_steam*dhSteam)
+      wetMass:(M_in+B.M_steam)-(sumLedger(B.syrupMasses)+sumLedger(B.vaporMasses)+B.M_steam),
+      solids:(M_in*bx_in/100)-(B.M_syrup*B.DS_out/100),
+      energy:B.H.net-(1-loss)*B.M_steam*B.dhSteam
     };
+    result.balanceClosure=Math.abs(result.residuals.wetMass)/denom*100;
+    result.closure=result.balanceClosure;
+    (B.warnings||[]).forEach(w=>result.messages.push('Note: '+w));
+    result.warnings=(B.warnings||[]).slice();
+    result.auditNotes=[`Evaporator ${mode} balance: evaporation ${B.M_vap.toFixed(1)} kg/h at ${B.DS_out.toFixed(2)}% DS, steam ${B.M_steam.toFixed(1)} kg/h (economy ${(B.M_vap>0?(B.M_vap/B.M_steam):0).toFixed(3)}).`];
+    return result;
+  }
+
+  // Total-Solids outer loop (§7.4): secant over Effect-1 steam so the
+  // TS-carrier effect hits target. Members solve in effect order per
+  // evaluation; the final evaluation leaves solved stream values behind.
+  // Pure-data threading is impossible for drawn cascade streams, so each
+  // evaluation writes member outputs (overwritten every pass, final pass wins).
+  function evaporatorTotalSolidsLoop(n,runM,tsCarrier){
+    const byId={};state.nodes.forEach(x=>{byId[x.id]=x;});
+    const members=runM.members.map(id=>byId[id]).filter(m=>m&&m.type==='evaporator');
+    const target=parseFloat(tsCarrier.params.totalSolidsPct);
+    const legs=[];
+    for(const m of members){
+      const L={
+        m,
+        feed:state.streams.find(s=>s.toNodeId===m.id&&s.toPortId==='in0'),
+        steam:state.streams.find(s=>s.toNodeId===m.id&&s.toPortId==='in1'),
+        outSyrup:state.streams.find(s=>s.fromNodeId===m.id&&s.fromPortId==='out0'),
+        outVap:state.streams.find(s=>s.fromNodeId===m.id&&s.fromPortId==='out1'),
+        outCond:state.streams.find(s=>s.fromNodeId===m.id&&s.fromPortId==='out2')
+      };
+      if(!L.feed||!L.steam||!L.outSyrup||!L.outVap||!L.outCond)
+        return {ok:false,message:`Total-Solids loop: ${m.label||m.id} is missing a required connection.`};
+      legs.push(L);
+    }
+    const readFeed=L=>{
+      ensureStreamModel(L.feed);
+      const c=calculateUniversalStream(L.feed);
+      if(c.status==='FAIL'||!(c.massKgH>0))return null;
+      if(!Number.isFinite(p2num(L.feed.props?.temperature)))return null;
+      return {M:c.massKgH,
+        bx:p2num(L.feed.props?.brix??c.liquidBrixPct??0),
+        pur:p2num(L.feed.props?.purity??c.truePurityPct??85),
+        T:p2num(L.feed.props?.temperature),
+        cm:c.componentMassFlows||{},color:L.feed.props?.colour};
+    };
+    const readSteam=(L,Moverride)=>{
+      ensureStreamModel(L.steam);
+      const pS=p2num(L.steam.props?.pressureAbs)||150;
+      const ss=if97SaturationAtPressure(pS);
+      if(!ss||ss.unsupported)return null;
+      const st=waterSteamStateFromStream(L.steam);
+      const h=st?.ok?st.h_kJkg:ss.hg_kJkg;
+      const known=L.steam.quantityMode!=='REQUIRED'&&p2num(L.steam.props?.flow)>0;
+      return {M:(Moverride!=null)?Moverride:(known?p2num(L.steam.props.flow):null),pKPa:pS,hIn:h,TsatIn:ss.tC,known};
+    };
+    const preV=legs.map(L=>{
+      const m=L.m,mode=String(m.params.mode||'PRESSURE').toUpperCase();
+      return {L,mode,V:evaporatorVaporTsat(m,L.outVap,mode),P:evaporatorSpecParams(m)};
+    });
+    for(const e of preV){
+      if(!['HTC','PRESSURE','FEEDBACK','FLOW_TEMP'].includes(e.mode))
+        return {ok:false,message:`Total-Solids loop on ${(e.L.m.label||e.L.m.id)}: unknown mode.`};
+      if(!e.V.ok)return {ok:false,message:`Total-Solids loop on ${(e.L.m.label||e.L.m.id)}: ${e.V.message}`};
+    }
+    let lastErr='Total-Solids loop did not converge.';
+    const balsById={};
+    // Mode B (HB): the carrier TS is a COMPUTED residual, not imposed — each
+    // trial runs the Mode A sequence (ts:=null on the carrier) and reads the
+    // resulting DS. DS_out rises monotonically with effect-1 steam, so the
+    // secant is well-posed (a flat imposed target would make it degenerate).
+    const carrierSpecIdx=preV.findIndex(e=>e.L.m.id===tsCarrier.id);
+    const f=x=>{
+      if(!(x>0))return NaN;
+      for(let ei=0;ei<preV.length;ei++){
+        const e=preV[ei];
+        const Fk=readFeed(e.L);
+        if(!Fk){lastErr=`Total-Solids loop: feed state for ${(e.L.m.label||e.L.m.id)} is not ready.`;return NaN;}
+        const Sk=readSteam(e.L,e.L.m===n?x:null);
+        if(!Sk){lastErr=`Total-Solids loop: steam state for ${(e.L.m.label||e.L.m.id)} is not ready.`;return NaN;}
+        // Note: Sk.M null (to-solve steam) is passed through — bodyBalance
+        // solves it when Total Solids fixes evaporation, else fails cleanly.
+        const Pe=(ei===carrierSpecIdx)?{...e.P,ts:null}:e.P;
+        const Bk=evaporatorBodyBalance(Fk,Sk,e.V,Pe);
+        if(!Bk.ok){lastErr=`Total-Solids loop on ${(e.L.m.label||e.L.m.id)}: ${Bk.message}`;return NaN;}
+        writeEvaporatorOutputs(e.L.m,{feed:e.L.feed,steam:e.L.steam,outSyrup:e.L.outSyrup,outVap:e.L.outVap,outCond:e.L.outCond},Bk,{solveSteam:e.L.m===n,pur:Fk.pur});
+        balsById[e.L.m.id]=Bk;
+      }
+      const cb=balsById[tsCarrier.id];
+      if(!cb)return NaN;
+      return cb.DS_out-target;
+    };
+    const s1=legs[0].steam;
+    const x0=p2num(s1.props?.flow)>0?p2num(s1.props.flow):null;
+    const F0=readFeed(legs[0]);
+    if(!F0)return {ok:false,message:'Total-Solids loop: feed state for the 1st effect is not ready.'};
+    // TS_TARGET_BELOW_FEED: the target must exceed the incoming Total Solids.
+    if(!(target>F0.bx))return {ok:false,message:`Total Solids target (${target}%) must exceed incoming Total Solids (${F0.bx.toFixed(2)}%). Revise Total Solids.`};
+    // Bracketed outer solve (HB §3: "a bracketed method is safe"). The feasible
+    // set in effect-1 steam can be a narrow band — cascade starvation or the
+    // DS>=95 guard make the residual NaN outside it — which an unbracketed
+    // secant can step out of and die on. So: geometric grid scan (ratio 1.15,
+    // NaN samples skipped with a consecutive-miss cap) for the first adjacent
+    // finite sign change, then close with Illinois (which never leaves the
+    // bracket). Every failure names the body via lastErr.
+    const tol=Math.max(1e-9,target*1e-4);
+    const Eneed=Math.max(1,F0.M*(1-F0.bx/target));
+    const xStart=(x0!=null)?x0:Math.max(10,Eneed/Math.max(1,members.length));
+    const v10=(detail)=>'Total Solids target cannot be met with the upstream vapor available (V-10). Revise Total Solids. ('+detail+' Last evaluated: '+lastErr+')';
+    const evalF=(x)=>{if(!(x>0))return NaN;return f(x);};
+    const ups=[],dns=[];
+    { let x=xStart,miss=0;
+      for(let i=0;i<48&&miss<8;i++){const fx=evalF(x);if(Number.isFinite(fx)){ups.push({x,fx});miss=0;}else miss++;x*=1.15;} }
+    { let x=xStart,miss=0;
+      for(let i=0;i<48&&miss<8;i++){x/=1.15;if(!(x>1e-6))break;const fx=evalF(x);if(Number.isFinite(fx)){dns.unshift({x,fx});miss=0;}else miss++;} }
+    const ordered=dns.concat(ups);
+    // A converged sample's balances must be current: re-evaluate at its x
+    // (scan evals after it overwrote the written streams).
+    for(const s of ordered){
+      if(Math.abs(s.fx)<=tol){
+        const chk=f(s.x);
+        if(!Number.isFinite(chk))continue;
+        return {ok:true,bal:balsById[n.id],iterations:0};
+      }
+    }
+    let lo=null,hi=null;
+    for(let i=0;i+1<ordered.length;i++){
+      if((ordered[i].fx<0)!==(ordered[i+1].fx<0)){lo=ordered[i];hi=ordered[i+1];break;}
+    }
+    if(!lo)return {ok:false,message:v10(ordered.length?'target not straddled in the feasible range':'no feasible effect-1 steam flow')};
+    const r=evapIllinoisRoot(f,lo.x,hi.x,tol,80);
+    if(!r.ok)return {ok:false,message:v10(r.message)};
+    return {ok:true,bal:balsById[n.id],iterations:r.iterations};
+  }
+
+  // Live micro-solve for Dialog B (spec §6.5): single-body balance on FROZEN
+  // inlet states, read-only (never writes streams, modes or params). Inlets come
+  // from the last global balance when resolved, else external definitions.
+  // Total Solids is never enforced here (steam stays frozen).
+  const evapMicroCache=new Map();
+  function evaporatorMicroSolve(n){
+    ensureEvaporatorDefaults(n);
+    const p=n.params;
+    const mode=String(p.mode||'PRESSURE').toUpperCase();
+    const in0=state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='in0');
+    const in1=state.streams.find(s=>s.toNodeId===n.id&&s.toPortId==='in1');
+    const outVap=state.streams.find(s=>s.fromNodeId===n.id&&s.fromPortId==='out1');
+    if(!in0||!in1)return {status:'NO_INLET_STATE',message:'Connect juice and steam inlets for the micro-solve.'};
+    const frozen=s=>{
+      if(inputStateResolved(s)){
+        const fz=clone(s);ensureStreamModel(fz);
+        const c=calculateUniversalStream(fz);
+        if(c.status!=='FAIL')return {calc:c,stream:s};
+      }
+      if(streamBoundaryType(s)==='EXTERNAL_IN'){
+        const fz=clone(s);ensureStreamModel(fz);
+        const c=calculateUniversalStream(fz);
+        if(c.status==='FAIL'||!(c.massKgH>0))return null;
+        if(!Number.isFinite(p2num(fz.props?.temperature)))return null;
+        return {calc:c,stream:s};
+      }
+      return null;
+    };
+    const F0=frozen(in0),S0=frozen(in1);
+    if(!F0)return {status:'NO_INLET_STATE',message:'Juice inlet state is unavailable (solve the flowsheet or define the external flow). Competitors’ inlets are never auto-run.'};
+    if(!S0)return {status:'NO_INLET_STATE',message:'Steam inlet state is unavailable (solve the flowsheet or define the external flow).'};
+    const F={M:F0.calc.massKgH,
+      bx:p2num(in0.props?.brix??F0.calc.liquidBrixPct??0),
+      pur:p2num(in0.props?.purity??F0.calc.truePurityPct??85),
+      T:p2num(in0.props?.temperature),
+      cm:F0.calc.componentMassFlows||{},color:in0.props?.colour};
+    if(!(F.M>0)||!Number.isFinite(F.T))return {status:'NO_INLET_STATE',message:'Juice inlet flow and temperature are required.'};
+    const pS=p2num(in1.props?.pressureAbs)||150;
+    const ss=if97SaturationAtPressure(pS);
+    if(!ss||ss.unsupported)return {status:'NO_INLET_STATE',message:'Steam pressure is outside the saturation range.'};
+    const sst=waterSteamStateFromStream(S0.stream);
+    const hIn=sst?.ok?sst.h_kJkg:ss.hg_kJkg;
+    const S={M:p2num(in1.props?.flow)>0?p2num(in1.props.flow):null,pKPa:pS,hIn,TsatIn:ss.tC};
+    if(!(S.M>0))return {status:'NO_INLET_STATE',message:'Steam inlet flow is unavailable (solve the flowsheet or define the external flow).'};
+    const P=evaporatorSpecParams(n);
+    P.mode=mode;P.ts=null; // never enforced here; steam stays frozen
+    const V=evaporatorVaporTsat(n,outVap,mode);
+    if(!V.ok)return {status:'NO_INLET_STATE',message:V.message};
+    if(mode==='HTC'&&!(P.U>0&&P.A>0)){
+      const prev=n.stationResult;
+      if(prev&&Number.isFinite(prev.microH)&&Number.isFinite(prev.microDT)){
+        return {status:'OK',cached:true,Hin:NaN,Hout:NaN,Hloss:NaN,H:prev.microH,
+          tSatIn:NaN,tJuiceOut:NaN,DT:prev.microDT,
+          note:'Showing cached H and DT from the last global balance.'};
+      }
+      return {status:'NO_INLET_STATE',message:'HTC micro-solve needs U and A, or a previous global balance for cached H/DT.'};
+    }
+    const key=n.id;
+    let hash=null;
+    try{
+      hash=JSON.stringify({F:{M:F.M,bx:F.bx,pur:F.pur,T:F.T},S:{M:S.M,pKPa:S.pKPa},
+        V:{Tsat:V.Tsat,pVap:V.pVap},P,cmKeys:Object.keys(F.cm||{}).sort()});
+    }catch(e){hash=null;}
+    if(hash){
+      const hit=evapMicroCache.get(key);
+      if(hit&&hit.hash===hash)return hit.result;
+    }
+    const B=evaporatorBodyBalance(F,S,V,P);
+    let result;
+    if(!B.ok)result={status:'NOT_CONVERGED',message:B.message};
+    else result={status:B.steamStarved?'STEAM_STARVED':'OK',
+      Hin:B.M_steam*(S.hIn-B.hCond),Hout:B.M_steam*B.hCond,Hloss:B.H.loss,H:B.H.net,
+      tSatIn:S.TsatIn,tJuiceOut:B.T_out,DT:B.DT_K,
+      note:(B.warnings||[]).join(' ')||null};
+    if(B.ok&&B.H.net!=null&&B.DT_K!=null&&hash){
+      if(evapMicroCache.size>200)evapMicroCache.clear();
+      evapMicroCache.set(key,{hash,result});
+    }
+    return result;
+  }
+
+  function solveEvaporatorStation(n){
+    ensureEvaporatorDefaults(n);
+    const result={ok:false,status:'FAILED',type:'EVAPORATOR',messages:[],warnings:[],residuals:{}};
+    n.stationResult=result;
+    const feed=state.streams.find(s=>s.toNodeId===n.id && s.toPortId==='in0');
+    const steam=state.streams.find(s=>s.toNodeId===n.id && s.toPortId==='in1');
+    const outSyrup=state.streams.find(s=>s.fromNodeId===n.id && s.fromPortId==='out0');
+    const outVap=state.streams.find(s=>s.fromNodeId===n.id && s.fromPortId==='out1');
+    const outCond=state.streams.find(s=>s.fromNodeId===n.id && s.fromPortId==='out2');
+
+    if(!feed||!steam||!outSyrup||!outVap||!outCond){
+      result.messages.push('Evaporator requires Juice In, Motive Steam In, and all 3 outputs (Syrup, Vapour, Condensate) connected.');
+      return result;
+    }
+    if(outVap.quantityMode==='REQUIRED'||outCond.quantityMode==='REQUIRED'){
+      result.messages.push('Evaporator vapor and condensate outputs must never be flagged Required (V-09 over-specification).');
+      return result;
+    }
+    if(!inputStateResolved(feed)){
+      result.messages.push('Evaporator is waiting for resolved Juice In feed stream.');
+      return result;
+    }
+    const p=n.params;
+    const mode=String(p.mode||'PRESSURE').toUpperCase();
+    if(!['HTC','PRESSURE','FEEDBACK','FLOW_TEMP'].includes(mode)){
+      result.messages.push('Evaporator performance mode must be HTC, PRESSURE, FEEDBACK or FLOW_TEMP (V-02).');
+      return result;
+    }
+
+    ensureStreamModel(feed);
+    const fc=calculateUniversalStream(feed);
+    if(fc.status==='FAIL'){result.messages.push('Feed property state is invalid: '+(fc.messages||[]).join(' '));return result;}
+    const M_in=fc.massKgH;
+    if(!(M_in>0)){result.messages.push('Evaporator incoming juice flow must be positive.');return result;}
+    const bx_in=p2num(feed.props?.brix??fc.liquidBrixPct??0);
+    const pur_in=p2num(feed.props?.purity??fc.truePurityPct??85);
+    const T_in=p2num(feed.props?.temperature);
+    if(!Number.isFinite(T_in)){result.messages.push('Incoming juice temperature is required.');return result;}
+    const cm=fc.componentMassFlows||{};
+    const F={M:M_in,bx:bx_in,pur:pur_in,T:T_in,cm,color:feed.props?.colour};
+
+    ensureStreamModel(steam);
+    const pSteam=p2num(steam.props?.pressureAbs)||150;
+    const satSt0=if97SaturationAtPressure(pSteam);
+    if(!satSt0||satSt0.unsupported){result.messages.push('Unable to evaluate motive steam IF97 properties at '+pSteam+' kPa.');return result;}
+    const steamState=waterSteamStateFromStream(steam);
+    const hIn=steamState?.ok?steamState.h_kJkg:satSt0.hg_kJkg;
+    const steamKnown=steam.quantityMode!=='REQUIRED'&&p2num(steam.props?.flow)>0;
+    const S={M:steamKnown?p2num(steam.props.flow):null,pKPa:pSteam,hIn,TsatIn:satSt0.tC};
+    const P=evaporatorSpecParams(n);
+    P.mode=mode;
+    const V=evaporatorVaporTsat(n,outVap,mode);
+    if(!V.ok){result.messages.push(V.message);return result;}
+    const streams={feed,steam,outSyrup,outVap,outCond};
+    const ctx={M_in,bx_in,pur_in,T_in,mode,loss:P.loss};
+
+    // Multiple / Total-Solids outer loop over Effect-1 steam (spec §7.4).
+    // Runs only when a DOWNSTREAM body carries Total Solids; a TS on this
+    // body itself is enforced by the single balance below.
+    const runM=evaporatorMultipleOf(n.id);
+    const myNo=parseInt(p.effectNo,10);
+    if(!runM||runM.broken){
+      result.messages.push('Effect numbers must run 1,2,3…n in station-number order with no repeats inside one multiple (V-03).');
+      return result;
+    }
+    const byId={};state.nodes.forEach(x=>{byId[x.id]=x;});
+    let tsCarrier=null;
+    for(const id of runM.members){
+      const m=byId[id],t=m?parseFloat(m.params?.totalSolidsPct):NaN;
+      if(Number.isFinite(t)&&t>0){tsCarrier=m;break;}
+    }
+    if(tsCarrier&&myNo===1&&tsCarrier.id!==n.id){
+      if(steamKnown){
+        result.messages.push('Total-Solids outer loop needs Effect-1 steam as a solved flow: clear the steam quantity or move Total Solids onto Effect 1.');
+        return result;
+      }
+      const loop=evaporatorTotalSolidsLoop(n,runM,tsCarrier);
+      if(!loop.ok){result.messages.push(loop.message);return result;}
+      writeEvaporatorOutputs(n,streams,loop.bal,{solveSteam:true,pur:pur_in});
+      buildEvaporatorResult(n,result,streams,loop.bal,ctx);
+      return result;
+    }
+    const B=evaporatorBodyBalance(F,S,V,P);
+    if(!B.ok){result.messages.push(B.message);return result;}
+    writeEvaporatorOutputs(n,streams,B,{solveSteam:!steamKnown,pur:pur_in});
+    buildEvaporatorResult(n,result,streams,B,ctx);
     return result;
   }
 
@@ -10368,6 +13498,11 @@ function solvePanStation(n){
         const no=state.streams.filter(s=>s.fromNodeId===n.id).length;
         return ni<1 || no!==1;
       }
+      if(n.type==='blender'){
+        const ni=state.streams.filter(s=>s.toNodeId===n.id && (s.toPortId==='primary'||s.toPortId==='blend')).length;
+        const no=state.streams.filter(s=>s.fromNodeId===n.id && s.fromPortId==='out').length;
+        return ni!==2 || no!==1 || !state.streams.some(s=>s.toNodeId===n.id && s.toPortId==='primary') || !state.streams.some(s=>s.toNodeId===n.id && s.toPortId==='blend');
+      }
       if(n.type==='splitter'){
         const ni=state.streams.filter(s=>s.toNodeId===n.id).length;
         const no=state.streams.filter(s=>s.fromNodeId===n.id).length;
@@ -10379,11 +13514,11 @@ function solvePanStation(n){
         return ni!==1 || no<1;
       }
       if(n.type==='evaporator'){
-        const hasSteam=state.streams.some(s=>s.toNodeId===n.id && s.toPortId==='steam');
-        const hasJuice=state.streams.some(s=>s.toNodeId===n.id && s.toPortId==='juice');
-        const hasVap=state.streams.some(s=>s.fromNodeId===n.id && s.fromPortId==='vapour');
-        const hasCond=state.streams.some(s=>s.fromNodeId===n.id && s.fromPortId==='condensate');
-        const hasSyrup=state.streams.some(s=>s.fromNodeId===n.id && s.fromPortId==='syrup');
+        const hasSteam=state.streams.some(s=>s.toNodeId===n.id && s.toPortId==='in1');
+        const hasJuice=state.streams.some(s=>s.toNodeId===n.id && s.toPortId==='in0');
+        const hasVap=state.streams.some(s=>s.fromNodeId===n.id && s.fromPortId==='out1');
+        const hasCond=state.streams.some(s=>s.fromNodeId===n.id && s.fromPortId==='out2');
+        const hasSyrup=state.streams.some(s=>s.fromNodeId===n.id && s.fromPortId==='out0');
         return !hasSteam || !hasJuice || !hasVap || !hasCond || !hasSyrup;
       }
       if(n.type==='heater'){
@@ -10731,7 +13866,7 @@ function solvePanStation(n){
       });
     });
 
-    const implemented=new Set(['pan','crystallizer','centrifugal2','centrifugal3','mixer','receiver','splitter','distributor','evaporator','heater','injectionHeater','flashTank','melter','magma']);
+    const implemented=new Set(['pan','crystallizer','centrifugal2','centrifugal3','mixer','blender','separator','receiver','splitter','distributor','evaporator','heater','injectionHeater','flashTank','melter','magma']);
     const maxPass=Math.max(4,state.nodes.length+2);
     let solvedThisRun=0,passes=0;
 
@@ -10759,15 +13894,16 @@ function solvePanStation(n){
           if(topologyReady && centrifugalRequiredOutputCount(n)>1){n.solveStatus='FAIL';n.solverMessage='Only one centrifugal output may be a Required Flow [R].';continue;}
         }else if(n.type==='mixer'){
           topologyReady=ins.length>=2 && outs.length===1;
-        }else if(n.type==='receiver'){
+}else if(n.type==='receiver'){
           topologyReady=ins.length>=1 && outs.length===1;
-}else if(n.type==='splitter'){
+        }else if(n.type==='blender'){
+          topologyReady=ins.length===2 && ins.some(s=>s.toPortId==='primary') && ins.some(s=>s.toPortId==='blend') && outs.length===1 && outs.some(s=>s.fromPortId==='out');
+        }else if(n.type==='splitter'){
         topologyReady=ins.length===1 && outs.length>=1;
       }else if(n.type==='distributor'){
         topologyReady=ins.length===1 && ins.some(s=>s.toPortId==='in') && outs.length>=1 && outs.every(s=>/^out\d$/.test(s.fromPortId));
-      }else if(n.type==='evaporator'){
-          topologyReady=['steam','juice'].every(pid=>ins.some(s=>s.toPortId===pid)) &&
-            ['vapour','condensate','syrup'].every(pid=>outs.some(s=>s.fromPortId===pid));
+        }else if(n.type==='evaporator'){
+          topologyReady=evaporatorTopologyReady(n,ins,outs);
         }else if(n.type==='heater'){
           topologyReady=['juice','steam'].every(pid=>ins.some(s=>s.toPortId===pid)) &&
             ['juiceOut','condensate'].every(pid=>outs.some(s=>s.fromPortId===pid));
@@ -10780,6 +13916,10 @@ function solvePanStation(n){
         }else if(n.type==='magma'){
           topologyReady=['sugar','diluent'].every(pid=>ins.some(s=>s.toPortId===pid)) &&
             outs.some(s=>s.fromPortId==='magma');
+        }else if(n.type==='separator'){
+          topologyReady=ins.some(s=>s.toPortId==='feedIn') &&
+            outs.some(s=>s.fromPortId==='filtrateOut') && outs.some(s=>s.fromPortId==='cakeOut');
+          if(topologyReady && separatorRequiredOutputCount(n)>1){n.solveStatus='FAIL';n.solverMessage='A separator cannot have both output flows Required — Sugars flags this as unsatisfiable.';continue;}
         }else{
           topologyReady=((nodeDefs[n.type]?.inputs||[]).length===0||ins.length>0) &&
             ((nodeDefs[n.type]?.outputs||[]).length===0||outs.length>0);
@@ -10932,6 +14072,24 @@ function solvePanStation(n){
       }
     });
 
+    // Evaporator stencil spec §5 (V-01…V-09, V-11…V-17; V-10 needs a balance → solver).
+    // INFO items (V-14 ownership note) are station-window context only and
+    // must never enter the blocking solve dialog.
+    const evapFieldKey={ 'V-01':'stationName','V-02':'mode','V-03':'effectNo','V-04':'htc_W_m2K','V-05':'vaporPressure','V-06':'flowOutTemp_C','V-07':'totalSolidsPct','V-08':'','V-09':'','V-11':'vaporPressure','V-12':'vaporPressure','V-13':'','V-14':'totalSolidsPct','V-15':'htc_W_m2K','V-16':'flowOutTemp_C','V-17':'' };
+    const evapSev={FATAL:'ERROR',WARN:'WARNING',INFO:'INFO'};
+    state.nodes.filter(n=>n.type==='evaporator').forEach(n=>{
+      evaporatorStationIssues(n).forEach(e=>{
+        if((e.sev||'FATAL')==='INFO')return;
+        add(solverIssue({
+        severity:evapSev[e.sev||'FATAL']||'ERROR',kind:'node',id:n.id,panel:'Evaporator Properties',
+        fieldKey:evapFieldKey[e.id]||'',fieldLabel:`Evaporator specification (${e.id})`,
+        currentValue:evapFieldKey[e.id]?String(n.params?.[evapFieldKey[e.id]]?.value??n.params?.[evapFieldKey[e.id]]??n?.[evapFieldKey[e.id]]??''):'',
+        expected:'A valid evaporator specification per the stencil rules.',
+        message:e.message,action:'Open the evaporator station and correct the highlighted specification.'
+        }));
+      });
+    });
+
     // Broken/incompatible connections.
     state.streams.forEach(s=>{
       if(s.solveStatus!=='INVALID')return;
@@ -10947,7 +14105,8 @@ function solvePanStation(n){
     });
 
     // Floating connectors are warnings, never solver errors by themselves.
-    state.connectors.filter(c=>!connectorSolverActive(c)).forEach(c=>{
+    // Link halves are diagnosed by the link section below, not here.
+    state.connectors.filter(c=>!connectorSolverActive(c)&&!c.linkHalf).forEach(c=>{
       add(solverIssue({
         severity:'WARNING',kind:'stream',id:c.id,panel:'Connector endpoints',
         fieldLabel:c.name||'Connector',
@@ -10957,6 +14116,115 @@ function solvePanStation(n){
         action:'Leave it floating for drawing/documentation, or drag its endpoint onto a compatible station port.'
       }));
     });
+
+    // Link catalogue L001/L002/L004/L005 + kind-scope misuse (Helpbook mated
+    // pairs). Scanned project-wide so Solve Issues sees every page, whether
+    // the run is scoped (solver) or the dialog is opened from one page.
+    const linkHalvesAll=[];
+    for(const p of (state.pages||[]))for(const c of (p.connectors||[])){
+      if(c.linkHalf===true)linkHalvesAll.push({half:c,page:p});
+    }
+    linkHalvesAll.forEach(({half:h,page:pg})=>{
+      const flow=h.flowId?getFlow(h.flowId):null;
+      const mateAny=flow?findLinkMateAnywhere(h):null;
+      const label=linkMateLabel(h);
+      const kindLabel=(h.linkKind==='onpage'?'On-page':'Cross-page')+' link half';
+      if(h.solveStatus==='INVALID'){
+        add(solverIssue({
+          severity:'ERROR',kind:'stream',id:h.id,panel:'Link halves',
+          fieldLabel:kindLabel,
+          currentValue:label||h.solverMessage||'invalid',
+          expected:'A port owned by exactly one stream, with a compatible medium class.',
+          message:'L004 — link half connection is invalid: '+(h.solverMessage||'port occupied or incompatible.'),
+          action:'Re-glue the half to a free, compatible station port.'
+        }));
+        return;
+      }
+      if(!flow||!mateAny){
+        // L005 orphan (pair was once complete) vs L001 never-paired half.
+        if(flow?.wasComplete){
+          add(solverIssue({
+            severity:'WARNING',kind:'stream',id:h.id,panel:'Link halves',
+            fieldLabel:kindLabel,
+            currentValue:label||'orphan',
+            expected:'Both halves present, or the flow deleted.',
+            message:'L005 — orphan link half: its mate is missing after the pair was complete.',
+            action:'Re-create the mate (copy/paste), or delete this half and its flow.'
+          }));
+        }else{
+          add(solverIssue({
+            severity:'ERROR',kind:'stream',id:h.id,panel:'Link halves',
+            fieldLabel:kindLabel,
+            currentValue:label||'unpaired',
+            expected:'Both halves glued: this half to its station port, its mate to the other station.',
+            message:'L001 — unpaired link half: the connection is complete only when mate text appears on both halves.',
+            action:'Copy this connector (Ctrl+C), go to the destination page, paste (Ctrl+V), then glue the pasted half to the destination port.'
+          }));
+        }
+        return;
+      }
+      if(!flowLinkComplete(flow)){
+        add(solverIssue({
+          severity:'ERROR',kind:'stream',id:h.id,panel:'Link halves',
+          fieldLabel:kindLabel,
+          currentValue:label||'half-glued',
+          expected:'Both halves glued to their station ports.',
+          message:'L002 — link half is unglued while its mate exists.',
+          action:'Glue this half to a station port.'
+        }));
+        return;
+      }
+      // Misuse: cross-page link whose mate resolved on the same page and vice versa.
+      // Compared against this half's own page (project-wide scan).
+      const otherPageId=(flow.source?.station_id&&halfGluedPort(h)?.station_id===flow.source.station_id)
+        ? flow.sink?.pageId : flow.source?.pageId;
+      const samePage=otherPageId===pg.id;
+      if((h.linkKind==='crosspage'&&samePage)||(h.linkKind==='onpage'&&!samePage)){
+        add(solverIssue({
+          severity:'WARNING',kind:'stream',id:h.id,panel:'Link halves',
+          fieldLabel:(h.linkKind==='onpage'?'On-page':'Cross-page')+' link half',
+          currentValue:`mate ${label||'?'} on ${samePage?'the same page':'another page'}`,
+          expected:h.linkKind==='crosspage'?'Cross-page links connect stations on different pages.':'On-page links connect stations on the same page.',
+          message:'Link kind does not match where its mate lives.',
+          action:h.linkKind==='crosspage'?'Move the mate to another page, or recreate the pair as an on-page link.':'Move the mate to this page, or recreate the pair as a cross-page link.'
+        }));
+      }
+    });
+
+    // L003: complete flows whose halves are glued to same-direction ports.
+    // A valid pair needs one output and one input end.
+    for(const f of (state.flows||[])){
+      if(!flowLinkComplete(f)||!linkHalvesSameDirection(f))continue;
+      add(solverIssue({
+        severity:'ERROR',kind:'stream',id:f.id,panel:'Link halves',
+        fieldLabel:'Link flow ends',
+        currentValue:'both halves on same-direction ports',
+        expected:'One half glued to an output port, the mate to an input port.',
+        message:'A link pair needs one out half and one in half (L003).',
+        action:'Re-glue one half to a port of the opposite direction.'
+      }));
+    }
+
+    // L006: station numbers must be unique across ALL pages. Mate labels
+    // address stations by number, so a collision breaks link navigation.
+    const numOwners={};
+    for(const p of (state.pages||[]))for(const n of (p.nodes||[])){
+      const num=Number(n.stationNumber);
+      if(!Number.isInteger(num)||num<1||num>9999)continue;
+      (numOwners[num]=numOwners[num]||[]).push({node:n,page:p});
+    }
+    for(const num of Object.keys(numOwners)){
+      const owners=numOwners[num];
+      if(owners.length<2)continue;
+      owners.forEach(({node,page})=>add(solverIssue({
+        severity:'ERROR',kind:'node',id:node.id,panel:'Station identity',
+        fieldLabel:`Station number ${num} (${page.name||page.id})`,
+        currentValue:`shared by ${owners.length} stations project-wide`,
+        expected:'One unique station number per station across all pages.',
+        message:'L006 — duplicate station number across pages; link labels address mates by number.',
+        action:'Renumber one of the stations (station panel → Station number).'
+      })));
+    }
 
     // External streams that are connected but not solver-ready.
     state.streams.filter(s=>
@@ -11135,7 +14403,7 @@ function solvePanStation(n){
     });
 
     // Generic implemented-station calculation failures.
-    state.nodes.filter(n=>n.solveStatus==='FAIL' && ['crystallizer','mixer','receiver','splitter'].includes(n.type)).forEach(n=>{
+    state.nodes.filter(n=>n.solveStatus==='FAIL' && ['crystallizer','mixer','blender','receiver','splitter','distributor'].includes(n.type)).forEach(n=>{
       const msg=(n.stationResult?.messages||[]).join(' ')||n.solverMessage||'Station calculation failed.';
       let fieldKey='',fieldLabel='Station specification',panel='Engineering inputs',expected='Valid station specification';
       if(n.type==='crystallizer'){
@@ -11147,21 +14415,26 @@ function solvePanStation(n){
       }else if(n.type==='splitter'){
         fieldKey='split1';fieldLabel='Connected branch split percentages';panel='Engineering inputs → Splitter';
         expected='Each connected branch has 0–100%; connected branches total exactly 100%.';
+      }else if(n.type==='distributor'){
+        fieldKey='q0';fieldLabel='Connected branch quantities';panel='Engineering inputs → Distributor';
+        expected='Each connected branch has a valid quantity (Percent 0–100 or Weight kg/h); overflow absorbs the remainder.';
       }
       add(solverIssue({
         kind:'node',id:n.id,panel,fieldKey,fieldLabel,
         currentValue:fieldKey?(n.params?.[fieldKey]??''):'',
         expected,message:msg,
-        action:n.type==='splitter'
-          ?'Enter split percentages for every connected output so their total is 100%.'
-          :(n.type==='crystallizer'
-            ?'Check the massecuite component ledger, output T/SS and Sugars™ a/b/c solubility coefficient source.'
-            :'Check connected inlet streams and required station connections.')
+action:n.type==='splitter'
+           ?'Enter split percentages for every connected output so their total is 100%.'
+           :(n.type==='distributor'
+             ?'Enter a quantity (Percent or Weight) for every connected output branch; the overflow port absorbs the remainder.'
+             :(n.type==='crystallizer'
+               ?'Check the massecuite component ledger, output T/SS and Sugars™ a/b/c solubility coefficient source.'
+               :'Check connected inlet streams and required station connections.'))
       }));
     });
 
     // Generic failing nodes not already represented.
-    state.nodes.filter(n=>n.solveStatus==='FAIL' && n.type!=='pan' && !['crystallizer','mixer','receiver','splitter'].includes(n.type)).forEach(n=>{
+    state.nodes.filter(n=>n.solveStatus==='FAIL' && n.type!=='pan' && !['crystallizer','mixer','blender','receiver','splitter','distributor'].includes(n.type)).forEach(n=>{
       add(solverIssue({
         kind:'node',id:n.id,panel:'Solver state',fieldLabel:'Station state',
         currentValue:n.solveStatus,expected:'READY / SOLVED',
@@ -11187,9 +14460,40 @@ function solvePanStation(n){
     document.getElementById('solverIssueBackdrop').classList.remove('show');
 
     if(i.kind==='stream'){
+      // Link halves and flows may live on another page: switch first, then
+      // select. Half editors always bind the shared flow record, never the half.
+      const halfPage=(()=>{
+        for(const p of (state.pages||[])){
+          if((p.connectors||[]).some(c=>c.id===i.id&&c.linkHalf===true))return p;
+        }
+        return null;
+      })();
+      if(halfPage){
+        if(halfPage.id!==state.activePageId)activatePage(halfPage.id);
+        selectItem('connector',i.id);
+        const half=halfPage.connectors.find(c=>c.id===i.id);
+        if(half?.flowId&&getFlow(half.flowId))openFlowProperties(half.flowId);
+        return;
+      }
+      const fl=getFlow(i.id);
+      if(fl){
+        const anywhere=(()=>{for(const p of (state.pages||[])){const h=(p.connectors||[]).find(c=>c.linkHalf===true&&c.flowId===fl.id);if(h)return {half:h,page:p};}return null;})();
+        if(anywhere){
+          if(anywhere.page.id!==state.activePageId)activatePage(anywhere.page.id);
+          selectItem('connector',anywhere.half.id);
+        }
+        openFlowProperties(fl.id);
+        return;
+      }
       if(getStream(i.id)){selectItem('stream',i.id);openFlowProperties(i.id);}
-    }else if(getNode(i.id)){
-      selectItem('node',i.id);openStationProperties(i.id);
+    }else{
+      const anywhere=(()=>{for(const p of (state.pages||[])){const n=(p.nodes||[]).find(n=>n.id===i.id);if(n)return {node:n,page:p};}return null;})();
+      if(anywhere){
+        if(anywhere.page.id!==state.activePageId)activatePage(anywhere.page.id);
+        selectItem('node',anywhere.node.id);openStationProperties(anywhere.node.id);
+      }else if(getNode(i.id)){
+        selectItem('node',i.id);openStationProperties(i.id);
+      }
     }
 
     setTimeout(()=>{
@@ -11270,7 +14574,70 @@ function solvePanStation(n){
     return issues;
   }
 
+  // ---- Project-wide solver scope (cross-page links) ----
+  // The solver sees flows only: ordinary connectors from every page plus one
+  // logical stream per complete link flow. Halves never enter the network.
+  // Nodes and ordinary connectors are shared references (statuses persist);
+  // logical streams prototype-inherit their flow record (nested payload edits
+  // write through) and divergent fields are copied back after the run.
+  function buildProjectNetwork(){
+    const nodes=[];
+    const connectors=[];
+    for(const p of (state.pages||[])){
+      for(const n of (p.nodes||[]))nodes.push(n);
+      for(const c of (p.connectors||[])){
+        if(c.linkHalf===true)continue;
+        connectors.push(c);
+      }
+    }
+    const logicals=[];
+    for(const f of (state.flows||[])){
+      if(!flowLinkComplete(f))continue;
+      const logical=Object.create(f);
+      logical.source={type:'port',station_id:f.source.station_id,port_id:f.source.port_id};
+      logical.target={type:'port',station_id:f.sink.station_id,port_id:f.sink.port_id};
+      installConnectorLegacyAccessors(logical);
+      connectors.push(logical);
+      logicals.push({logical,flow:f});
+    }
+    return {nodes,connectors,logicals};
+  }
+
+  const LOGICAL_COPY_KEYS=['solveStatus','solverMessage','requiredPath','pressurePath','components','props','quantityMode','pressureMode','streamClass','mediumType','compositionMode','solubility','missingField','name','autoQuantityRule'];
+  function copyLogicalsBack(scope){
+    for(const {logical,flow} of (scope.logicals||[])){
+      for(const k of LOGICAL_COPY_KEYS){
+        if(Object.prototype.hasOwnProperty.call(logical,k))flow[k]=logical[k];
+      }
+      flow.updatedAt=Date.now();
+    }
+  }
+
   function runPhase23Solver(){
+    // Whole-project solve: swap in the unified network (all pages + complete
+    // link flows as logical streams), run the unmodified phase sequence,
+    // copy logical results back to their flow records, then restore.
+    // getNode searches state.nodes, so it transparently resolves cross-page
+    // stations while swapped. No render may happen before the restore —
+    // callers render (the Solve button always does).
+    const scope=buildProjectNetwork();
+    const origNodes=state.nodes,origConnectors=state.connectors;
+    state.nodes=scope.nodes;
+    state.connectors=scope.connectors;
+    let out;
+    try{
+      out=runPhase23SolverOnScope();
+    }finally{
+      copyLogicalsBack(scope);
+      state.nodes=origNodes;
+      state.connectors=origConnectors;
+    }
+    // Single render point for every solve exit, always on restored state.
+    renderAll();
+    return out;
+  }
+
+  function runPhase23SolverOnScope(){
     applyAllAutomaticConnectorSemantics();
 
     // Floating connectors are valid drawing objects but are not process streams.
@@ -11297,7 +14664,6 @@ function solvePanStation(n){
       audit.steps[0]={name:'Validate topology/specifications',state:'FAILED',detail:`${v.invalidStreams.length} invalid stream connection(s).`};
       state.solverAudit=audit;
       setStatus('Failed structure','err');
-      renderAll();
       const issues=collectSolverDiagnostics();
       state.lastSolverIssues=issues;
       return {ok:false,message:'Invalid or incompatible stream connection detected.',issues};
@@ -11386,23 +14752,42 @@ function solvePanStation(n){
         <div class="state ${solverStatusClass(s.state)}">${escapeHtml(s.state)}</div>
       </div>`).join('');
 
-    const streamRows=state.connectors.map(s=>`
+    // Audit shows the whole project: every page's stations and streams plus
+    // shared link flow records, each tagged with its page.
+    const auditPages=(state.pages&&state.pages.length?state.pages:[{id:state.activePageId,name:'Page 1',nodes:state.nodes,connectors:state.connectors}]);
+    const streamRows=auditPages.map(p=>(p.connectors||[]).map(s=>`
       <tr>
         <td>${escapeHtml(s.name)}</td>
+        <td>${escapeHtml(p.name||p.id)}</td>
         <td>${escapeHtml(streamBoundaryType(s))}</td>
         <td>${escapeHtml(s.quantityMode||'')}</td>
         <td>${escapeHtml(s.pressureMode||'')}</td>
         <td class="status-${solverStatusClass(s.solveStatus)}">${escapeHtml(s.solveStatus||'')}</td>
         <td>${escapeHtml(s.solverMessage||'')}</td>
-      </tr>`).join('');
+      </tr>`).join('')).join('')+(state.flows||[]).map(f=>{
+      const ends=[f.source,f.sink].filter(Boolean).map(e=>{
+        const st=getNodeAnywhere(e.station_id);
+        return `${st?.node?.stationNumber??'?'} (${((state.pages||[]).find(p=>p.id===e.pageId)||{}).name||e.pageId||'?'})`;
+      }).join(' → ')||'unpaired';
+      return `
+      <tr>
+        <td>${escapeHtml(f.properties?.label||'Link Flow')} [link]</td>
+        <td>—</td>
+        <td>link/${escapeHtml(f.linkKind||'?' )}</td>
+        <td>${escapeHtml(f.quantityMode||'')}</td>
+        <td>${escapeHtml(f.pressureMode||'')}</td>
+        <td class="status-${solverStatusClass(f.solveStatus)}">${escapeHtml(f.solveStatus||'')}</td>
+        <td>${escapeHtml(ends+(f.solverMessage?` · ${f.solverMessage}`:''))}</td>
+      </tr>`;}).join('');
 
-    const nodeRows=state.nodes.map(n=>`
+    const nodeRows=auditPages.map(p=>(p.nodes||[]).map(n=>`
       <tr>
         <td>${escapeHtml(n.equipmentTag||'—')} · ${escapeHtml(n.label)}</td>
+        <td>${escapeHtml(p.name||p.id)}</td>
         <td>${escapeHtml(nodeDefs[n.type]?.title||n.type)}</td>
         <td class="status-${solverStatusClass(n.solveStatus)}">${escapeHtml(n.solveStatus||'')}</td>
         <td>${escapeHtml(n.solverMessage||'')}</td>
-      </tr>`).join('');
+      </tr>`).join('')).join('');
 
     const pathRows=(title,arr)=>`
       <div class="path-box">
@@ -11415,26 +14800,27 @@ function solvePanStation(n){
       ${pathRows('Required-flow paths',a.requiredPaths)}
       ${pathRows('Pressure-feedback paths',a.pressurePaths)}
       <table class="audit-table">
-        <tr><th>Stream</th><th>Boundary</th><th>Quantity</th><th>Pressure</th><th>Solve state</th><th>Diagnostic</th></tr>
+        <tr><th>Stream</th><th>Page</th><th>Boundary</th><th>Quantity</th><th>Pressure</th><th>Solve state</th><th>Diagnostic</th></tr>
         ${streamRows}
       </table>
       <table class="audit-table">
-        <tr><th>Station</th><th>Type</th><th>Readiness</th><th>Diagnostic</th></tr>
+        <tr><th>Station</th><th>Page</th><th>Type</th><th>Readiness</th><th>Diagnostic</th></tr>
         ${nodeRows}
       </table>
     `;
   }
 
   document.getElementById('solveBtn').onclick=()=>{
-    if(!state.nodes.length){setStatus('Under-specified','warn');toast('Add stations before solving');return;}
+    const projectNodeCount=(state.pages||[]).reduce((n,p)=>n+((p.nodes||[]).length),0);
+    if(!projectNodeCount){setStatus('Under-specified','warn');toast('Add stations before solving');return;}
     const result=runPhase23Solver();
-    renderAll();
     toast(result.message);
 
     if(!result.ok || result.partial){
       const issues=result.issues?.length?result.issues:collectSolverDiagnostics();
       state.lastSolverIssues=issues;
-      renderSolverIssues(issues.length?issues:showSolverIssues());
+      if(issues.length)renderSolverIssues(issues);
+      else showSolverIssues();
       document.getElementById('solverIssueBackdrop').classList.add('show');
     }
   };
@@ -11461,6 +14847,14 @@ function solvePanStation(n){
     }
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();document.getElementById('undoBtn').click();}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();document.getElementById('redoBtn').click();}
+    // Link-half clipboard (Helpbook copy-as-mate). Guarded like Delete so
+    // typing in property fields never triggers a canvas paste.
+    if((e.ctrlKey||e.metaKey) && !['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)){
+      const k=e.key.toLowerCase();
+      if(k==='c'){e.preventDefault();copySelectedHalf(false);}
+      else if(k==='x'){e.preventDefault();copySelectedHalf(true);}
+      else if(k==='v'){e.preventDefault();pasteClipboardAsMate();}
+    }
   });
 
 
@@ -12211,7 +15605,7 @@ function solvePanStation(n){
     if((live.pressureMode||'SPECIFIED')!=='FEEDBACK')live.props.pressureAbs=draft.props?.pressureAbs??'';
   }
   function commitFlowDraft({closeAfterCommit=false}={}){
-    const live=getStream(editingFlowId);if(!live){toast('Stream no longer exists. Changes were not applied.');return false;}
+    const live=getStream(editingFlowId)||getFlow(editingFlowId);if(!live){toast('Stream no longer exists. Changes were not applied.');return false;}
     if(flowTopologyFingerprint(live)!==editingFlowBaseTopology){toast('Stream topology or ownership changed while the property window was open. Refresh/reopen the stream before applying.');return false;}
     if(streamBoundaryType(live)!=='EXTERNAL_IN'){
       if(closeAfterCommit)closeFlowModalImmediate();
@@ -12228,7 +15622,7 @@ function solvePanStation(n){
   }
 
   function openFlowProperties(streamId){
-    const s=getStream(streamId);if(!s)return;
+    const s=getStream(streamId)||getFlow(streamId);if(!s)return;
     if(editingFlowId===streamId && flowModalBackdrop.classList.contains('show')){bringFloatingToFront(flowModalWindow);return;}
     if(editingFlowId && flowDraftDirty()){toast('Apply or discard the current stream edits before opening another stream.');bringFloatingToFront(flowModalWindow);return;}
     ensureStreamModel(s);calculateUniversalStream(s);
@@ -13323,7 +16717,8 @@ function solvePanStation(n){
   function installEngineeringRibbon(){
     const top=document.querySelector('.topbar');
     document.querySelector('.brand-title').textContent='PURITY FOR SUGAR™  |  Process Simulation';
-    document.querySelector('.logo').textContent='P';
+    { const logo=document.querySelector('.logo');
+      if(logo&&logo.tagName!=='IMG'){ const img=document.createElement('img'); img.className=logo.className; img.src='assets/purity-logo.png'; img.alt='Purity'; logo.replaceWith(img); } }
     const click=id=>document.getElementById(id)?.click();
     const properties=()=>{if(!selected)return; selected.kind==='node'?openStationProperties(selected.id):openFlowProperties(selected.id);};
     const dialog=(title,body)=>{
@@ -13341,6 +16736,46 @@ function solvePanStation(n){
       const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     };
     const sh=['Station No.','Equipment Tag','Name','Type','Solver Status'],fh=['Stream','Role','Flow (kg/h)','Temperature (°C)','Pressure (kPa abs)','Status'];
+    // Helpbook flows-table structure: From/FromPort/To/ToPort across all pages,
+    // link flows included. External origin => From 0, leaving model => To 0.
+    const fhFlow=['From','FromPort','To','ToPort','Flow (kg/h)','Status'];
+    function flowTableRows(){
+      const rows=[];
+      const endCell=(ep,side)=>{
+        if(!ep||ep.type!=='port'||!ep.station_id)return {num:0,port:''};
+        const found=getNodeAnywhere(ep.station_id);
+        if(!found)return {num:0,port:''};
+        if(side==='from'&&(found.node.type==='source'||found.node.type==='seed'))return {num:0,port:''};
+        if(side==='to'&&found.node.type==='sink')return {num:0,port:''};
+        return {num:Number(found.node.stationNumber)||0,port:ep.port_id||''};
+      };
+      // Export scope is structural and page-aware (connectorRole resolves
+      // through the active page only, so it cannot judge other pages' streams).
+      const exportable=c=>{
+        if(c.linkHalf===true)return false;
+        const s=c.source,t=c.target;
+        const sp=s?.type==='port',tp=t?.type==='port';
+        if(!sp&&!tp)return false;
+        if(sp!==tp){
+          const ep=sp?s:t;
+          return !!portDirAnywhere(ep.station_id,ep.port_id);
+        }
+        if(s.station_id===t.station_id)return false;
+        return portDirAnywhere(s.station_id,s.port_id)==='out'
+            && portDirAnywhere(t.station_id,t.port_id)==='in';
+      };
+      for(const p of (state.pages||[]))for(const c of (p.connectors||[])){
+        if(!exportable(c))continue;
+        const a=endCell(c.source,'from'),b=endCell(c.target,'to');
+        rows.push([a.num,a.port,b.num,b.port,c.props?.flow??'',c.solveStatus||'UNSOLVED']);
+      }
+      for(const f of (state.flows||[])){
+        if(!flowLinkComplete(f))continue;
+        const a=endCell(f.source,'from'),b=endCell(f.sink,'to');
+        rows.push([a.num,a.port,b.num,b.port,f.props?.flow??'',f.solveStatus||'UNSOLVED']);
+      }
+      return rows;
+    }
     function numbering(){
       const nodes=state.nodes.filter(n=>Number.isInteger(n.stationNumber));
       const d=dialog('Station Numbering — preview and apply','<p>Unique integers 1–9999. Connections and equipment tags are preserved.</p><label>Start <input id="rb-start" type="number" value="4010"></label> <label>Step <input id="rb-step" type="number" value="10"></label><button id="rb-preview">Preview</button><div id="rb-preview-table"></div><button id="rb-apply" disabled>Apply numbers</button>');
@@ -13353,16 +16788,23 @@ function solvePanStation(n){
         d.querySelector('#rb-apply').disabled=!valid;
       };
       d.querySelectorAll('input').forEach(i=>i.oninput=()=>{d.querySelector('#rb-apply').disabled=true;});
-      d.querySelector('#rb-apply').onclick=()=>{pushHistory();proposed.forEach(p=>getNode(p.id).stationNumber=p.number);markChanged();renderAll();d.remove();};
+      d.querySelector('#rb-apply').onclick=()=>{pushHistory();proposed.forEach(p=>getNode(p.id).stationNumber=p.number);markChanged();renderAll();d.remove();
+        // W-01: renumber is the only path that changes station numbers; re-check
+        // effect order (Seq 7) and warn when a multiple breaks (V-03).
+        const broken=(state.nodes||[]).filter(n=>n.type==='evaporator').some(n=>{const r=evaporatorMultipleOf(n.id);return r&&r.broken;});
+        toast(broken?'Station numbers applied. Warning: effect order is broken in a multiple (V-03).':'Station numbers applied.');
+      };
     }
-    const command=(label,action,icon='file',reason='')=>({label,action,icon,reason});
+    const command=(label,action,icon='file',reason='',cls='')=>({label,action,icon,reason,cls});
     const existing=(label,id,icon)=>command(label,()=>click(id),icon);
     const pending=(label,reason)=>command(label,null,'settings',reason);
     const props=command('Properties',properties,'settings');
     const audit=existing('Solver Audit','auditBtn','table');
     const exportStations=command('Export Stations',()=>csv(sh,stationRows(),'station_results.csv'),'export');
     const exportStreams=command('Export Streams',()=>csv(fh,streamRows(),'stream_data.csv'),'export');
+    const exportFlowTable=command('Export Flow Table',()=>csv(fhFlow,flowTableRows(),'flow_table.csv'),'export');
     const streams=command('Stream Data',()=>dialog('Stream Data — current model values',table(fh,streamRows())),'table');
+    const flowTable=command('Flow Table',()=>dialog('Flow Table — From / To across all pages (0 = external boundary)',table(fhFlow,flowTableRows())),'table');
     const stations=command('Station Results',()=>dialog('Station Results',table(sh,stationRows())),'table');
     const palette=command('Station Palette',()=>{document.querySelector('.sidebar').hidden=false;document.querySelector('.sidebar').scrollIntoView({block:'nearest'});},'station');
     const reset=command('Auto Route',()=>{if(selected&&selected.kind!=='node'){const c=getConnector(selected.id);if(c){pushHistory();resetConnectorAutoRoute(c);markChanged();renderWires();}}},'route');
@@ -14065,19 +17507,22 @@ function solvePanStation(n){
           command('Export Active Page (JSON)',()=>exportSinglePage(state.activePageId),'export','Export active page JSON'),
           exportStations,
           exportStreams,
+          exportFlowTable,
           command('Print / PDF',()=>window.print(),'file')
         ]
       },
       Home:{
         Project:[existing('Open','openBtn','import'),existing('Save','saveBtn','save')],
-        Edit:[existing('Undo','undoBtn','undo'),existing('Redo','redoBtn','redo')],
+        Edit:[existing('Undo','undoBtn','undo'),existing('Redo','redoBtn','redo'),
+          command('Copy Link',()=>copySelectedHalf(false),'copy','Copy selected link half (Ctrl+C) — paste to create its mate'),
+          command('Paste Mate',()=>pasteClipboardAsMate(),'paste','Paste copied link half as its mate (Ctrl+V)')],
         Pages:[
           command('Add Page',()=>PageManager.createPage(),'file','Insert new drawing page'),
           command('Next Page',()=>PageManager.nextPage(),'route','Go to next page (PageDown)'),
           command('Prev Page',()=>PageManager.previousPage(),'route','Go to previous page (PageUp)')
         ],
-        Flowsheet:[palette,props,existing('Fit View','fitBtn','zoom'),flowLegendsCmd],
-        Calculate:[existing('Solve Network','solveBtn','play'),command('Solve (Python)',()=>solveWithPythonBackend(),'settings'),audit]
+        Flowsheet:[palette,props,existing('Fit View','fitBtn','zoom'),command('Home',()=>{setZoom(1);const vp=document.getElementById('viewport');if(vp)vp.scrollTo(0,0);const pgs=PageManager.getPages();if(pgs.length)PageManager.activatePage(pgs[0].id);toast('Home view: 100%, origin, Page 1.');},'home','Reset zoom, origin and first page','home-dark'),flowLegendsCmd],
+        Calculate:[existing('Solve Network','solveBtn','__logo__'),command('Solve (Python)',()=>solveWithPythonBackend(),'settings'),audit]
       },
       Insert:{
         Stations:[
@@ -14088,7 +17533,8 @@ function solvePanStation(n){
         ],
         Streams:[
           command('Universal Flow',()=>createUniversalFlowStencil(500,300),'route','Insert dynamic universal process stream'),
-          pending('Cross-Page Link','Not available yet. The process solver resolves each drawing page independently, so a stream cannot reference a station on another page. Keep a connected process flow on one page, or place an External Flow boundary on each page.')
+          command('On-Page Link',()=>createLinkHalfStencil(500,300,'onpage'),'route','Insert on-page link half — glue it, then paste its mate'),
+          command('Cross-Page Link',()=>createLinkHalfStencil(500,300,'crosspage'),'route','Insert cross-page link half — glue it, switch page, paste its mate')
         ],
         Pages:[
           command('Insert Page',()=>PageManager.createPage(),'file','Add blank drawing page'),
@@ -14118,10 +17564,11 @@ function solvePanStation(n){
           existing('Export Project','saveBtn','export'),
           command('Export to Excel (.xlsx)',()=>exportToExcelFromBackend(),'save'),
           exportStreams,
-          exportStations
+          exportStations,
+          exportFlowTable
         ],
         Identity:[command('Renumber Stations',numbering,'numbers')],
-        Tables:[streams,stations],
+        Tables:[streams,stations,flowTable],
         Units:[
           command('Default Units',()=>dialog('Engineering Units','<p>This build uses fixed engineering units. Per-field labels remain authoritative.</p>'+table(['Quantity','Unit'],[['Mass flow','kg/h'],['Temperature','°C'],['Pressure','kPa absolute'],['Composition','mass %']])),'table'),
           pending('Property Methods','Select methods in the individual Flow Properties window. Global method overrides are not supported.')
@@ -14129,7 +17576,7 @@ function solvePanStation(n){
       },
       Process:{
         Calculation:[
-          existing('Solve Network','solveBtn','play'),
+          existing('Solve Network','solveBtn','__logo__'),
           command('Solve with Python Engine',()=>solveWithPythonBackend(),'settings'),
           command('Validate Connections',()=>dialog('Connection Validation',table(['Stream','Role','Topology issues'],state.connectors.map(c=>[c.name||c.id,connectorRole(c),connectorTopologyIssues(c).join('; ')||'No topology issues']))),'check')
         ],
@@ -14193,7 +17640,7 @@ function solvePanStation(n){
         ]
       }
     };
-    const icons={file:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7',save:'M4 3h14l3 3v15H3V3z M7 3v6h10V3 M7 21v-8h10v8',play:'M7 3l14 9L7 21z',table:'M3 4h18v16H3z M3 9h18 M9 4v16 M15 4v16',settings:'M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l3 3 M16 16l3 3 M5 19l3-3 M16 8l3-3 M16 12a4 4 0 1 1-8 0 4 4 0 1 1 8 0',route:'M3 5h9v14h9 M18 16l3 3-3 3',station:'M5 3h14v17H5z M2 8h3 M19 15h3 M8 7h8 M8 11h8',zoom:'M17 10a7 7 0 1 1-14 0 7 7 0 1 1 14 0 M15 15l6 6 M6 10h8 M10 6v8',import:'M12 2v13 M7 10l5 5 5-5 M3 16v5h18v-5',export:'M12 16V3 M7 8l5-5 5 5 M3 16v5h18v-5',undo:'M8 4L3 9l5 5 M3 9h10a7 7 0 0 1 7 7',redo:'M16 4l5 5-5 5 M21 9H11a7 7 0 0 0-7 7',check:'M3 12l6 6L21 4',warning:'M12 3L2 21h20z M12 9v5 M12 17v1',numbers:'M3 6h3 M3 12h3 M3 18h3 M10 6h11 M10 12h11 M10 18h11',legend:'M3 11l8-8h5v5l-8 8z M14 6h.01 M5 19h5 M5 15.5h3'};
+    const icons={file:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7',save:'M4 3h14l3 3v15H3V3z M7 3v6h10V3 M7 21v-8h10v8',play:'M7 3l14 9L7 21z',table:'M3 4h18v16H3z M3 9h18 M9 4v16 M15 4v16',settings:'M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l3 3 M16 16l3 3 M5 19l3-3 M16 8l3-3 M16 12a4 4 0 1 1-8 0 4 4 0 1 1 8 0',route:'M3 5h9v14h9 M18 16l3 3-3 3',station:'M5 3h14v17H5z M2 8h3 M19 15h3 M8 7h8 M8 11h8',zoom:'M17 10a7 7 0 1 1-14 0 7 7 0 1 1 14 0 M15 15l6 6 M6 10h8 M10 6v8',import:'M12 2v13 M7 10l5 5 5-5 M3 16v5h18v-5',export:'M12 16V3 M7 8l5-5 5 5 M3 16v5h18v-5',undo:'M8 4L3 9l5 5 M3 9h10a7 7 0 0 1 7 7',redo:'M16 4l5 5-5 5 M21 9H11a7 7 0 0 0-7 7',copy:'M9 9h11v11H9z M5 15V3h11',paste:'M6 3h12v18H6z M9 3h6v4H9z M9 12h6 M9 16h6',check:'M3 12l6 6L21 4',warning:'M12 3L2 21h20z M12 9v5 M12 17v1',numbers:'M3 6h3 M3 12h3 M3 18h3 M10 6h11 M10 12h11 M10 18h11',legend:'M3 11l8-8h5v5l-8 8z M14 6h.01 M5 19h5 M5 15.5h3',home:'M4 11l8-7 8 7 M6 9.8V20h12V9.8'};
     const quick=document.createElement('div');quick.className='ribbon-quick';
     ['saveBtn','undoBtn','redoBtn'].forEach((id,i)=>{const b=document.createElement('button');b.textContent=['Save','Undo','Redo'][i];b.onclick=()=>click(id);quick.append(b);});document.querySelector('.brand').append(quick);
     const nav=document.createElement('nav');nav.className='ribbon-tabs';nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Engineering ribbon');
@@ -14201,11 +17648,68 @@ function solvePanStation(n){
     const status=document.createElement('div');status.className='ribbon-status';status.innerHTML='<span>Phase 4.8.9</span><span>kg/h · °C · kPa abs</span><span id="backendStatusBadge" style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;cursor:pointer;background:#f1f5f9;color:#475569;" title="Click to test Python Engine status">⚪ Checking Python Engine...</span>';status.append(document.getElementById('solverStatus'));
     const badgeEl=status.querySelector('#backendStatusBadge');
     if(badgeEl){badgeEl.onclick=()=>checkBackendStatus();setTimeout(()=>checkBackendStatus(),500);}
+    // Owner layout: solve-state pill + engine badge live in the canvas
+    // toolbar (right after Reset zoom), not in the old status strip.
+    // Moved (not cloned): ids, handlers, and setStatus refs keep working.
+    // Self-healing: docking is re-asserted on boot, on DOMContentLoaded,
+    // on every setStatus call, and by the verifier below — so any late
+    // toolbar rebuild or ordering quirk gets repaired within moments
+    // instead of stranding the pill. A hidden widget must explain itself.
+    function dockNetStatus(){
+      try{
+        const tools=document.querySelector('.canvas-tools');
+        const fitBtn=document.getElementById('fitBtn');
+        const pill=document.getElementById('solverStatus');
+        if(!(tools&&fitBtn&&pill))return false;
+        if(pill.parentElement!==tools)tools.insertBefore(pill,fitBtn);
+        const badge=document.getElementById('backendStatusBadge');
+        if(badge&&badge.parentElement!==tools)tools.insertBefore(badge,fitBtn);
+        return pill.parentElement===tools;
+      }catch(_){return false;}
+    }
+    dockNetStatus();
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>dockNetStatus());
+    setTimeout(()=>{
+      try{
+        if(dockNetStatus()){
+          const p=document.getElementById('solverStatus');
+          if(p&&p.getBoundingClientRect().width>0){console.info('[netstatus] solve-state pill docked in canvas toolbar.');}
+          else console.warn('[netstatus] pill docked but zero-width — check computed display for #solverStatus.');
+        }else{
+          const toolsCount=document.querySelectorAll('.canvas-tools').length;
+          const fb=document.getElementById('fitBtn');
+          const fbParent=fb&&fb.parentElement?fb.parentElement.className+'#'+(fb.parentElement.id||''):'null';
+          const p=document.getElementById('solverStatus');
+          const pp=p&&p.parentElement?p.parentElement.className+'#'+(p.parentElement.id||''):'null';
+          try{toast('Status pill could not dock beside Reset zoom — see console (F12).');}catch(_){}
+          console.warn('[netstatus] PILL DOCK FAILED. pillParent:'+pp+' toolbars:'+toolsCount+' fitBtnParent:'+fbParent);
+        }
+      }catch(_){}
+    },800);
+    // Temporary layout diagnostic (owner-reported canvas dead zone): open
+    // index.html?debug=layout to outline the canvas regions with a rect
+    // readout. Query-gated; zero effect on normal loads. Remove after diagnosis.
+    { try{
+      const qp=new URLSearchParams(location.search||'');
+      if(qp.get('debug')==='layout'){
+        const box=document.createElement('div');
+        box.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99999;background:#0a2038;color:#fff;font:11px/1.5 monospace;padding:8px 10px;border-radius:6px;max-width:70vw;white-space:pre-wrap;';
+        const rows=[['workspace','.workspace'],['canvas-shell','.canvas-shell'],['viewport','.viewport'],['world-wrap','.world-wrap'],['props','.props'],['world','.world']].map(([n,s])=>{
+          const el=document.querySelector(s);
+          if(!el)return n+': MISSING';
+          const r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+          el.style.outline='2px solid #ff3b30';
+          return `${n}: x=${r.x|0} y=${r.y|0} w=${r.width|0} h=${r.height|0} display=${cs.display}`;
+        });
+        box.textContent='LAYOUT DEBUG\n'+rows.join('\n');
+        document.body.append(box);
+      }
+    }catch(_){} }
     top.append(nav,panel,status);
     let currentRibbonTab='Home';
     function activate(name){currentRibbonTab=name;nav.querySelectorAll('button').forEach(b=>{b.setAttribute('aria-selected',String(b.textContent===name));b.tabIndex=b.textContent===name?0:-1;});panel.setAttribute('aria-label',name);panel.replaceChildren();
       Object.entries(tabs[name]).forEach(([group,commands])=>{const g=document.createElement('div');g.className='ribbon-group';
-        commands.forEach(c=>{const b=document.createElement('button');b.className='ribbon-command';b.disabled=!c.action;b.title=c.reason||c.label;b.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24"><path d="'+(icons[c.icon]||icons.file)+'"/></svg><span>'+c.label+'</span>';b.onclick=c.action;if(c.label==='Flow Legends')b.classList.toggle('active',!!state.flowLegendsOn);g.append(b);});
+        commands.forEach(c=>{const b=document.createElement('button');b.className='ribbon-command'+(c.cls?' '+c.cls:'');b.disabled=!c.action;b.title=c.reason||c.label;b.innerHTML=(c.icon==='__logo__'?'<img class="ribbon-cmd-logo" src="assets/purity-logo.png" alt="">':'<svg aria-hidden="true" viewBox="0 0 24 24"><path d="'+(icons[c.icon]||icons.file)+'"/></svg>')+'<span>'+c.label+'</span>';b.onclick=c.action;if(c.label==='Flow Legends')b.classList.toggle('active',!!state.flowLegendsOn);g.append(b);});
         const label=document.createElement('div');label.className='ribbon-group-name';label.textContent=group;g.append(label);panel.append(g);
       });
     }
@@ -14245,7 +17749,7 @@ function solvePanStation(n){
 
         stationCmds.forEach(c => {
           const b = document.createElement('button');
-          b.className = 'ribbon-command';
+          b.className = 'ribbon-command'+(c.cls?' '+c.cls:'');
           b.title = c.reason || c.label;
           b.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="' + (icons[c.icon] || icons.file) + '"/></svg><span>' + c.label + '</span>';
           b.onclick = c.action;
@@ -14283,7 +17787,7 @@ function solvePanStation(n){
 
         streamCmds.forEach(cmd => {
           const b = document.createElement('button');
-          b.className = 'ribbon-command';
+          b.className = 'ribbon-command'+(cmd.cls?' '+cmd.cls:'');
           b.title = cmd.reason || cmd.label;
           b.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="' + (icons[cmd.icon] || icons.file) + '"/></svg><span>' + cmd.label + '</span>';
           b.onclick = cmd.action;

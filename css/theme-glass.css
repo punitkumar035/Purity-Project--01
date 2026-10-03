@@ -1,0 +1,209 @@
+/* theme-glass.css — PURITY glass theme (mockup-driven).
+   Loaded LAST so same-specificity rules win ties; no original file is edited
+   for paint. Revert: remove the <link> in index.html.
+   Rules: theme layer owns color/background/border/shadow/radius/blur only —
+   never layout, sixing, or DOM. Inline styles in JS are out of scope until
+   their component's phase (converted to classes, never fought with !important
+   except where noted). New --glass-* tokens only; core --navy/--ink/etc. stay
+   so non-themed surfaces keep working. */
+:root{
+  --glass-ink:#0f2f4d;
+  --glass-muted:#5b7a93;
+  --glass-panel:rgba(255,255,255,.62);
+  --glass-panel-strong:rgba(255,255,255,.8);
+  --glass-line:rgba(255,255,255,.7);
+  --glass-edge:#d5e5f2;
+  --glass-accent:#1f7fd1;
+  --glass-accent-deep:#1663ab;
+  --glass-accent-soft:#e2f1fd;
+  --glass-green:#15803d;
+  --glass-red:#b91c1c;
+  --glass-amber:#92610a;
+  --glass-shadow:0 8px 28px rgba(31,90,150,.14);
+  --glass-shadow-sm:0 3px 12px rgba(31,90,150,.12);
+  --glass-blur:blur(16px) saturate(1.35);
+}
+/* aurora backdrop behind the whole app */
+body{
+  background:
+    radial-gradient(1100px 520px at 10% -8%, rgba(147,197,253,.68), transparent 60%),
+    radial-gradient(920px 540px at 90% 2%, rgba(196,181,253,.62), transparent 60%),
+    radial-gradient(700px 420px at 0% 55%, rgba(186,230,253,.5), transparent 60%),
+    radial-gradient(1000px 700px at 50% 115%, rgba(186,230,253,.7), transparent 60%),
+    linear-gradient(180deg,#e7f1f9 0%,#edf4fb 55%,#e4eef7 100%);
+}
+/* ---------- top bar ---------- */
+.topbar{
+  background:rgba(255,255,255,.55);
+  -webkit-backdrop-filter:var(--glass-blur);
+  backdrop-filter:var(--glass-blur);
+  border-bottom:1px solid var(--glass-line);
+}
+.brand{min-width:0}
+.brand img.logo{height:24px;width:auto}
+.brand-title{color:var(--glass-ink);font-weight:800;font-size:14px;letter-spacing:.01em}
+/* quick Save/Undo/Redo pills, top right */
+.ribbon-quick button{
+  background:var(--glass-panel-strong);
+  -webkit-backdrop-filter:var(--glass-blur);
+  backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);
+  border-radius:999px;color:var(--glass-ink);
+  box-shadow:var(--glass-shadow-sm);
+}
+/* ---------- ribbon tabs ---------- */
+.ribbon-tabs{background:transparent;border-bottom:1px solid var(--glass-line)}
+.ribbon-tabs button{color:var(--glass-muted);border-radius:10px}
+.ribbon-tabs button[aria-selected=true]{
+  background:linear-gradient(180deg,#3f9de6,#1f7fd1);
+  color:#fff;border-bottom:none;
+  box-shadow:0 4px 14px rgba(31,127,209,.4);
+}
+/* ---------- ribbon groups + commands ---------- */
+.ribbon-panel{background:transparent}
+.ribbon-group{
+  background:var(--glass-panel);
+  -webkit-backdrop-filter:var(--glass-blur);
+  backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);
+  border-radius:18px;
+  box-shadow:var(--glass-shadow);
+  border-right:1px solid var(--glass-line);
+}
+.ribbon-group-name{color:var(--glass-muted)}
+/* mockup-measured command metrics: tighter buttons, tiled glyphs */
+.ribbon-command{min-width:64px;padding:6px 6px 7px;color:var(--glass-ink)}
+.ribbon-command:hover{background:rgba(255,255,255,.85);border-color:var(--glass-edge)}
+.ribbon-command span{font-size:10px}
+.ribbon-command svg{
+  background:var(--glass-accent-soft);
+  border-radius:12px;padding:9px;
+  width:40px;height:40px;
+  stroke:var(--glass-accent);stroke-width:2.2;
+}
+.ribbon-command img.ribbon-cmd-logo{background:var(--glass-accent-soft);border-radius:12px;padding:3px;width:40px;height:40px;object-fit:contain}
+/* dark-button theme (owner image): deep navy gradient, glowing blue edge */
+.ribbon-command.home-dark{
+  background:linear-gradient(145deg,#241b58 0%,#171233 100%);
+  border:1px solid rgba(125,140,255,.7);
+  border-radius:12px;color:#fff;
+  box-shadow:0 0 14px rgba(96,116,255,.5), inset 0 1px 0 rgba(255,255,255,.22);
+}
+.ribbon-command.home-dark:hover{background:linear-gradient(145deg,#2c2266,#1c1640);border-color:rgba(150,165,255,.9)}
+.ribbon-command.home-dark svg{background:transparent;stroke:#fff}
+.ribbon-command.home-dark span{color:#fff}
+/* ---------- sidebar shell ---------- */
+.workspace{grid-template-columns:290px minmax(0,1fr) 315px}
+.sidebar{
+  background:var(--glass-panel);
+  -webkit-backdrop-filter:var(--glass-blur);
+  backdrop-filter:var(--glass-blur);
+  border-right:1px solid var(--glass-line);
+}
+.side-title{color:var(--glass-ink)}
+.side-sub{color:var(--glass-muted)}
+/* ---------- sidebar palette ---------- */
+.palette{padding:12px}
+.palette-item{
+  background:var(--glass-panel-strong);
+  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(12px);
+  border:1px solid var(--glass-line);
+  border-radius:13px;padding:10px 12px;
+  box-shadow:var(--glass-shadow-sm);
+}
+.palette-item:hover{border-color:var(--glass-accent);box-shadow:0 6px 18px rgba(31,127,209,.22)}
+.pal-icon{background:var(--glass-accent-soft);color:var(--glass-accent-deep);border-radius:10px;width:32px;height:32px}
+.pal-name{color:var(--glass-ink)}
+.pal-desc{color:var(--glass-muted)}
+.palette-item::after{
+  content:"›";color:#9db4c6;font-size:15px;font-weight:800;
+  margin-left:auto;padding-left:6px;pointer-events:none;flex:0 0 auto;
+}
+.group-title{
+  color:var(--glass-muted);
+  display:flex;align-items:center;
+}
+.group-title::before{
+  content:"";display:inline-block;width:9px;height:9px;border-radius:3px;
+  border:1.5px solid var(--glass-accent);margin-right:7px;flex:0 0 auto;
+}
+.palette-hint{
+  background:var(--glass-panel);border:1px solid var(--glass-line);
+  border-radius:12px;color:var(--glass-muted);
+}
+/* ---------- canvas chrome ---------- */
+.canvas-top{background:transparent;border-bottom:1px solid var(--glass-line)}
+.scheme-name{
+  background:var(--glass-panel-strong);
+  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(12px);
+  border:1px solid var(--glass-line);border-radius:999px;color:var(--glass-ink);
+}
+.mini{
+  background:var(--glass-panel-strong);
+  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(12px);
+  border:1px solid var(--glass-line);border-radius:999px;color:var(--glass-ink);
+}
+.mini:hover{background:rgba(255,255,255,.9)}
+.zoom-label{color:var(--glass-muted)}
+.viewport{
+  background-color:rgba(243,248,252,.72);
+  background-image:
+    linear-gradient(rgba(178,204,226,.55) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(178,204,226,.55) 1px,transparent 1px),
+    linear-gradient(rgba(190,212,232,.35) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(190,212,232,.35) 1px,transparent 1px);
+}
+.empty-state .big{color:var(--glass-ink)}
+.empty-state .small{color:var(--glass-muted)}
+/* ---------- bottom page bar ---------- */
+.page-tab-bar{
+  background:var(--glass-panel);
+  -webkit-backdrop-filter:var(--glass-blur);
+  backdrop-filter:var(--glass-blur);
+  border-top:1px solid var(--glass-line);
+}
+.page-tab{
+  background:rgba(255,255,255,.6);
+  border:1px solid var(--glass-line);
+  border-radius:999px;color:var(--glass-muted);
+}
+.page-tab:hover{background:rgba(255,255,255,.9)}
+.page-tab.active{
+  background:linear-gradient(180deg,#3f9de6,#1f7fd1);
+  border-color:transparent;color:#fff;
+  box-shadow:0 4px 14px rgba(31,127,209,.4);
+}
+.page-tab-badge{background:var(--glass-accent-soft);color:var(--glass-accent-deep)}
+/* ---------- floating legend + hint ---------- */
+.flow-legend{
+  background:var(--glass-panel-strong);
+  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(12px);
+  border:1px solid var(--glass-line);
+  border-radius:12px;
+  box-shadow:var(--glass-shadow-sm);
+  color:var(--glass-ink);
+}
+/* ---------- slim scrollbars ---------- */
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(140,175,200,.55);border-radius:99px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(31,127,209,.55);border:2px solid transparent;background-clip:content-box}
+/* ---------- status bar + network state box ---------- */
+.ribbon-status{display:none}
+.canvas-tools .status-pill{
+  background:rgba(255,255,255,.75);
+  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(12px);
+  border:1px solid var(--glass-line);
+  border-radius:8px;
+  box-shadow:var(--glass-shadow-sm);
+  font-size:11px;cursor:pointer;
+}
+.canvas-tools .status-pill.ok{color:var(--glass-green)}
+.canvas-tools .status-pill.warn,.canvas-tools .status-pill.err{color:var(--glass-red)}
+.canvas-tools .status-pill.info{color:var(--glass-accent-deep)}
+.canvas-tools #backendStatusBadge{font-size:10px}
