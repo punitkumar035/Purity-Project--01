@@ -1,0 +1,9 @@
+# Kept on disk, never in git: provenance archives, solver dumps, tool outputs.
+*.zip
+*.chm
+Dump/
+.archify/
+# Unreferenced asset (kept on disk; grep shows no code/doc reference).
+Purity Logo.png
+# Reference drop-ins (kept on disk, not versioned).
+Station Calculation Logics/

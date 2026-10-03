@@ -212,9 +212,43 @@ function validateCentrifugalParameters(params, results) {
 }
 
 function validateEvaporatorParameters(params, results) {
-  const effect = params.effectNumber || '1';
-  if (effect && (parseFloat(effect) < 1 || parseFloat(effect) > 10)) {
-    results.push(validationResult('evaporator-effect', 'WARN', `Effect number ${effect} appears outside normal range (1–10)`));
+  const p = params || {};
+  const mode = String(p.mode || 'PRESSURE').toUpperCase();
+  if (!['HTC', 'PRESSURE', 'FEEDBACK', 'FLOW_TEMP'].includes(mode)) {
+    results.push(validationResult('evaporator-mode', 'ERROR', 'Evaporator performance mode must be HTC, PRESSURE, FEEDBACK or FLOW_TEMP (exactly one).'));
+    return;
+  }
+  const effectNo = parseInt(p.effectNo, 10);
+  if (!Number.isInteger(effectNo) || effectNo < 1) {
+    results.push(validationResult('evaporator-effect', 'ERROR', 'Evaporator Effect Number must be an integer >= 1.'));
+  }
+  if (mode === 'HTC') {
+    if (!(parseFloat(p.htc_W_m2K) > 0)) {
+      results.push(validationResult('evaporator-htc', 'ERROR', 'HTC mode requires Heat Transfer Coefficient U > 0 (V-04).'));
+    }
+    if (!(parseFloat(p.heatingSurface_m2) > 0)) {
+      results.push(validationResult('evaporator-area', 'ERROR', 'HTC mode requires Heating Surface A > 0 (V-04).'));
+    }
+  }
+  if (mode === 'PRESSURE') {
+    const vp = p.vaporPressure || {};
+    const rawP = (vp && typeof vp === 'object') ? vp.value : vp;
+    const hasP = Number.isFinite(parseFloat(rawP)) && parseFloat(rawP) > 0;
+    const hasT = Number.isFinite(parseFloat(p.satTemp_C));
+    if (!hasP && !hasT) {
+      results.push(validationResult('evaporator-pressure', 'ERROR', 'PRESSURE mode requires a valid vapor pressure (abs > 0) or saturation temperature (V-05).'));
+    }
+  }
+  if (mode === 'FLOW_TEMP' && !Number.isFinite(parseFloat(p.flowOutTemp_C))) {
+    results.push(validationResult('evaporator-flowtemp', 'ERROR', 'FLOW_TEMP mode requires the juice-out temperature to be set (V-06).'));
+  }
+  const hl = parseFloat(p.heatLossPct);
+  if (Number.isFinite(hl) && (hl < 0 || hl >= 100)) {
+    results.push(validationResult('evaporator-heatloss', 'ERROR', 'Heat Loss must satisfy 0 <= x < 100 %.'));
+  }
+  const ts = parseFloat(p.totalSolidsPct);
+  if (Number.isFinite(ts) && ts !== 0 && (ts <= 0 || ts >= 100)) {
+    results.push(validationResult('evaporator-totalsolids', 'ERROR', 'Total Solids must be 0 (unspecified) or strictly between 0 and 100 %.'));
   }
 }
 

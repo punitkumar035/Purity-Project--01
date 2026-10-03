@@ -4,8 +4,25 @@
 Glass theme Phase 2 done (ribbon metrics, icon tiles, sidebar, canvas
 chrome, page bar, legend, scrollbars, 24px logo) + netstatus dock made
 self-healing (boot + DCL + every setStatus + enriched diagnostics).
-Next: owner confirms pill beside Reset zoom (or reports the enriched
-console line), then Phase 3 (dialogs — the inline-style long tail).
+Dialog B rebuilt to Scn-2 (two Calculate buttons, no mode select; BPE wall
+collapsed + source rounding). Sugar-properties evaluation filed at
+`docs/engineering-review/sugar-properties-module-evaluation.md` and EXECUTED
+2026-10-03: 8 GIFs in `docs/stencil/reference/` + `formula-registry.md`
+(UEI-005/007 RESOLVED, ours confirmed verbatim); Saska 273.15 applied
+(main.js:9281 + phase2:47, full suite green); UEI-006/008/009 OPEN;
+`tests/properties_crosscheck.js` registered (Martins leg date-gated to
+2026-10-12; 5 cp high-T rows FAIL per owner gate, awaiting owner review);
+pure functions added (bisection + parameterized Sc, strict coercion).
+2026-10-03 cp-harness: Martins Eq.10 pasted to registry (ACTIVE, met due
+early); harness reads owner schema (X=Bx, T=K); UEI-010 filed (Leg-2
+carve-out). Measured: tertiary agrees at low Bx, diverges 0.11–0.21 above
+30 Bx (3 FLAG + 3 tolerance rows, all Bartens/Martins) — WITH OWNER FOR
+REVIEW, no merge. Rest of suite green.
+2026-10-03 registry-SSOT: Bartens + MET entries machine-readable JSON;
+harness evaluates all 3 cp legs from registry with 1e-12 drift alarm vs
+engine (12/12 pass); gate rows unchanged, still awaiting adjudication.
+Next: owner reviews cross-check results (NO main merge until then),
+then Phase 3 (remaining dialogs) or heaters.
 
 ## Completed (with evidence)
 - All prior evaporator + Mode-B + branding work (see history below).

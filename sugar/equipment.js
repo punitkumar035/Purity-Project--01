@@ -17,14 +17,14 @@ export const EQUIPMENT_TAG_PREFIX = {
   evaporator: 'EVAP', heater: 'HTR', injectionHeater: 'INJ', flashTank: 'FLT',
   cooler: 'CLR', dryer: 'DRY', compressor: 'CMP', thermocompressor: 'TCM',
   turbine: 'TRB', turboAlternator: 'TBA', pump: 'PMP', pressureReducer: 'PRV',
-  contactCondenser: 'CND', surfaceCondenser: 'SCD', reactor: 'RCT', separatorFilter: 'FLT', tank: 'TNK'
+  contactCondenser: 'CND', surfaceCondenser: 'SCD', reactor: 'RCT', separator: 'FLT', tank: 'TNK'
 };
 
 export const SUGARS_STATION_TYPE_CODE = {
   mixer: '1', centrifugal2: '2A', centrifugal3: '2B', crystallizer: '6', splitter: '7', distributor: '7',
   melter: '16', pan: '14', receiver: '18', magma: '1', evaporator: '9', heater: '12', injectionHeater: '13', flashTank: '10',
   cooler: '4', dryer: '8', compressor: '3', thermocompressor: '23', turbine: '24', turboAlternator: '25',
-  pump: '17', pressureReducer: '15', contactCondenser: '5', surfaceCondenser: '21', reactor: '19', separatorFilter: '20', tank: '22',
+  pump: '17', pressureReducer: '15', contactCondenser: '5', surfaceCondenser: '21', reactor: '19', separator: '20', tank: '22',
   source: 'BOUNDARY', sink: 'BOUNDARY',
   seed: 'BOUNDARY', wash: 'BOUNDARY', clearjuice: 'BOUNDARY', hotwater: 'BOUNDARY'
 };
@@ -76,11 +76,11 @@ export function getEquipmentDef(type) {
       };
     case 'evaporator':
       return {
-        inputs: [{ id: 'steam', name: 'Motive Steam / Vapour', accept: 'thermal', side: 'left' },
-                 { id: 'juice', name: 'Juice In', accept: 'material', side: 'left' }],
-        outputs: [{ id: 'vapour', name: 'Evaporated Vapour', category: 'thermal', side: 'top' },
-                  { id: 'condensate', name: 'Condensate Out', category: 'condensate', side: 'bottom' },
-                  { id: 'syrup', name: 'Syrup / Concentrated Juice', category: 'material', side: 'right' }]
+        inputs: [{ id: 'in1', name: 'Steam / Vapor In', accept: 'thermal', side: 'left' },
+                 { id: 'in0', name: 'Juice In', accept: 'material', side: 'left' }],
+        outputs: [{ id: 'out1', name: 'Vapor Out', category: 'thermal', side: 'top' },
+                  { id: 'out2', name: 'Condensate Out', category: 'condensate', side: 'bottom' },
+                  { id: 'out0', name: 'Juice / Syrup Out', category: 'material', side: 'right' }]
       };
     case 'heater':
       return {
@@ -116,7 +116,7 @@ export function stationNumberBlock(type) {
     cooler: [4000, 4999], dryer: [4000, 4999], compressor: [100, 999], thermocompressor: [100, 999],
     turbine: [100, 999], turboAlternator: [100, 999], pump: [100, 999], pressureReducer: [100, 999],
     contactCondenser: [4000, 4999], surfaceCondenser: [4000, 4999], reactor: [4000, 4999],
-    separatorFilter: [4000, 4999], tank: [4000, 4999]
+    separator: [4000, 4999], tank: [4000, 4999]
   };
   return stationRanges[type] || [100, 9999];
 }
@@ -217,7 +217,7 @@ export function hasStationSolver(type) {
     'heater', 'injectionHeater', 'flashTank', 'cooler', 'dryer',
     'compressor', 'thermocompressor', 'turbine', 'turboAlternator',
     'pump', 'pressureReducer', 'contactCondenser', 'surfaceCondenser',
-    'reactor', 'separatorFilter', 'tank'];
+    'reactor', 'separator', 'tank'];
   return solverTypes.includes(type);
 }
 

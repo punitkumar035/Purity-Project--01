@@ -10,6 +10,16 @@ Regression test: tests/ui_phase9_netstatus.js (plus the ribbon-scoping fix:
 equal-specificity later-file-wins in ribbon.css was overriding state colors —
 scoped `.ribbon-status .status-pill.<state>` rules win structurally).
 
+## 2026-10-02 — Match the screenshot, not the interpretation
+Problem: Dialog B grew a mode dropdown + single Calculate that SUGARS never
+had (Scn-2: two Calculate buttons, no mode). Owner asked "vice versa" —
+the screenshot already answered how.
+Fix: rebuilt to Scn-2 exactly; kept one deliberate, recorded deviation
+(editable Q/DT for what-if sizing).
+Permanent rule: Extracted_Property_Windows screenshots outrank prior
+implementation choices; deviations from them are recorded, never silent.
+Regression test: Phase-6 dialog asserts + Phase-2 rounding unit test.
+
 ## 2026-10-02 — Relocated widgets keep ids, handlers follow the element
 Problem: moving the solve-state pill + engine badge out of their strip.
 Fix: move (never clone) after the builder appends them; address everything
@@ -87,3 +97,32 @@ the bracket). All failures name the body via lastErr in the V-10 message.
 Permanent rule: outer iterations over partially-feasible domains must be
 bracketed, never raw secant; failure messages must name the failing station.
 Regression test: Phase-7 infeasible-carrier + e2e bracket asserts.
+
+## 2026-10-03 — p2num masks missing coefficient inputs (strict coercion for APIs)
+Problem: new parameterized Sc functions used UI-tolerant p2num (non-numeric
+-> 0), so omitted coefficients were silently accepted as 0. Harness caught
+it ("rejects missing coeffs" failed).
+Fix: p2finStrict (null/undefined/''/non-finite -> NaN, rejected) for all
+coefficient/state inputs of programmatic property APIs. Permanent rule:
+UI-tolerant coercion stays at the UI boundary; pure calculation APIs
+validate strictly.
+Regression test: properties_crosscheck no-defaults asserts.
+
+## 2026-10-03 — Cross-check oracles: report-only beats enforced bands
+Problem: first harness version asserted pass/fail bands around a REJECTED
+oracle (simplified steam fits), going red on the oracle's own errors.
+Fix: rejected-oracle comparisons are REPORT-ONLY (measured numbers are the
+rejection evidence); enforced tolerances apply only to owner-set gates
+(cp +/-0.10, bartens-divergence flag >0.15). Permanent rule: never let a
+rejected reference fail the suite — record its measured distance instead.
+
+## 2026-10-03 — Registry-driven harness: parse the owner schema, not the placeholder
+Problem: first Martins gate parsed a placeholder shape ({variables, terms[]});
+the delivered entry uses equation.coefficients{a,b,d,f} with X in degBrix
+and T in Kelvin. Reusing the placeholder evaluator would have computed
+garbage in wrong units.
+Fix: parser rewritten to the delivered schema with explicit unit handling
+(X=Bx as-is, T=tC+273.15) plus uuid+status asserts and valid-range NaN
+guard. Permanent rule: pasted source schemas are byte-adopted; placeholder
+shapes are retired with the paste, never adapted.
+Regression test: properties_crosscheck martins-active asserts.

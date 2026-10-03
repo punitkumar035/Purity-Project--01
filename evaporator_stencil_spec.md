@@ -274,6 +274,12 @@ DT = Sat. Temp. vapor in - Temp. juice out
 
 H and DT always come from the micro-solve (6.5); no prior global balance is needed. If the micro-solve cannot run (`NO_INLET_STATE`), disable both Calculate buttons and show the status message.
 
+**Noted deviation (product-owner approved):** Q and DT render as editable fields
+for what-if sizing; Scn-2 shows them as display. Reversible — lock to display
+on request. The BPE range paragraph is omitted from this dialog (Scn-2 has
+none); range warnings still surface in station checks and balance results,
+with rounded values.
+
 ### 6.3 Equations
 
 ```

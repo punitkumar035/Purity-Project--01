@@ -44,7 +44,7 @@ const approx = (a, b, tol, msg) => {
 
 // Independent second transcriptions, written straight from the spec text.
 const specSaska = (W, Q, t) =>
-  0.1660 * Math.pow(W / (100 - W), 1.1394) * Math.pow((273 + t) / 100, 1.9735) * Math.pow(Q / 100, 0.1237);
+  0.1660 * Math.pow(W / (100 - W), 1.1394) * Math.pow((273.15 + t) / 100, 1.9735) * Math.pow(Q / 100, 0.1237);
 const specBn = (W, Q, t) => {
   const A = 0.3604 - 2.5681e-2 * W + 6.8488e-4 * W * W - 8.0158e-6 * W * W * W + 3.5601e-8 * W * W * W * W;
   const B = 50.84 - 3.516 * W + 9.122e-2 * W * W - 1.0492e-3 * W * W * W + 4.611e-6 * W * W * W * W;
@@ -106,6 +106,14 @@ ok(bpeEvaporator(65, 85, tSat20) > 0, 'BPE positive at water Tsat');
 
 // I. Garbage in -> NaN out (no silent numbers)
 ok(Number.isNaN(bpeEvaporator('', '', '')), 'blank inputs -> NaN');
+
+// J. Range warnings carry rounded numbers (no 16-decimal walls)
+{
+  const w = bpeEvaporatorRangeWarning(13.5000000135, 85, 114.99999953);
+  ok(typeof w === 'string' && w.includes('DS 13.50%') && w.includes('115.0'), 'warning rounds DS/T (got: ' + w + ')');
+  ok(!/\d\.\d{5,}/.test(w), 'no long-decimal numbers leak into warnings');
+  ok(bpeEvaporatorRangeWarning(70, 85, 65) === null, 'in-window state warns nothing');
+}
 
 console.log(fail === 0 ? 'ALL EVAP BPE TESTS PASS' : fail + ' FAILURES');
 process.exit(fail ? 1 : 0);

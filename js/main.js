@@ -6362,7 +6362,9 @@
       ? '<div class="info" style="margin-bottom:12px">Total Solids is set, but no global balance exists yet: the frozen steam flow may not reproduce the Total Solids target. Values below are indicative.</div>' : '';
     const statusNote = microOK
       ? ((micro.status==='STEAM_STARVED' ? '<div class="info" style="margin-bottom:12px">Micro-solve reports a steam-starved body (100% condensation clamp).</div>' : '')
-        + (micro.note ? `<div class="info" style="margin-bottom:12px">${escapeHtml(micro.note)}</div>` : '')
+        + (micro.note ? ((/validated range/.test(micro.note))
+          ? `<div class="info" style="margin-bottom:12px" title="${escapeHtml(micro.note)}">BPE extrapolated outside validated range — indicative only (hover for detail).</div>`
+          : `<div class="info" style="margin-bottom:12px">${escapeHtml(micro.note)}</div>`) : '')
         + (micro.cached ? '<div class="info" style="margin-bottom:12px">H and DT are cached from the last global balance.</div>' : ''))
       : `<div class="pan-design-note fail" style="margin-bottom:12px">${escapeHtml(micro.message||'Micro-solve unavailable (NO_INLET_STATE).')}</div>`;
 
@@ -6407,16 +6409,14 @@
           <div class="pan-modern-card">
             <div class="pan-modern-card-head"><span>Sizing Calculation</span></div>
             <div class="pan-modern-card-body" style="padding:10px">
-              <div class="pan-modern-field" style="margin-bottom:8px">
-                <label>Mode</label>
-                <select id="evapSizeMode">
-                  <option value="CALC_AREA">Solve for Heating Surface Area A (from U)</option>
-                  <option value="CALC_HTC">Solve for Heat Transfer Coefficient U (from A)</option>
-                </select>
-              </div>
+              <div style="font-size:8.5px;color:#7a8a97;margin-bottom:8px">Enter Heating Surface to get Heat Transfer Coefficient — or — Enter Heat Transfer Coefficient to get Heating Surface.</div>
               <div class="grid2">
                 <div class="pan-modern-field"><label>Heat Transfer Coef U (${evapHTCUnit()})</label><input id="evapSizeU" type="number" step="any" value="${escapeHtml(String(evapDispHTC(p.htc_W_m2K)??''))}"></div>
                 <div class="pan-modern-field"><label>Heating Surface Area A (${evapAreaUnit()})</label><input id="evapSizeA" type="number" step="any" value="${escapeHtml(String(evapDispArea(p.heatingSurface_m2)??''))}"></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="small-btn" id="evapSizeCalcU">Calculate HTC</button>
+                <button class="small-btn" id="evapSizeCalcA">Calculate Surface</button>
               </div>
               <div id="evapSizeResult" style="margin-top:10px;padding:8px;background:#eef6fc;border-radius:4px;font-size:10px;font-weight:800;color:#1d558b;">
                 Result: Ready to calculate
@@ -6425,7 +6425,6 @@
           </div>
         </div>
         <div class="subdialog-foot" style="padding:10px 15px;display:flex;justify-content:flex-end;gap:8px">
-          <button class="small-btn" id="evapSizeCompute">Calculate</button>
           <button class="small-btn primary" id="evapSizeApply">Apply to Station</button>
         </div>
       </div>
@@ -6436,42 +6435,43 @@
     const dtIn = modal.querySelector('#evapSizeDT');
     const uIn = modal.querySelector('#evapSizeU');
     const aIn = modal.querySelector('#evapSizeA');
-    const modeSel = modal.querySelector('#evapSizeMode');
     const resBox = modal.querySelector('#evapSizeResult');
 
-    function compute(){
+    function basisOK(){
       const q_W = Number(qIn.value) * 1e6;
       const dt = Number(dtIn.value);
-      if(dt <= 0 || q_W <= 0){ resBox.textContent = 'Thermal duty and ΔT must be greater than zero.'; return; }
-      if(modeSel.value === 'CALC_AREA'){
-        const u = Number(uIn.value);
-        if(u <= 0){ resBox.textContent = 'U must be greater than zero.'; return; }
-        const a = q_W / (u * dt);
-        aIn.value = a.toFixed(1);
-        resBox.textContent = `Calculated Heating Surface A = ${a.toFixed(1)} m² (at U = ${u.toFixed(1)} W/m²·K, ΔT = ${dt.toFixed(1)} K)`;
-      }else{
-        const a = Number(aIn.value);
-        if(a <= 0){ resBox.textContent = 'Heating Surface A must be greater than zero.'; return; }
-        const u = q_W / (a * dt);
-        uIn.value = u.toFixed(1);
-        resBox.textContent = `Calculated Heat Transfer Coef U = ${u.toFixed(1)} W/m²·K (at A = ${a.toFixed(1)} m², ΔT = ${dt.toFixed(1)} K)`;
-      }
+      if(dt <= 0 || q_W <= 0){ resBox.textContent = 'Thermal duty and ΔT must be greater than zero.'; return null; }
+      return {q_W, dt};
+    }
+    // SUGARS Scn-2: each field has its own Calculate button — entering one
+    // value fills the other, in either direction, with no mode to switch.
+    function calcFromU(){
+      const b=basisOK();if(!b)return;
+      const u = Number(uIn.value);
+      if(u <= 0){ resBox.textContent = 'U must be greater than zero.'; return; }
+      const a = b.q_W / (u * b.dt);
+      aIn.value = a.toFixed(1);
+      resBox.textContent = `Calculated Heating Surface A = ${a.toFixed(1)} m² (at U = ${u.toFixed(1)} W/m²·K, ΔT = ${b.dt.toFixed(1)} K)`;
+    }
+    function calcFromA(){
+      const b=basisOK();if(!b)return;
+      const a = Number(aIn.value);
+      if(a <= 0){ resBox.textContent = 'Heating Surface A must be greater than zero.'; return; }
+      const u = b.q_W / (a * b.dt);
+      uIn.value = u.toFixed(1);
+      resBox.textContent = `Calculated Heat Transfer Coef U = ${u.toFixed(1)} W/m²·K (at A = ${a.toFixed(1)} m², ΔT = ${b.dt.toFixed(1)} K)`;
     }
 
-    modeSel.onchange = ()=>{
-      if(modeSel.value === 'CALC_AREA'){ uIn.disabled = false; aIn.disabled = true; }
-      else{ uIn.disabled = true; aIn.disabled = false; }
-      compute();
-    };
-    modeSel.onchange();
     if(!microOK){
-      modeSel.disabled=true;uIn.disabled=true;aIn.disabled=true;
-      modal.querySelector('#evapSizeCompute').disabled=true;
+      uIn.disabled=true;aIn.disabled=true;
+      modal.querySelector('#evapSizeCalcU').disabled=true;
+      modal.querySelector('#evapSizeCalcA').disabled=true;
       resBox.textContent=micro.message||'Micro-solve unavailable.';
     }
 
     modal.querySelector('#evapSizeClose').onclick = ()=> modal.classList.remove('show');
-    modal.querySelector('#evapSizeCompute').onclick = compute;
+    modal.querySelector('#evapSizeCalcU').onclick = calcFromA;
+    modal.querySelector('#evapSizeCalcA').onclick = calcFromU;
     modal.querySelector('#evapSizeApply').onclick = ()=>{
       pushHistory();
       n.params.htc_W_m2K = String(evapStoreHTC(uIn.value)??'');
@@ -9278,7 +9278,7 @@
     if(!Number.isFinite(tw))return {ok:false,code:'BPE_TSAT_INVALID',message:'Pure-water saturation temperature is required.'};
     const AX=0.1660,BX=1.1394,CX=1.9735,DX=0.1237;
     const ratio=W/(100-W);
-    const bpe=AX*Math.pow(ratio,BX)*Math.pow((273+tw)/100,CX)*Math.pow(Q/100,DX);
+    const bpe=AX*Math.pow(ratio,BX)*Math.pow((273.15+tw)/100,CX)*Math.pow(Q/100,DX);
     if(!Number.isFinite(bpe)||bpe<0)return {ok:false,code:'BPE_CALCULATION_FAILED',message:'Saska ASI 2002 Eq. 8 calculation failed.'};
     const warnings=[];
     if(W<65||W>80)warnings.push(`WDS ${W.toFixed(3)}% is outside the paper's direct experimental concentration band (~65–80%); result is extrapolated.`);
@@ -9343,9 +9343,79 @@
     const leg=(m==='bn'||m==='saska')?m:bpeEvaporatorModelFor(W);
     const R=BPE_EVAP_RANGES[leg];
     const outs=[];
-    if(!(W>=R.W[0]&&W<=R.W[1]))outs.push(`DS ${W}% is outside the ${R.label} validated range (${R.W[0]}–${R.W[1]} %)`);
-    if(!(t>=R.T[0]&&t<=R.T[1]))outs.push(`temperature ${t} °C is outside the ${R.label} validated range (${R.T[0]}–${R.T[1]} °C)`);
+    if(!(W>=R.W[0]&&W<=R.W[1]))outs.push(`DS ${W.toFixed(2)}% is outside the ${R.label} validated range (${R.W[0]}–${R.W[1]} %)`);
+    if(!(t>=R.T[0]&&t<=R.T[1]))outs.push(`temperature ${t.toFixed(1)} °C is outside the ${R.label} validated range (${R.T[0]}–${R.T[1]} °C)`);
     return outs.length?outs.join(' '):null;
+  }
+
+  // Adopted 2026-10-03 (sugar-properties evaluation, owner ADOPT): bisection
+  // inversion of Saska Eq. 8 — measured liquor T + purity + tbW → WDS.
+  // Pure (no DOM); bpeSaskaASI2002Eq8 is the verified forward equation.
+  // Strict coercion (unlike UI-tolerant p2num): missing/blank coefficient or
+  // state inputs are rejected, never silently zeroed.
+  function p2finStrict(v){
+    if(v===null||v===undefined||v==='')return NaN;
+    const n=Number(v);return Number.isFinite(n)?n:NaN;
+  }
+  function inferBrixFromBpeSaskaEq8(measuredTempC,purityPct,tbWaterC,tol,maxIter){
+    const Tm=p2num(measuredTempC),Q=p2num(purityPct),tw=p2num(tbWaterC);
+    const tolerance=(tol===undefined||tol===null||tol==='')?0.01:Number(tol);
+    const iters=(maxIter===undefined||maxIter===null||maxIter==='')?100:Math.floor(Number(maxIter));
+    if(!Number.isFinite(Tm)||!(Q>0&&Q<=100)||!Number.isFinite(tw))
+      return {ok:false,code:'INFER_BRIX_INPUT_INVALID',message:'Measured temperature, purity 0–100% and water saturation temperature are required.'};
+    if(!(tolerance>0)||!(iters>0))
+      return {ok:false,code:'INFER_BRIX_SOLVER_INVALID',message:'Positive tolerance and iteration count are required.'};
+    const target=Tm-tw;
+    if(target<0)return {ok:false,code:'INFER_BRIX_BELOW_SATURATION',message:'Measured temperature is below the water saturation temperature.'};
+    let lo=0,hi=99;
+    for(let i=0;i<iters;i++){
+      const mid=(lo+hi)/2,r=bpeSaskaASI2002Eq8(mid,Q,tw);
+      if(!r||!r.ok)return {ok:false,code:'INFER_BRIX_FORWARD_FAILED',message:'Saska Eq. 8 forward evaluation failed during inversion.'};
+      if(Math.abs(r.bpe-target)<tolerance)
+        return {ok:true,brix:mid,targetBPE:target,achievedBPE:r.bpe,iterations:i+1,method:'INFER_BRIX_SASKA_EQ8_BISECTION'};
+      if(r.bpe<target)lo=mid;else hi=mid;
+    }
+    const brix=(lo+hi)/2,r=bpeSaskaASI2002Eq8(brix,Q,tw);
+    return {ok:true,brix,targetBPE:target,achievedBPE:r&&r.ok?r.bpe:NaN,iterations:iters,method:'INFER_BRIX_SASKA_EQ8_BISECTION',convergenceWarning:'Tolerance not met within iteration budget.'};
+  }
+
+  // Adopted 2026-10-03 (owner ADOPT): parameterized saturation-coefficient
+  // forms. Coefficients are ALWAYS caller-supplied — no hardcoded defaults
+  // (registry HB-WAGNEROWSKI: 1.0/0.088 is one factory's pair, not the eq).
+  function saturationCoefficientWagnerowski(nsw,coeffs){
+    const NSW=p2finStrict(nsw);
+    const a=coeffs?p2finStrict(coeffs.a):NaN,b=coeffs?p2finStrict(coeffs.b):NaN;
+    if(!Number.isFinite(NSW)||NSW<0)
+      return {ok:false,code:'SC_NSW_INVALID',message:'Non-sucrose/water ratio must be finite and non-negative.'};
+    if(!Number.isFinite(a)||!Number.isFinite(b))
+      return {ok:false,code:'SC_COEFFS_REQUIRED',message:'Wagnerowski coefficients a and b are required (no defaults).'};
+    const warnings=[];
+    if(NSW<1.6||NSW>3.5)warnings.push(`NSW ${NSW.toFixed(3)} is outside the Wagnerowski validated range (1.6–3.5); computed with warning.`);
+    return {ok:true,Sc:a*NSW+b,NSW,a,b,method:'SC_WAGNEROWSKI_PARAM',source:'HB-WAGNEROWSKI',warnings,extrapolated:warnings.length>0};
+  }
+  function saturationCoefficientCane(nsw,coeffs){
+    const NSW=p2finStrict(nsw);
+    const a=coeffs?p2finStrict(coeffs.a):NaN,b=coeffs?p2finStrict(coeffs.b):NaN,c=coeffs?p2finStrict(coeffs.c):NaN;
+    if(!Number.isFinite(NSW)||NSW<0)
+      return {ok:false,code:'SC_NSW_INVALID',message:'Non-sucrose/water ratio must be finite and non-negative.'};
+    if(!Number.isFinite(a)||!Number.isFinite(b)||!Number.isFinite(c))
+      return {ok:false,code:'SC_COEFFS_REQUIRED',message:'Cane Vavrinecz coefficients a, b and c are required (no defaults).'};
+    // HB rule (registry HB-VAVRINECZ-SC / HB-WAGNEROWSKI): c = 0 entered →
+    // Wagnerowski equation is used. Same 1e-14 convention as the monolith.
+    if(Math.abs(c)<1e-14)
+      return {ok:true,Sc:a*NSW+b,NSW,a,b,c,method:'SC_CANE_C0_WAGNEROWSKI',source:'HB-WAGNEROWSKI',warnings:[],extrapolated:false};
+    const Sc=a*NSW+b+(1-b)*Math.exp(c*NSW);
+    if(!(Sc>0))return {ok:false,code:'SC_NONPOSITIVE',message:'Cane saturation coefficient is not positive.'};
+    return {ok:true,Sc,NSW,a,b,c,method:'SC_CANE_VAVRINECZ_PARAM',source:'HB-VAVRINECZ-SC',warnings:[],extrapolated:false};
+  }
+  // Cane coefficient mapping from reducing-sugar/ash ratio. B0/B1/B2 are
+  // factory-specific and caller-supplied (no defaults); the mapping shape is
+  // an adopted external form, values are never invented here.
+  function caneVavrineczCoeffsFromRsAsh(rsAshRatio,B0,B1,B2){
+    const r=p2finStrict(rsAshRatio),b0=p2finStrict(B0),b1=p2finStrict(B1),b2=p2finStrict(B2);
+    if(![r,b0,b1,b2].every(Number.isFinite))
+      return {ok:false,code:'SC_CANE_MAP_INPUT_INVALID',message:'rs/ash ratio and B0, B1, B2 are all required.'};
+    return {ok:true,a:b0+b1*r+b2*r*r,rsAshRatio:r,B0:b0,B1:b1,B2:b2,method:'SC_CANE_MAP_RS_ASH_PARAM'};
   }
 
   // Saska 2002 Eq. 16: BPE-based supersaturation monitor for future Pan/control use.

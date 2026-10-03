@@ -219,6 +219,13 @@ const reset = () => { state.nodes = []; state.streams = []; for (const k of Obje
   has(/VAPOR · MAGENTA/, 'Vapor Out badge is mode-keyed');
   has(/FLOW · MAGENTA/, 'Flow Out badge is mode-keyed');
   ok(!/>A · MAGENTA<|>B · D · MAGENTA<|>C · MAGENTA</.test(src), 'letter badges gone');
+  // 10. Dialog B (Scn-2): two Calculate buttons, no mode select, compact BPE note
+  has(/id="evapSizeCalcU">Calculate HTC<\/button>/, 'Calculate HTC button (Scn-2)');
+  has(/id="evapSizeCalcA">Calculate Surface<\/button>/, 'Calculate Surface button (Scn-2)');
+  ok(!/id="evapSizeMode"/.test(src), 'mode select removed from evaporator sizing');
+  ok(!/id="evapSizeCompute"/.test(src), 'single Calculate button removed');
+  has(/Enter Heating Surface to get Heat Transfer Coefficient/, 'Scn-2 hint text');
+  has(/BPE extrapolated outside validated range/, 'BPE wall collapsed to one line');
 }
 console.log(fail === 0 ? 'ALL EVAP PHASE6 TESTS PASS' : fail + ' FAILURES');
 process.exit(fail ? 1 : 0);

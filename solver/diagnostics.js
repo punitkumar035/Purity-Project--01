@@ -82,11 +82,16 @@ function validateEquipmentSpecifics(node, def) {
       if (!params.mode) issues.push(`${node.type}: machine type not specified`);
       break;
 
-    case 'evaporator':
-      if (!Number.isFinite(parseFloat(params.heatTransferCoefficient))) {
-        issues.push('Evaporator: heat transfer coefficient not specified');
+    case 'evaporator': {
+      const mode = String(params.mode || 'PRESSURE').toUpperCase();
+      if (!['HTC', 'PRESSURE', 'FEEDBACK', 'FLOW_TEMP'].includes(mode)) {
+        issues.push('Evaporator: performance mode must be HTC, PRESSURE, FEEDBACK or FLOW_TEMP');
+      }
+      if (!String(params.stationName || '').trim()) {
+        issues.push('Evaporator: station name is required (V-01)');
       }
       break;
+    }
 
     case 'heater':
       if (!params.controlMode) issues.push('Heater: control mode not specified');
@@ -111,9 +116,12 @@ function validateEquipmentSpecifics(node, def) {
       }
       break;
 
-    case 'separatorFilter':
-      if (!params.presetProfile) issues.push('Separator/filter: preset profile not specified');
+    case 'separator': {
+      const sep = params.separator || {};
+      const splits = Array.isArray(sep.splits) ? sep.splits : [];
+      if (!splits.some(r => r && r.component)) issues.push('Separator: no split component specified');
       break;
+    }
   }
 
   return issues;

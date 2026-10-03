@@ -14,6 +14,7 @@ const SUITES = [
   ['phase7-modeb-solve', process.execPath, [path.join(__dirname, 'evap_phase7_modeb.js')]],
   ['phase8-plumbing-hardening', process.execPath, [path.join(__dirname, 'evap_phase8_plumbing.js')]],
   ['ui9-netstatus-box', process.execPath, [path.join(__dirname, 'ui_phase9_netstatus.js')]],
+  ['properties-crosscheck', process.execPath, [path.join(__dirname, 'properties_crosscheck.js')]],
 ];
 let failed = 0;
 for (const [name, cmd, args, quiet] of SUITES) {
