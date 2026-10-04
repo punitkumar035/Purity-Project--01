@@ -2158,7 +2158,10 @@
   }
 
   function renderEmpty(){
-    emptyState.style.display = (state.nodes.length||state.connectors.length) ? 'none':'block';
+    const hasContent=!!(state.nodes.length||state.connectors.length);
+    emptyState.style.display = hasContent?'none':'block';
+    // Legend would collide with the empty-state text on a blank canvas.
+    document.querySelectorAll('.flow-legend').forEach(el=>{el.style.display=hasContent?'':'none';});
   }
 
 
@@ -4976,7 +4979,7 @@
       window.__updateRibbonSelection();
     }
     if(!propsContent)return;
-    if(!selected){propsContent.innerHTML='<div class="selection-hint">Select an object. <b>Double-click a station or connected flow stream</b> to open its floating property window.</div>';return;}
+    if(!selected){propsContent.innerHTML='<div class="prop-card"><div class="prop-card-head">No selection</div><div class="prop-card-body"><div class="info">Select a station or connector on the flowsheet.<br><br><b>Double-click</b> a station or a connected flow stream to open its floating property window.<br><br>Drag new stations from the palette on the left.</div></div></div>';return;}
     if(selected.kind==='node'){
       const n=getNode(selected.id);
       propsContent.innerHTML=n?`<div class="selection-hint"><b>#${escapeHtml(n.stationNumber||'—')} · ${escapeHtml(n.equipmentTag||'—')}</b><br>${escapeHtml(n.label)}<br><br>Double-click the station on the flowsheet to open its floating engineering property window.</div>`:'';
@@ -17521,7 +17524,7 @@ action:n.type==='splitter'
           command('Next Page',()=>PageManager.nextPage(),'route','Go to next page (PageDown)'),
           command('Prev Page',()=>PageManager.previousPage(),'route','Go to previous page (PageUp)')
         ],
-        Flowsheet:[palette,props,existing('Fit View','fitBtn','zoom'),command('Home',()=>{setZoom(1);const vp=document.getElementById('viewport');if(vp)vp.scrollTo(0,0);const pgs=PageManager.getPages();if(pgs.length)PageManager.activatePage(pgs[0].id);toast('Home view: 100%, origin, Page 1.');},'home','Reset zoom, origin and first page','home-dark'),flowLegendsCmd],
+        Flowsheet:[palette,props,existing('Fit View','fitBtn','zoom'),command('Home',()=>{setZoom(1);const vp=document.getElementById('viewport');if(vp)vp.scrollTo(0,0);const pgs=PageManager.getPages();if(pgs.length)PageManager.activatePage(pgs[0].id);toast('Home view: 100%, origin, Page 1.');},'home','Reset zoom, origin and first page'),flowLegendsCmd],
         Calculate:[existing('Solve Network','solveBtn','__logo__'),command('Solve (Python)',()=>solveWithPythonBackend(),'settings'),audit]
       },
       Insert:{

@@ -41,9 +41,9 @@ for (const sel of ['.palette-item::after', '.group-title::before', '.page-tab.ac
   'grid-template-columns:290px']) ok(glass.includes(sel), 'glass covers ' + sel);
 const exits = (js.match(/setStatus\('/g) || []).length;
 ok(exits >= 10, 'solver exits route via setStatus (' + exits + ' call sites)');
-// home button (dark theme) + layout diagnostic gate
-ok(js.includes("command('Home'") && js.includes("'home'") && js.includes('home-dark'), 'Home command wired with dark theme class');
-ok(/\.ribbon-command\.home-dark\{/.test(glass), 'dark-button theme present');
+// home button (standard tile; dark theme retired 2026-10-04) + layout diagnostic gate
+ok(js.includes("command('Home'") && js.includes("'home'") && !js.includes('home-dark'), 'Home command wired as standard tile (no dark class)');
+ok(!/\.ribbon-command\.home-dark\{/.test(glass), 'dark-button theme retired');
 ok(js.includes("qp.get('debug')==='layout'"), 'layout diagnostic overlay gated behind ?debug=layout');
 // dock verification: placement checked at runtime, failure self-reports
 ok(js.includes("pill.parentElement===tools"), 'dock placement is verified at runtime');
