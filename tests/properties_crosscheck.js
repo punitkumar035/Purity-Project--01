@@ -308,16 +308,20 @@ ok(inferBrixFromBpeSaskaEq8(70, 85, 60, 0, 100).ok === false, 'bisection rejects
   ok(m > 0, 'eq16 monitor still present');
 }
 // ---------- L. UEI-BPE-001 legs (oracles; no production use) ----------
-// Parity anchors from the Python reference run (owner-supplied values, quoted
-// to 2 decimals — 0.006 tolerance covers rounding, not float error).
-approx(oracleBpeSP(65, 100), 3.79, 0.006, 'parity S&P(65,t0=100)=3.79');
-approx(oracleBpeKadlec(65, 100), 4.07, 0.006, 'parity Kadlec(65,t0=100)=4.07');
-approx(oracleBpeSP(80, 100), 9.45, 0.006, 'parity S&P(80,t0=100)=9.45');
-approx(oracleBpeKadlec(80, 100), 9.35, 0.006, 'parity Kadlec(80,t0=100)=9.35');
-approx(oracleBpeSP(70, 60), 3.99, 0.006, 'parity S&P(70,t0=60)=3.99');
-approx(oracleBpeKadlec(70, 60), 4.01, 0.006, 'parity Kadlec(70,t0=60)=4.01');
-approx(oracleBpeSaska273(75, 85, 60), 6.11, 0.02, 'parity Saska-273(75,85,60)=6.11 (0.02 covers 273-vs-273.15)');
-approx(oracleBpeRWater(373.15), 40657, 1.0, 'parity r(373.15K)~40657 J/mol');
+// Parity anchors from the Python reference run (owner-supplied full-precision
+// regression anchors, not independent data).
+approx(oracleBpeSP(65, 100), 3.79317763, 1e-6, 'parity S&P(65,t0=100)');
+approx(oracleBpeKadlec(65, 100), 4.07233148, 1e-6, 'parity Kadlec(65,t0=100)');
+approx(oracleBpeSP(80, 100), 9.45481869, 1e-6, 'parity S&P(80,t0=100)');
+approx(oracleBpeKadlec(80, 100), 9.34928749, 1e-6, 'parity Kadlec(80,t0=100)');
+approx(oracleBpeSP(70, 60), 3.99362374, 1e-6, 'parity S&P(70,t0=60)');
+approx(oracleBpeKadlec(70, 60), 4.00504266, 1e-6, 'parity Kadlec(70,t0=60)');
+approx(oracleBpeSaska273(75, 85, 60), 6.11016392, 1e-6, 'parity Saska-273 as printed');
+approx(bpeSaskaASI2002Eq8(75, 85, 60).bpe, 6.11559683, 1e-6, 'parity Saska-273.15 engine');
+approx(bpeBatterhamNorgate(75, 85, 60), 5.64159031, 1e-6, 'parity B&N engine');
+approx(oracleBpeRWater(373.15), 40657.2537, 0.01, 'parity r(373.15K) J/mol');
+approx(oracleBpeIdeal(70, 20), 2.52535234, 1e-6, 'parity Raoult ideal ws=70 P=20kPa');
+approx(oracleBpeSP(70, oracleBpeTsatK(20 / 1000) - 273.15) / oracleBpeIdeal(70, 20), 1.581961, 1e-5, 'parity S&P/ideal ratio');
 // IF97 Tsat to 1 mK at the standard Region-4 test points (both paths).
 for (const [pMPa, TK] of [[0.1, 372.755919], [1.0, 453.035632], [10.0, 584.149488]]) {
   approx(oracleBpeTsatK(pMPa), TK, 1e-3, 'oracle IF97 Tsat(' + pMPa + 'MPa) to 1mK');
@@ -329,12 +333,17 @@ for (let ws = 40; ws <= 80; ws += 5) for (let t0 = 50; t0 <= 100; t0 += 10) {
   if (d > 0.6) { console.log('FAIL: UEI-BPE-001 pure cross-leg>0.6 ws=' + ws + ' t0=' + t0 + ' |d|=' + d.toFixed(3)); fail++; }
 }
 console.log('ok: UEI-BPE-001 pure cross-leg band ws40-80/t0 50-100 enforced');
-// Saska-at-Q100 offset vs S&P (known 0.7-1.1 step): report only, never gated.
+// Saska-at-Q100 offset vs S&P (known step): log-only, never gated.
+// Owner-attributed figures: 0.59-1.14 in ASI fitted range (ws 65-80,
+// t0 55-75); worst 1.37 at ws=80/t0=100 (outside ASI t0 fit); min 0.22.
 {
-  let worst = 0;
-  for (let ws = 40; ws <= 80; ws += 5) for (let t0 = 50; t0 <= 100; t0 += 10)
-    worst = Math.max(worst, Math.abs(oracleBpeSaska273(ws, 100, t0) - oracleBpeSP(ws, t0)));
-  console.log('info: UEI-BPE-001 saska(Q100)/S&P offset worst=' + worst.toFixed(3) + ' (known step, report only)');
+  let worst = 0, worstAt = '', inWorst = 0;
+  for (let ws = 40; ws <= 80; ws += 5) for (let t0 = 50; t0 <= 100; t0 += 10) {
+    const d = Math.abs(oracleBpeSaska273(ws, 100, t0) - oracleBpeSP(ws, t0));
+    if (d > worst) { worst = d; worstAt = 'ws=' + ws + ' t0=' + t0; }
+    if (ws >= 65 && t0 >= 55 && t0 <= 75) inWorst = Math.max(inWorst, d);
+  }
+  console.log('info: UEI-BPE-001 saska(Q100)/S&P worst=' + worst.toFixed(3) + ' at ' + worstAt + '; in-range worst=' + inWorst.toFixed(3));
 }
 // Raoult canary on the S&P leg (independent t0 path).
 // Bounds: 0.97 lower is PHYSICAL (negative deviation from Raoult => real BPE

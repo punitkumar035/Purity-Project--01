@@ -112,3 +112,9 @@ Saska-at-Q100 offset report-only (measured worst 1.37 over that grid vs
 file claim 0.7-1.1). Blend zone + thresholds stay harness-internal.
 Saska keeps 273 as printed in that file; engine keeps adopted 273.15.
 Stencil spec §8 KBD note corrected to second-hand availability.
+Addendum (owner-attributed 2026-10-04): ASI(Q=100) minus S&P offset is
+0.59–1.14 °C within ASI's fitted range (ws 65–80, t0 55–75 °C); worst
+1.37 °C over the wider scoped grid at ws=80, t0=100 (outside ASI's fitted
+t0 range — extrapolation), min 0.22 °C at ws=40, t0=50. Saska 2002 text
+states 0.5–1 °C; the earlier "0.7–1.1" was a ws 70–80 subset. Harness logs
+in-range worst each run, log-only.

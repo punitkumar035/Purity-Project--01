@@ -8,9 +8,8 @@ correct — ours matched the Help Book verbatim in all four.
 **Subject:** `sugar_properties_module.py` (Downloads copy, external reference) vs
 our Universal Flow property engine (`js/main.js` stream/property sections).
 **Method:** analytical formula-vs-formula comparison against the Help Book
-skill (`sugars-helpbook.skill`) and repo sources. No code was executed, so no
-numeric proof exists yet — numbers below are hand-derived spot checks, to be
-proven by the differential harness on confirmation.
+skill (`sugars-helpbook.skill`) and repo sources. As written for sections 1-5,
+no code was executed; sections 6-10 report executed harness output.
 
 ---
 
