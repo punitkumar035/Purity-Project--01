@@ -97,3 +97,18 @@ with these logged, not failed. Scope is HARNESS-ONLY: production
 `centHelpbookSyrupCpKJkgK` (HB Bartens Eq 341/3, verbatim) is unchanged;
 replacing engine cp with Martins would need a separate decision with full
 energy-balance revalidation. See evaluation report §7–§8.
+
+## UEI-BPE-001 — Unified BPE harness (bpe_harness_v2.py, Downloads oracle)
+Status: EVALUATED + PORTED (oracles + canary in properties_crosscheck.js);
+oracle file stays out of repo. No production use.
+Provenance (owner-supplied): S&P eq.28 double-sourced (Starzak & Peacock,
+Zuckerindustrie 123 (1998) 433-441 eqs.28/32/33 via owner PDF + Saska 2002
+eq.3 cross-check). Kadlec eq.32 SINGLE-SOURCE second-hand (1978 original
+unsighted) — oracle only, never production without the original.
+Ported: S&P eq.28 + Kadlec eq.32 JS oracles (parity anchors pass);
+Raoult canary (exact, IF97-native; 0.97 floor physical, 2.5 ceiling
+empirical/advisory); S&P<->Kadlec 0.6 band scoped ws 40-80 / t0 50-100;
+Saska-at-Q100 offset report-only (measured worst 1.37 over that grid vs
+file claim 0.7-1.1). Blend zone + thresholds stay harness-internal.
+Saska keeps 273 as printed in that file; engine keeps adopted 273.15.
+Stencil spec §8 KBD note corrected to second-hand availability.

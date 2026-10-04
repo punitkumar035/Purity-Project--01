@@ -100,3 +100,5 @@ this machine — seed-then-advance if it recurs.
 tertiary / Martins deprecated — all registry JSON, harness measured green
 (4 bias-warnings, 0 critical). UEI-006 RESOLVED. Full suite ALL PASS.
 WITH OWNER FOR REVIEW before merge+tag (uei-006-density-harness).
+2026-10-04 density merged: f69f721 direct on main, tag uei-006-density-harness pushed. origin/main in sync, tree clean. UEI-006 RESOLVED.
+2026-10-04 UEI-BPE-001 ported (oracles+canary, anchors+band enforced). Suite ALL PASS. With owner for review; no merge.

@@ -229,3 +229,15 @@ hardcoded `1.0−0.088·NSW` — do NOT adopt the constants on Python's word).
   together at the 4 warning states). Suite green by authority rule.
 - UEI-006 RESOLVED (architecture decided + measured). UEI-008 (Hugot/Lyle
   sourcing) and UEI-009 (hydrostatic, unbuilt) remain OPEN.
+
+## 10. UEI-BPE-001 legs (2026-10-04 — review before merge)
+
+- Earlier "KBD unavailable" verdict CORRECTED: Kadlec eq.32 available
+  second-hand (Starzak & Peacock 1998); 1978 original still unsighted.
+  S&P eq.28 double-sourced (1998 paper + Saska 2002 eq.3).
+- Ported to properties_crosscheck.js as oracles + Raoult canary (exact).
+  Anchors pass (2-decimal rounding tolerance); cross-leg band scoped
+  ws40-80/t0 50-100 enforced; Saska(Q100)/S&P offset worst 1.37 logged
+  report-only; canary 0.97 physical floor / 2.5 empirical ceiling commented.
+  Blend logic not ported; production BPE untouched; eq.16 stance unchanged.
+- Full suite ALL PASS. UEI-BPE-001 filed. Awaiting owner review; no merge.

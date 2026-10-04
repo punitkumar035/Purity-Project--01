@@ -369,7 +369,7 @@ Per body:
 
 ## 8. BPE model `[PROPOSED]`
 
-SUGARS itself uses Kadlec–Bretschneider–Dandor (coefficients not available to us). For our software provide `bpe(W_ds%, purity%, t_bW°C)` as an **engine-internal function with no UI control** (strict parity, 3.6): always `model="auto"`, `factor=1.0`. Results will differ slightly from SUGARS because the correlation differs, so regression tests should check balance closure and trends, not SUGARS digits. The Steam Pulp Dryer uses the same call with no special-casing (helpbook: calculations are the same for all types). Both cane models below were checked against the source paper (Saska, *Int. Sugar J.* 2002, 104, 500-507).
+SUGARS itself uses Kadlec–Bretschneider–Dandor (1978 original unsighted; eq.32 available second-hand via Starzak & Peacock, Zuckerindustrie 123 (1998) 433–441 — oracle use only, see UEI-BPE-001). For our software provide `bpe(W_ds%, purity%, t_bW°C)` as an **engine-internal function with no UI control** (strict parity, 3.6): always `model="auto"`, `factor=1.0`. Results will differ slightly from SUGARS because the correlation differs, so regression tests should check balance closure and trends, not SUGARS digits. The Steam Pulp Dryer uses the same call with no special-casing (helpbook: calculations are the same for all types). Both cane models below were checked against the source paper (Saska, *Int. Sugar J.* 2002, 104, 500-507).
 
 ```python
 def bpe_bn(W, Q, t):        # Batterham & Norgate (paper eq 5); valid W 47-84 %, t 40-75 C

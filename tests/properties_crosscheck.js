@@ -75,6 +75,40 @@ const oracleNSW = (ds, pu) => (ds * (100 - pu) / 100) / (100 - ds);
 const specS = (t) => 64.447 + 0.08222 * t - 0.0016169 * t * t - 1.558e-6 * t * t * t - 4.63e-8 * t * t * t * t;
 const specSc = (a, b, c, nsw) => Math.abs(c) < 1e-14 ? a * nsw + b : a * nsw + b + (1 - b) * Math.exp(c * nsw);
 const specNSW = (ds, pu) => (ds * (1 - pu / 100)) / (100 - ds);
+// ---------- ORACLE UEI-BPE-001 legs (bpe_harness_v2.py, verbatim JS ports) ----------
+// Provenance: S&P eq.28 double-sourced (Starzak & Peacock, Zuckerindustrie
+// 123 (1998) 433-441 eqs.28/32/33 via owner PDF + Saska 2002 eq.3 cross-check).
+// Kadlec eq.32 SINGLE-SOURCE second-hand (1978 original unsighted) — oracle
+// only, never production. Saska below keeps 273 AS PRINTED in that file;
+// our engine uses adopted 273.15 (both documented, ~0.005 C apart at BPE~6).
+const ORACLE_BPE_M_SUC = 342.30, ORACLE_BPE_M_WAT = 18.015;
+const oracleBpeXb = (ws) => { const ns = ws / ORACLE_BPE_M_SUC, nw = (100 - ws) / ORACLE_BPE_M_WAT; return ns / (ns + nw); };
+const oracleBpeRWater = (T) => 60347.4 - 169.558 * T + 0.8581937 * T * T - 2.11784e-3 * T * T * T + 1.76e-6 * T * T * T * T;
+const oracleBpeKadlec = (ws, t0) => {
+  const xb = oracleBpeXb(ws), a = [33.003, 170.517, -324.177, 172.554];
+  const poly = a.reduce((s, ai, i) => s + ai * Math.pow(xb, i + 1), 0);
+  const T0 = t0 + 273.15;
+  return (oracleBpeRWater(373.15) / oracleBpeRWater(T0)) * Math.pow(T0 / 373.15, 2) * poly;
+};
+const oracleBpeSP = (ws, t0) => {
+  const xb = oracleBpeXb(ws), B = 3797.06, C = 226.28, T0 = t0 + 273.15;
+  const f = xb * xb * (1.0 - 1.0038 * xb - 0.24653 * xb * xb);
+  const num = 1.0 + (2121.4 / B) * f * (t0 + C) / T0;
+  const den = 1.0 + (t0 + C) / B * Math.log(1.0 - xb);
+  return (num / den - 1.0) * (t0 + C);
+};
+const oracleBpeSaska273 = (W, Q, t0) =>
+  0.1660 * Math.pow(W / (100 - W), 1.1394) * Math.pow((273 + t0) / 100, 1.9735) * Math.pow(Q / 100, 0.1237);
+// Independent IF97 Region-4 transcription (standard constants) for the canary
+// path, so the canary never shares code with the engine Tsat under test.
+const ORACLE_BPE_NIF97 = [0.11670521452767e4, -0.72421316703206e6, -0.17073846940092e2, 0.12020824702470e5, -0.32325550322333e7, 0.14915108613530e2, -0.48232657361591e4, 0.40511340542057e6, -0.23855557567849, 0.65017534844798e3];
+const oracleBpeTsatK = (p_mpa) => {
+  const n = ORACLE_BPE_NIF97, b = Math.pow(p_mpa, 0.25);
+  const e = b * b + n[2] * b + n[5], f = n[0] * b * b + n[3] * b + n[6], g = n[1] * b * b + n[4] * b + n[7];
+  const d = 2.0 * g / (-f - Math.sqrt(f * f - 4.0 * e * g));
+  return 0.5 * (n[9] + d - Math.sqrt((n[9] + d) * (n[9] + d) - 4.0 * (n[8] + n[9] * d)));
+};
+const oracleBpeIdeal = (ws, p_kpa) => oracleBpeTsatK((p_kpa / 1000) / (1 - oracleBpeXb(ws))) - oracleBpeTsatK(p_kpa / 1000);
 // validate_against_sugars oracle (6 checks, plain values)
 function oracleValidate(o) {
   const out = [];
@@ -273,6 +307,45 @@ ok(inferBrixFromBpeSaskaEq8(70, 85, 60, 0, 100).ok === false, 'bisection rejects
   const m = src.indexOf('function supersaturationFromBpeSaskaASI2002Eq16(');
   ok(m > 0, 'eq16 monitor still present');
 }
+// ---------- L. UEI-BPE-001 legs (oracles; no production use) ----------
+// Parity anchors from the Python reference run (owner-supplied values, quoted
+// to 2 decimals — 0.006 tolerance covers rounding, not float error).
+approx(oracleBpeSP(65, 100), 3.79, 0.006, 'parity S&P(65,t0=100)=3.79');
+approx(oracleBpeKadlec(65, 100), 4.07, 0.006, 'parity Kadlec(65,t0=100)=4.07');
+approx(oracleBpeSP(80, 100), 9.45, 0.006, 'parity S&P(80,t0=100)=9.45');
+approx(oracleBpeKadlec(80, 100), 9.35, 0.006, 'parity Kadlec(80,t0=100)=9.35');
+approx(oracleBpeSP(70, 60), 3.99, 0.006, 'parity S&P(70,t0=60)=3.99');
+approx(oracleBpeKadlec(70, 60), 4.01, 0.006, 'parity Kadlec(70,t0=60)=4.01');
+approx(oracleBpeSaska273(75, 85, 60), 6.11, 0.02, 'parity Saska-273(75,85,60)=6.11 (0.02 covers 273-vs-273.15)');
+approx(oracleBpeRWater(373.15), 40657, 1.0, 'parity r(373.15K)~40657 J/mol');
+// IF97 Tsat to 1 mK at the standard Region-4 test points (both paths).
+for (const [pMPa, TK] of [[0.1, 372.755919], [1.0, 453.035632], [10.0, 584.149488]]) {
+  approx(oracleBpeTsatK(pMPa), TK, 1e-3, 'oracle IF97 Tsat(' + pMPa + 'MPa) to 1mK');
+  approx(satTempCFromKPa(pMPa * 1000) + 273.15, TK, 1e-3, 'engine IF97 Tsat(' + pMPa + 'MPa) to 1mK');
+}
+// S&P<->Kadlec cross-leg band, scoped per owner constraint: ws 40-80 %, t0 50-100 C.
+for (let ws = 40; ws <= 80; ws += 5) for (let t0 = 50; t0 <= 100; t0 += 10) {
+  const d = Math.abs(oracleBpeSP(ws, t0) - oracleBpeKadlec(ws, t0));
+  if (d > 0.6) { console.log('FAIL: UEI-BPE-001 pure cross-leg>0.6 ws=' + ws + ' t0=' + t0 + ' |d|=' + d.toFixed(3)); fail++; }
+}
+console.log('ok: UEI-BPE-001 pure cross-leg band ws40-80/t0 50-100 enforced');
+// Saska-at-Q100 offset vs S&P (known 0.7-1.1 step): report only, never gated.
+{
+  let worst = 0;
+  for (let ws = 40; ws <= 80; ws += 5) for (let t0 = 50; t0 <= 100; t0 += 10)
+    worst = Math.max(worst, Math.abs(oracleBpeSaska273(ws, 100, t0) - oracleBpeSP(ws, t0)));
+  console.log('info: UEI-BPE-001 saska(Q100)/S&P offset worst=' + worst.toFixed(3) + ' (known step, report only)');
+}
+// Raoult canary on the S&P leg (independent t0 path).
+// Bounds: 0.97 lower is PHYSICAL (negative deviation from Raoult => real BPE
+// above ideal); 2.5 upper is EMPIRICAL/ADVISORY (observed range envelope,
+// gross-error trip only, never overrides).
+for (const p of [10, 20, 50, 101.325]) for (let ws = 5; ws <= 85; ws += 5) {
+  const t0o = oracleBpeTsatK(p / 1000) - 273.15;
+  const ratio = oracleBpeSP(ws, t0o) / oracleBpeIdeal(ws, p);
+  if (!(ratio >= 0.97 && ratio <= 2.5)) { console.log('FAIL: UEI-BPE-001 canary out of [0.97,2.5] p=' + p + ' ws=' + ws + ' ratio=' + ratio.toFixed(3)); fail++; }
+}
+console.log('ok: UEI-BPE-001 Raoult canary band enforced (0.97 physical floor, 2.5 empirical ceiling)');
 
 console.log(fail === 0 ? 'ALL PROPERTIES CROSS-CHECK TESTS PASS' : fail + ' CROSS-CHECK(S) FAILED');
 process.exit(fail ? 1 : 0);
