@@ -102,3 +102,4 @@ tertiary / Martins deprecated — all registry JSON, harness measured green
 WITH OWNER FOR REVIEW before merge+tag (uei-006-density-harness).
 2026-10-04 density merged: f69f721 direct on main, tag uei-006-density-harness pushed. origin/main in sync, tree clean. UEI-006 RESOLVED.
 2026-10-04 UEI-BPE-001 ported (oracles+canary, anchors+band enforced). Suite ALL PASS. With owner for review; no merge.
+2026-10-04 fresh-clone proof: temp clone from local path, Node v24.14.0, full suite ALL PASS, temp deleted. Commit 5cff162 local-only (push on owner word).

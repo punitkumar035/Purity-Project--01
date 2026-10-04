@@ -117,4 +117,6 @@ Addendum (owner-attributed 2026-10-04): ASI(Q=100) minus S&P offset is
 1.37 °C over the wider scoped grid at ws=80, t0=100 (outside ASI's fitted
 t0 range — extrapolation), min 0.22 °C at ws=40, t0=50. Saska 2002 text
 states 0.5–1 °C; the earlier "0.7–1.1" was a ws 70–80 subset. Harness logs
-in-range worst each run, log-only.
+in-range worst each run, log-only. Harness now also evaluates the t0=75
+edge (ws 65–80): measured in-range worst including t0=75 is 1.142
+(consistent with the attributed 0.59–1.14 band at 2-decimal rounding).

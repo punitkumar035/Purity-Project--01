@@ -343,6 +343,10 @@ console.log('ok: UEI-BPE-001 pure cross-leg band ws40-80/t0 50-100 enforced');
     if (d > worst) { worst = d; worstAt = 'ws=' + ws + ' t0=' + t0; }
     if (ws >= 65 && t0 >= 55 && t0 <= 75) inWorst = Math.max(inWorst, d);
   }
+  for (let ws = 65; ws <= 80; ws += 5) {
+    const d = Math.abs(oracleBpeSaska273(ws, 100, 75) - oracleBpeSP(ws, 75));
+    if (d > inWorst) inWorst = d;
+  }
   console.log('info: UEI-BPE-001 saska(Q100)/S&P worst=' + worst.toFixed(3) + ' at ' + worstAt + '; in-range worst=' + inWorst.toFixed(3));
 }
 // Raoult canary on the S&P leg (independent t0 path).
