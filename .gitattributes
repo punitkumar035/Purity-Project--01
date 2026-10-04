@@ -1,0 +1,12 @@
+# Repo-local line-ending + binary policy (no content impact).
+# Text normalizes to LF in repo; checkout converts per platform (same as the
+# previous core.autocrlf=true behavior, now explicit and machine-independent).
+* text=auto
+# Explicit binary: never convert, never merge-text.
+*.gif binary
+*.png binary
+*.chm binary
+*.zip binary
+*.skill binary
+*.exe binary
+*.7z binary
