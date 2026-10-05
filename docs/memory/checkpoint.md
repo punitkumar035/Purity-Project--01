@@ -104,3 +104,8 @@ WITH OWNER FOR REVIEW before merge+tag (uei-006-density-harness).
 2026-10-04 UEI-BPE-001 ported (oracles+canary, anchors+band enforced). Suite ALL PASS. With owner for review; no merge.
 2026-10-04 fresh-clone proof: temp clone from local path, Node v24.14.0, full suite ALL PASS, temp deleted. Commit 5cff162 local-only (push on owner word).
 2026-10-04 skin fixes: legend hidden on empty canvas (renderEmpty), props empty-state glass card, Home tile standard (home-dark retired + phase-9 updated). Suite ALL PASS. Uncommitted; screenshot re-check then commit+push on sign-off.
+2026-10-04 Figma style applied (rounded/pastel per Design UI.zip) + 21-icon set with renderer exception + status strip (pills re-docked, phase-9 updated). Suite ALL PASS. Uncommitted; screenshot-vs-Figma review then commit+push on sign-off.
+2026-10-04 Figma canvas composition: zoom-tracked grid vars, watermark+caption+CTA in empty-state, reset/fit zoom icons, legend metrics. Braces balanced, suite ALL PASS. Uncommitted; screenshot-vs-Figma review then commit+push on sign-off.
+2026-10-04 canvas/props batch: watermark+CTA re-anchored to viewport, scheme default New Process Simulation, legend always-visible, dashboard empty state (counts/solver/attention/actions). Suite ALL PASS. Uncommitted; screenshot review then commit+push on sign-off.
+2026-10-04 void fix: 2-col grid override (4.8.4 removal honored), dashboard reverted, phase-9 grid assert updated. Suite ALL PASS. Uncommitted; screenshot review then commit+push on sign-off.
+2026-10-04 network tile: globe icon + display-only Network tile after Solver Audit, 3-state sync in setStatus (orange/green/red), phase-9 asserts. Suite ALL PASS. Uncommitted; screenshot review then commit+push on sign-off.

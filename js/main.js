@@ -30,7 +30,7 @@
     let state = {
     version: 5,
     schemaVersion: 2,
-    name: 'New Massecuite Scheme',
+    name: 'New Process Simulation',
     activePageId: 'page_1',
     pages: [
       {
@@ -1725,14 +1725,30 @@
     ok:'<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5.5"/>',
     bad:'<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>'
   };
+  // Network-tile state: uninitialized until a verdict-bearing status arrives.
+  // Boot-time bare setStatus('Unsolved') calls never flip the flag.
+  let networkAttempted=false;
   function setStatus(text, cls=''){
     try{if(typeof dockNetStatus==='function')dockNetStatus();}catch(_){}
     const solved=(cls==='ok');
+    if(solved||cls==='err')networkAttempted=true;
     const label=(cls==='info')?text:(solved?'network solved':'network unsolved');
     statusText.textContent=label;
     if(statusIcon)statusIcon.innerHTML=solved?NET_STATE_ICON.ok:NET_STATE_ICON.bad;
     statusEl.className='status-pill '+(solved?'ok':(cls==='info'?'info':'err'));
     statusEl.title=text||label;
+    try{
+      const tile=document.querySelector('.ribbon-command.network-tile');
+      if(tile){
+        const st=!networkAttempted?'init':(solved?'ok':'err');
+        const word=!networkAttempted?'Uninitialized':(solved?'Solved':'Unsolved');
+        tile.classList.remove('network-init','network-ok','network-err');
+        tile.classList.add('network-'+st);
+        const sp=tile.querySelector('span');
+        if(sp)sp.textContent='Network: '+word;
+        tile.title='Network '+word.toLowerCase()+' (display only)';
+      }
+    }catch(_){}
   }
   { const pill=document.getElementById('solverStatus');
     if(pill){pill.style.cursor='pointer';pill.onclick=()=>document.getElementById('auditBtn')?.click();} }
@@ -2159,9 +2175,13 @@
 
   function renderEmpty(){
     const hasContent=!!(state.nodes.length||state.connectors.length);
-    emptyState.style.display = hasContent?'none':'block';
-    // Legend would collide with the empty-state text on a blank canvas.
-    document.querySelectorAll('.flow-legend').forEach(el=>{el.style.display=hasContent?'':'none';});
+    // Empty-canvas composition (Figma): watermark + CTA share the condition.
+    // The legend stays visible (Figma shows it on empty canvas).
+    emptyState.style.display=hasContent?'none':'block';
+    const wm=document.getElementById('flowWatermark');
+    if(wm)wm.style.display=hasContent?'none':'block';
+    const cta=document.getElementById('emptyCta');
+    if(cta)cta.style.display=hasContent?'none':'block';
   }
 
 
@@ -4979,7 +4999,7 @@
       window.__updateRibbonSelection();
     }
     if(!propsContent)return;
-    if(!selected){propsContent.innerHTML='<div class="prop-card"><div class="prop-card-head">No selection</div><div class="prop-card-body"><div class="info">Select a station or connector on the flowsheet.<br><br><b>Double-click</b> a station or a connected flow stream to open its floating property window.<br><br>Drag new stations from the palette on the left.</div></div></div>';return;}
+    if(!selected){propsContent.innerHTML='<div class="selection-hint">Select an object. <b>Double-click a station or connected flow stream</b> to open its floating property window.</div>';return;}
     if(selected.kind==='node'){
       const n=getNode(selected.id);
       propsContent.innerHTML=n?`<div class="selection-hint"><b>#${escapeHtml(n.stationNumber||'—')} · ${escapeHtml(n.equipmentTag||'—')}</b><br>${escapeHtml(n.label)}<br><br>Double-click the station on the flowsheet to open its floating engineering property window.</div>`:'';
@@ -8708,10 +8728,14 @@
     world.style.transform=`scale(${zoom})`;
     worldWrap.style.width=(WORLD_W*zoom)+'px';
     worldWrap.style.height=(WORLD_H*zoom)+'px';
+    // Figma grid: background cells track zoom (16/80px at 100%).
+    viewport.style.setProperty('--grid-small',(16*zoom)+'px');
+    viewport.style.setProperty('--grid-large',(80*zoom)+'px');
     document.getElementById('zoomLabel').textContent=Math.round(zoom*100)+'%';
   }
   document.getElementById('zoomIn').onclick=()=>setZoom(zoom+.1);
   document.getElementById('zoomOut').onclick=()=>setZoom(zoom-.1);
+  { const cta=document.getElementById('emptyCta'); if(cta)cta.onclick=()=>toast('Drag a station from the palette onto the canvas to begin.'); }
   document.getElementById('zoomReset').onclick=()=>setZoom(1);
   document.getElementById('fitBtn').onclick=()=>{
     if(!state.nodes.length && !state.connectors.length){setZoom(1);viewport.scrollTo(0,0);return;}
@@ -8735,7 +8759,7 @@
     pushHistory();
     restoreStateObject({
       version: 5,
-      name: 'New Massecuite Scheme',
+      name: 'New Process Simulation',
       activePageId: 'page_1',
       pages: [{
         id: 'page_1',
@@ -17515,9 +17539,9 @@ action:n.type==='splitter'
         ]
       },
       Home:{
-        Project:[existing('Open','openBtn','import'),existing('Save','saveBtn','save')],
+        Project:[existing('Open','openBtn','folder'),existing('Save','saveBtn','save')],
         Edit:[existing('Undo','undoBtn','undo'),existing('Redo','redoBtn','redo'),
-          command('Copy Link',()=>copySelectedHalf(false),'copy','Copy selected link half (Ctrl+C) — paste to create its mate'),
+          command('Copy Link',()=>copySelectedHalf(false),'link','Copy selected link half (Ctrl+C) — paste to create its mate'),
           command('Paste Mate',()=>pasteClipboardAsMate(),'paste','Paste copied link half as its mate (Ctrl+V)')],
         Pages:[
           command('Add Page',()=>PageManager.createPage(),'file','Insert new drawing page'),
@@ -17525,7 +17549,8 @@ action:n.type==='splitter'
           command('Prev Page',()=>PageManager.previousPage(),'route','Go to previous page (PageUp)')
         ],
         Flowsheet:[palette,props,existing('Fit View','fitBtn','zoom'),command('Home',()=>{setZoom(1);const vp=document.getElementById('viewport');if(vp)vp.scrollTo(0,0);const pgs=PageManager.getPages();if(pgs.length)PageManager.activatePage(pgs[0].id);toast('Home view: 100%, origin, Page 1.');},'home','Reset zoom, origin and first page'),flowLegendsCmd],
-        Calculate:[existing('Solve Network','solveBtn','__logo__'),command('Solve (Python)',()=>solveWithPythonBackend(),'settings'),audit]
+        Calculate:[existing('Solve Network','solveBtn','__logo__'),command('Solve (Python)',()=>solveWithPythonBackend(),'code'),audit,
+          command('Network: Uninitialized',null,'globe','Network solve state (display only)','network-tile network-init')]
       },
       Insert:{
         Stations:[
@@ -17644,6 +17669,42 @@ action:n.type==='splitter'
       }
     };
     const icons={file:'M6 3h9l4 4v14H6z M14 3v5h5 M9 12h7 M9 16h7',save:'M4 3h14l3 3v15H3V3z M7 3v6h10V3 M7 21v-8h10v8',play:'M7 3l14 9L7 21z',table:'M3 4h18v16H3z M3 9h18 M9 4v16 M15 4v16',settings:'M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5 5l3 3 M16 16l3 3 M5 19l3-3 M16 8l3-3 M16 12a4 4 0 1 1-8 0 4 4 0 1 1 8 0',route:'M3 5h9v14h9 M18 16l3 3-3 3',station:'M5 3h14v17H5z M2 8h3 M19 15h3 M8 7h8 M8 11h8',zoom:'M17 10a7 7 0 1 1-14 0 7 7 0 1 1 14 0 M15 15l6 6 M6 10h8 M10 6v8',import:'M12 2v13 M7 10l5 5 5-5 M3 16v5h18v-5',export:'M12 16V3 M7 8l5-5 5 5 M3 16v5h18v-5',undo:'M8 4L3 9l5 5 M3 9h10a7 7 0 0 1 7 7',redo:'M16 4l5 5-5 5 M21 9H11a7 7 0 0 0-7 7',copy:'M9 9h11v11H9z M5 15V3h11',paste:'M6 3h12v18H6z M9 3h6v4H9z M9 12h6 M9 16h6',check:'M3 12l6 6L21 4',warning:'M12 3L2 21h20z M12 9v5 M12 17v1',numbers:'M3 6h3 M3 12h3 M3 18h3 M10 6h11 M10 12h11 M10 18h11',legend:'M3 11l8-8h5v5l-8 8z M14 6h.01 M5 19h5 M5 15.5h3',home:'M4 11l8-7 8 7 M6 9.8V20h12V9.8'};
+    // Figma icon set (Design UI.zip src/App.tsx, owner-supplied): replaces thin
+    // legacy strokes with standard 24px outlines + fills referenced gaps.
+    // Single-path `d` strings convert 1:1 (subpaths joined; rects/circles as
+    // paths; rx<=2 corners sharpened — invisible at tile size).
+    Object.assign(icons,{
+      folder:'M3.75 6.75h5.5l2 2h9v9.5a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2z M3.75 9V6.75a2 2 0 0 1 2-2h3.5l2 2',
+      save:'M5 3.75h11.5L20 7.25v13H4v-15.5a1 1 0 0 1 1-1Z M8 3.75v6h8v-6M8 20.25v-6.5h8v6.5',
+      undo:'m9 7-5 5 5 5 M20 18c0-4-3-6-8-6H4',
+      redo:'m15 7 5 5-5 5 M4 18c0-4 3-6 8-6h8',
+      link:'M10.5 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 1 0-5.7-5.7l-1.7 1.7 M13.5 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 1 0 5.7 5.7l1.7-1.7',
+      clipboard:'M9 5H6v16h12V5h-3 M9 4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1z M9 12h6M9 16h4',
+      plus:'M12 5v14M5 12h14',
+      next:'m9 5 7 7-7 7',
+      previous:'m15 5-7 7 7 7',
+      layers:'m12 3.5-9 5 9 5 9-5-9-5Z m3 12.5 9 5 9-5M3 16.5l9 5 9-5',
+      settings:'M8.75 12a3.25 3.25 0 1 0 6.5 0a3.25 3.25 0 1 0-6.5 0 M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z',
+      search:'M4 10.5a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0 m16 16 5 5',
+      list:'M9 6h12M9 12h12M9 18h12 M4 6h.01M4 12h.01M4 18h.01',
+      play:'m8 5 11 7-11 7Z',
+      audit:'M4 5.5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z M8 8h8M8 12h3M8 16h5M16 12v4M14 14h4',
+      home:'m3 11 9-8 9 8 M5 10v10h14V10M9 20v-6h6v6',
+      minus:'M5 12h14',
+      fit:'M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5',
+      reset:'M4 4v6h6 M5.5 16a8 8 0 1 0 .5-8l-2 2',
+      globe:'M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0 M2 12h20 M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z',
+      paste:'M9 5H6v16h12V5h-3 M9 4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1z M9 12h6M9 16h4'
+    });
+    // Full-markup icons (not paths): rendered raw by iconMarkup below.
+    icons.code='<svg width="24" height="24" viewBox="0 0 32 32" class="icon-raw" aria-hidden="true"><defs><linearGradient id="pyBlue" x1="4" y1="3" x2="20" y2="17" gradientUnits="userSpaceOnUse"><stop stop-color="#5A9FD4"/><stop offset="1" stop-color="#306998"/></linearGradient><linearGradient id="pyYellow" x1="12" y1="15" x2="27" y2="29" gradientUnits="userSpaceOnUse"><stop stop-color="#FFD43B"/><stop offset="1" stop-color="#FFE873"/></linearGradient></defs><path fill="url(#pyBlue)" d="M15.8 2.5c-7.2 0-6.8 3.1-6.8 3.1v3.2h7v1H6.3S2 9.3 2 16.1s3.8 6.5 3.8 6.5H8v-3.1s-.1-3.8 3.7-3.8h6.9s3.5.1 3.5-3.4V6.2s.5-3.7-6.3-3.7Zm-3.9 2a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4Z"/><path fill="url(#pyYellow)" d="M16.2 29.5c7.2 0 6.8-3.1 6.8-3.1v-3.2h-7v-1h9.7s4.3.5 4.3-6.3-3.8-6.5-3.8-6.5H24v3.1s.1 3.8-3.7 3.8h-6.9s-3.5-.1-3.5 3.4v6.1s-.5 3.7 6.3 3.7Zm3.9-2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4Z"/></svg>';
+    // iconMarkup: presentation-only renderer exception — __logo__ and raw-markup
+    // values bypass the single-path renderer; everything else is unchanged.
+    const iconMarkup=(key)=>{
+      if(key==='__logo__')return '<img class="ribbon-cmd-logo" src="assets/purity-logo.png" alt="">';
+      const v=icons[key]||icons.file;
+      return (typeof v==='string'&&v.charAt(0)==='<')?v:'<svg aria-hidden="true" viewBox="0 0 24 24"><path d="'+v+'"/></svg>';
+    };
     const quick=document.createElement('div');quick.className='ribbon-quick';
     ['saveBtn','undoBtn','redoBtn'].forEach((id,i)=>{const b=document.createElement('button');b.textContent=['Save','Undo','Redo'][i];b.onclick=()=>click(id);quick.append(b);});document.querySelector('.brand').append(quick);
     const nav=document.createElement('nav');nav.className='ribbon-tabs';nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Engineering ribbon');
@@ -17660,14 +17721,14 @@ action:n.type==='splitter'
     // instead of stranding the pill. A hidden widget must explain itself.
     function dockNetStatus(){
       try{
-        const tools=document.querySelector('.canvas-tools');
-        const fitBtn=document.getElementById('fitBtn');
+        // Figma strip is the pills' home (was: canvas-tools before fitBtn).
+        const strip=document.getElementById('statusStripRight')||document.querySelector('.canvas-tools');
         const pill=document.getElementById('solverStatus');
-        if(!(tools&&fitBtn&&pill))return false;
-        if(pill.parentElement!==tools)tools.insertBefore(pill,fitBtn);
+        if(!(strip&&pill))return false;
+        if(pill.parentElement!==strip)strip.append(pill);
         const badge=document.getElementById('backendStatusBadge');
-        if(badge&&badge.parentElement!==tools)tools.insertBefore(badge,fitBtn);
-        return pill.parentElement===tools;
+        if(badge&&badge.parentElement!==strip)strip.append(badge);
+        return pill.parentElement===strip;
       }catch(_){return false;}
     }
     dockNetStatus();
@@ -17676,16 +17737,21 @@ action:n.type==='splitter'
       try{
         if(dockNetStatus()){
           const p=document.getElementById('solverStatus');
-          if(p&&p.getBoundingClientRect().width>0){console.info('[netstatus] solve-state pill docked in canvas toolbar.');}
+          if(p&&p.getBoundingClientRect().width>0){console.info('[netstatus] solve-state pill docked in status strip.');}
           else console.warn('[netstatus] pill docked but zero-width — check computed display for #solverStatus.');
+          // Self-diagnostics: strip band height + network tile presence.
+          const band=document.getElementById('statusStrip');
+          const bh=band?band.getBoundingClientRect().height:0;
+          if(!band)console.warn('[netstatus] STRIP MISSING — #statusStrip not in DOM (stale HTML?).');
+          else if(!(bh>0))console.warn('[netstatus] STRIP ZERO-HEIGHT — stylesheet not applied (hard-refresh Ctrl+Shift+R).');
+          if(!document.querySelector('.ribbon-command.network-tile'))
+            console.warn('[netstatus] TILE MISSING — .network-tile not rendered (stale JS?).');
         }else{
-          const toolsCount=document.querySelectorAll('.canvas-tools').length;
-          const fb=document.getElementById('fitBtn');
-          const fbParent=fb&&fb.parentElement?fb.parentElement.className+'#'+(fb.parentElement.id||''):'null';
+          const stripCount=document.querySelectorAll('#statusStripRight,.canvas-tools').length;
           const p=document.getElementById('solverStatus');
           const pp=p&&p.parentElement?p.parentElement.className+'#'+(p.parentElement.id||''):'null';
-          try{toast('Status pill could not dock beside Reset zoom — see console (F12).');}catch(_){}
-          console.warn('[netstatus] PILL DOCK FAILED. pillParent:'+pp+' toolbars:'+toolsCount+' fitBtnParent:'+fbParent);
+          try{toast('Status pill could not dock in status strip — see console (F12).');}catch(_){}
+          console.warn('[netstatus] PILL DOCK FAILED. pillParent:'+pp+' strips:'+stripCount);
         }
       }catch(_){}
     },800);
@@ -17712,7 +17778,7 @@ action:n.type==='splitter'
     let currentRibbonTab='Home';
     function activate(name){currentRibbonTab=name;nav.querySelectorAll('button').forEach(b=>{b.setAttribute('aria-selected',String(b.textContent===name));b.tabIndex=b.textContent===name?0:-1;});panel.setAttribute('aria-label',name);panel.replaceChildren();
       Object.entries(tabs[name]).forEach(([group,commands])=>{const g=document.createElement('div');g.className='ribbon-group';
-        commands.forEach(c=>{const b=document.createElement('button');b.className='ribbon-command'+(c.cls?' '+c.cls:'');b.disabled=!c.action;b.title=c.reason||c.label;b.innerHTML=(c.icon==='__logo__'?'<img class="ribbon-cmd-logo" src="assets/purity-logo.png" alt="">':'<svg aria-hidden="true" viewBox="0 0 24 24"><path d="'+(icons[c.icon]||icons.file)+'"/></svg>')+'<span>'+c.label+'</span>';b.onclick=c.action;if(c.label==='Flow Legends')b.classList.toggle('active',!!state.flowLegendsOn);g.append(b);});
+        commands.forEach(c=>{const b=document.createElement('button');b.className='ribbon-command'+(c.cls?' '+c.cls:'');b.disabled=!c.action;b.title=c.reason||c.label;b.innerHTML=iconMarkup(c.icon)+'<span>'+c.label+'</span>';b.onclick=c.action;if(c.label==='Flow Legends')b.classList.toggle('legends-on',!!state.flowLegendsOn);g.append(b);});
         const label=document.createElement('div');label.className='ribbon-group-name';label.textContent=group;g.append(label);panel.append(g);
       });
     }
@@ -17792,7 +17858,7 @@ action:n.type==='splitter'
           const b = document.createElement('button');
           b.className = 'ribbon-command'+(cmd.cls?' '+cmd.cls:'');
           b.title = cmd.reason || cmd.label;
-          b.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="' + (icons[cmd.icon] || icons.file) + '"/></svg><span>' + cmd.label + '</span>';
+          b.innerHTML = iconMarkup(cmd.icon)+'<span>' + cmd.label + '</span>';
           b.onclick = cmd.action;
           g.append(b);
         });

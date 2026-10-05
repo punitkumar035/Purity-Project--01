@@ -37,6 +37,11 @@
     </div>
   </header>
 
+  <div class="status-strip" id="statusStrip">
+    <div class="status-left"><span>Phase 4.8.9</span><span>kg/h · °C · kPa-abs</span></div>
+    <div class="status-right" id="statusStripRight"></div>
+  </div>
+
   <div class="workspace">
     <aside class="sidebar">
       <div class="side-head">
@@ -242,14 +247,14 @@
       <div class="canvas-top">
         <div class="scheme-name-wrap">
           <span style="font-size:10px;font-weight:900;color:#6d7f8d">SCHEME</span>
-          <input id="schemeName" class="scheme-name" value="New Massecuite Scheme" />
+          <input id="schemeName" class="scheme-name" value="New Process Simulation" />
         </div>
         <div class="canvas-tools">
           <button class="mini" id="zoomOut">−</button>
           <span class="zoom-label" id="zoomLabel">100%</span>
           <button class="mini" id="zoomIn">+</button>
-          <button class="mini" id="zoomReset">Reset zoom</button>
-          <button class="mini" id="fitBtn">Fit</button>
+          <button class="mini" id="zoomReset"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 16a8 8 0 1 0 .5-8l-2 2"/></svg> Reset zoom</button>
+          <button class="mini" id="fitBtn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg> Fit</button>
         </div>
       </div>
 
@@ -260,6 +265,25 @@
           <span class="key"><span class="mini-flag p">P</span><b>Pressure feedback</b></span>
           <span>Internal flow = calculated</span>
         </div>
+
+        <div class="flow-watermark" id="flowWatermark" aria-hidden="true">
+          <svg viewBox="0 0 760 300">
+            <g class="flow-lines" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M112 151h100M292 151h91M473 151h92M645 151h72M338 151V75h89M427 75h72M520 151v76h-93M427 227h-68" />
+              <path d="m202 143 10 8-10 8M373 143l10 8-10 8M555 143l10 8-10 8M707 143l10 8-10 8" />
+            </g>
+            <g class="flow-nodes" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="32" y="116" width="80" height="70" rx="14" />
+              <circle cx="252" cy="151" r="40" />
+              <rect x="383" y="113" width="90" height="76" rx="12" />
+              <circle cx="605" cy="151" r="40" />
+              <rect x="393" y="205" width="68" height="44" rx="10" />
+            </g>
+            <text x="380" y="286" text-anchor="middle">PROCESS FLOW DIAGRAM</text>
+          </svg>
+        </div>
+        <button class="build-cta" id="emptyCta">Build your Process Simulation</button>
+        <div class="empty-state" id="emptyState" aria-hidden="true"></div>
 
         <div class="world-wrap" id="worldWrap">
           <div class="world" id="world">
@@ -281,10 +305,6 @@
                 <div class="sheet-tb-cell"><div class="sheet-tb-lbl">STANDARD</div><div class="sheet-tb-val">Sugar's Help Book</div></div>
                 <div class="sheet-tb-cell"><div class="sheet-tb-lbl">UNITS / STATUS</div><div class="sheet-tb-val" id="stbStatus">kg/h · °C · kPa abs</div></div>
               </div>
-            </div>
-            <div class="empty-state" id="emptyState">
-              <div class="big">Build your boiling scheme</div>
-              <div class="small">Drag stations from the left. Name them A, A1, B, B1, B2, C, C1, R1, etc. The topology will become the calculation structure.</div>
             </div>
           </div>
         </div>

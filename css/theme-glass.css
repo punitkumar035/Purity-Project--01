@@ -90,7 +90,10 @@ body{
 .ribbon-command img.ribbon-cmd-logo{background:var(--glass-accent-soft);border-radius:12px;padding:3px;width:40px;height:40px;object-fit:contain}
 /* home-dark retired 2026-10-04 (owner: tile must match others; function kept) */
 /* ---------- sidebar shell ---------- */
-.workspace{grid-template-columns:290px minmax(0,1fr) 315px}
+/* Phase 4.8.4 removed the right panel (display:none in main.css) in favour
+   of floating windows: keep the grid 2-column so no dead column renders. */
+.workspace{grid-template-columns:250px minmax(0,1fr)}
+@media(max-width:1100px){.workspace{grid-template-columns:215px minmax(0,1fr)}}
 .sidebar{
   background:var(--glass-panel);
   -webkit-backdrop-filter:var(--glass-blur);
@@ -652,3 +655,207 @@ body{
 .connector-routing-hint{fill:#607786;stroke:#fff;}
 .connector-endpoint{fill:#fff;stroke:#0d7d93;}
 .connector-endpoint.floating{fill:#fff8dd;stroke:#b88017;}
+/* ============================================================
+   FIGMA STYLE (owner-locked 2026-10-04: full Figma language wins;
+   supersedes the reverted all-square slate pass).
+   Source: Design UI.zip src/App.tsx + src/index.css (Figma Make),
+   mapped onto OUR class names. Static-demo elements (watermark,
+   build-cta) intentionally skipped; print rules stay ours.
+   ============================================================ */
+:root{
+  --fig-ink:#12436c;
+  --fig-deep:#163c62;
+  --fig-muted:#4f84a0;
+  --fig-faint:#6894aa;
+  --fig-icon:#087dbd;
+  --fig-icon-soft:#286789;
+}
+/* app backdrop (Figma layered gradients + stripe texture) */
+body{
+  background:
+    radial-gradient(circle at 51% 95%, rgba(227, 255, 246, .72), transparent 31%),
+    radial-gradient(circle at 8% 60%, rgba(111, 196, 224, .42), transparent 29%),
+    linear-gradient(133deg, #b6dcea 0%, #e0f0f7 43%, #aaceda 100%);
+  color:var(--fig-ink);
+}
+.app{position:relative;}
+.app::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.22;
+  background-image:repeating-linear-gradient(112deg, transparent 0 16px, rgba(255,255,255,.28) 17px 18px);
+}
+/* glass utility (Figma .glass) for our bands */
+.topbar,.ribbon-panel,.sidebar,.canvas-shell,.props,.page-tab-bar{
+  border:1px solid rgba(255,255,255,.36);
+  background:linear-gradient(115deg, rgba(248,254,255,.66), rgba(224,242,249,.51));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.62), 0 8px 26px rgba(44,121,161,.08);
+  -webkit-backdrop-filter:blur(18px);
+  backdrop-filter:blur(18px);
+}
+/* topbar + brand */
+.topbar{border-radius:16px 16px 0 0;}
+.brand-title{color:var(--fig-deep);}
+.brand-sub{color:#5d88a3;}
+.toolbar .btn{
+  border-radius:14px;color:#20577d;background:rgba(255,255,255,.24);
+}
+.toolbar .btn:hover{background-color:rgba(255,255,255,.68);}
+.toolbar .btn.primary{background:linear-gradient(180deg,#6ac3ff,#4595ea);color:#fff;box-shadow:0 6px 14px rgba(37,139,223,.22);}
+/* ribbon tabs (Figma .tabs) */
+.ribbon-tabs button{
+  border-radius:15px;background:transparent;color:var(--fig-ink);
+}
+.ribbon-tabs button[aria-selected=true]{
+  color:#fff;background:linear-gradient(180deg,#6ac3ff,#4595ea);
+  box-shadow:0 6px 14px rgba(37,139,218,.22);
+}
+/* ribbon commands (Figma .command: icon lift + glow, blue glyphs) */
+.ribbon-group{border-radius:16px;}
+.ribbon-command{
+  border-radius:12px;color:var(--fig-icon);
+  background:linear-gradient(145deg, rgba(255,255,255,.53), rgba(238,248,252,.2));
+}
+.ribbon-command span{color:var(--fig-icon-soft);}
+.ribbon-command svg{
+  transform:translateY(-1px);
+  filter:drop-shadow(0 1px 0 rgba(255,255,255,.95)) drop-shadow(0 4px 3px rgba(21,93,139,.28)) drop-shadow(0 7px 8px rgba(21,93,139,.14));
+}
+.ribbon-command:hover svg{transform:translateY(-3px);}
+/* raw-markup icons (Python logo): artwork carries its own fill, no tile stroke */
+.ribbon-command svg.icon-raw{background:transparent;stroke:none;filter:none;}
+.ribbon-group-name{color:#5383a1;}
+/* sidebar + palette (Figma radii + pastel codes) */
+.sidebar{border-radius:15px;}
+.side-title{color:var(--fig-deep);}
+.side-sub{color:var(--fig-muted);}
+.palette-item{
+  border:1px solid rgba(255,255,255,.55);
+  border-radius:10px;
+  background:rgba(247,252,255,.68);
+  box-shadow:0 3px 8px rgba(43,126,163,.06);
+}
+.palette-item:hover{transform:translateX(2px);background:rgba(255,255,255,.85);}
+.pal-name{color:var(--fig-ink);}
+.pal-desc{color:var(--fig-faint);}
+.group-title{color:#317496;}
+.palette-hint{color:#617584;background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.7);border-radius:10px;}
+/* station code pastels (Figma families; cool-grey default for the rest) */
+.pal-icon,.node-icon{background:#dbe5ec;color:#41617a;border-radius:9px;}
+.palette-item[data-type="pan"] .pal-icon,.palette-item[data-type="crystallizer"] .pal-icon{background:#bcecd8;color:#126d78;}
+.palette-item[data-type="evaporator"] .pal-icon{background:#a9ebed;color:#08748e;}
+.palette-item[data-type="compressor"] .pal-icon,.palette-item[data-type="thermocompressor"] .pal-icon,.palette-item[data-type="centrifugal2"] .pal-icon{background:#b8dcf9;color:#175a91;}
+.palette-item[data-type="centrifugal3"] .pal-icon{background:#c9c9fb;color:#383c9d;}
+.palette-item[data-type="melter"] .pal-icon,.palette-item[data-type="magma"] .pal-icon{background:#f4c5ec;color:#a02b82;}
+/* canvas (Figma dual-scale grid tints, inset glow) */
+.canvas-shell{border-radius:15px;}
+.viewport{
+  background-color:rgba(249,253,255,.79);
+  background-image:
+    linear-gradient(rgba(67,154,196,.085) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(67,154,196,.085) 1px,transparent 1px),
+    linear-gradient(rgba(48,137,181,.13) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(48,137,181,.13) 1px,transparent 1px);
+  background-size:
+    var(--grid-small,40px) var(--grid-small,40px),
+    var(--grid-small,40px) var(--grid-small,40px),
+    var(--grid-large,40px) var(--grid-large,40px),
+    var(--grid-large,40px) var(--grid-large,40px);
+  border:1px solid rgba(255,255,255,.65);
+  border-radius:11px;
+  box-shadow:inset 0 0 35px rgba(118,192,220,.12), 0 6px 18px rgba(56,132,165,.07);
+}
+.empty-state .big{color:#455f72;}
+.empty-state .small{color:#6a9aba;}
+.flow-legend{
+  border-radius:10px;color:#4f7690;background:rgba(248,252,254,.72);
+}
+.flow-legend .mini-flag.r{color:#516105;background:#dce71d;border-radius:50%;}
+.flow-legend .mini-flag.p{color:#fff;background:#4fa8d3;border-radius:50%;}
+/* zoom + scheme controls */
+.scheme-name{background:rgba(243,251,254,.63);border-radius:12px;color:#1e496a;}
+.mini{background:rgba(245,252,255,.58);border-radius:12px;color:#0a89cf;}
+.zoom-label{color:#16638d;}
+/* page bar (Figma .pagebar) */
+.page-tab-bar{border-radius:15px;}
+.page-tab{background:rgba(246,252,255,.63);border-radius:14px;}
+.page-tab.active{color:#fff;background:linear-gradient(180deg,#69baff,#4b91e9);box-shadow:0 4px 10px rgba(38,139,218,.2);}
+/* right props panel */
+.props{border-left:1px solid rgba(255,255,255,.5);}
+.prop-card{background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.7);border-radius:11px;}
+.prop-card-head{color:var(--fig-deep);border-bottom:1px solid rgba(255,255,255,.5);}
+.field label{color:var(--fig-muted);}
+.field input,.field select{
+  border:1px solid rgba(255,255,255,.8);border-radius:7px;
+  background:rgba(255,255,255,.6);color:#c82525;
+}
+.field input[readonly]{color:#31495b;background:rgba(255,255,255,.35);}
+.field input:focus,.field select:focus{border-color:#29a9a5;box-shadow:0 0 0 3px rgba(14,165,164,.10);}
+.small-btn{border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.6);color:#465f72;border-radius:7px;}
+.small-btn:hover{background:rgba(255,255,255,.9);}
+.info{background:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.6);color:var(--fig-muted);border-radius:9px;}
+.tag{border-radius:999px;background:#edf7f6;color:#0c8e8b;}
+/* toast top-center (Figma) */
+.toast{
+  top:20px;bottom:auto;transform:translateX(-50%);
+  border:1px solid rgba(255,255,255,.8);border-radius:18px;
+  color:#0c5e8d;background:rgba(240,251,255,.94);
+  box-shadow:0 10px 30px rgba(29,97,133,.2);
+}
+/* nodes keep dummy navy heads; icon chips go Figma blue-soft */
+.node-icon{background:rgba(255,255,255,.14);}
+/* status strip (Figma composition; pills dock here via dockNetStatus) */
+.status-strip{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 20px;flex-shrink:0;
+  background:rgba(255,255,255,0.25);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border-bottom:1px solid rgba(255,255,255,0.4);
+}
+.status-left{display:flex;gap:12px;align-items:center;font-size:11px;color:#3a5a6a;}
+.status-right{display:flex;gap:8px;align-items:center;}
+.status-strip .status-pill{
+  background:rgba(255,255,255,.75);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.7);
+  border-radius:8px;box-shadow:0 3px 12px rgba(31,90,150,.12);
+  font-size:11px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;padding:5px 10px;
+}
+.status-strip .status-pill.ok{color:#15803d;}
+.status-strip .status-pill.warn,.status-strip .status-pill.err{color:#b91c1c;}
+.status-strip .status-pill.info{color:#1663ab;}
+/* Figma canvas composition (watermark + CTA + icon zoom bar + legend tune) */
+.flow-watermark{
+  position:absolute;top:50%;left:50%;width:min(60%,760px);
+  color:#4f9ec3;opacity:.12;transform:translate(-50%,-52%);
+  pointer-events:none;
+}
+.flow-watermark svg{display:block;width:100%;overflow:visible;}
+.flow-watermark text{fill:currentColor;font-size:14px;font-weight:700;letter-spacing:5px;}
+.build-cta{
+  position:absolute;bottom:3px;left:58%;
+  padding:9px 19px;border:1px solid rgba(255,255,255,.7);
+  border-radius:13px 13px 0 0;color:#087fc5;
+  background:linear-gradient(180deg,rgba(250,254,255,.85),rgba(237,248,252,.74));
+  font-size:10px;font-weight:600;cursor:pointer;
+  box-shadow:0 -4px 20px rgba(54,137,175,.08);
+}
+.build-cta:hover{background:rgba(255,255,255,.95);}
+.canvas-tools .mini svg{width:14px;height:14px;vertical-align:-2px;}
+.canvas-tools .mini{stroke:currentColor;}
+.flow-legend{font-size:7px;gap:14px;padding:7px 11px;}
+.flow-legend .mini-flag{width:13px;height:13px;font-size:7px;}
+/* network state tile (display-only; state classes patched by setStatus) */
+.ribbon-command.network-tile span{white-space:normal;line-height:1.25;}
+.ribbon-command.network-init svg{stroke:#b45309;}
+.ribbon-command.network-init span{color:#b45309;}
+.ribbon-command.network-ok svg{stroke:#15803d;}
+.ribbon-command.network-ok span{color:#15803d;}
+.ribbon-command.network-err svg{stroke:#b91c1c;}
+.ribbon-command.network-err span{color:#b91c1c;}
+.ribbon-command.network-tile:disabled{opacity:1;cursor:default;}
+/* flow-legends state: icon-only signal, tile stays standard (owner rule) */
+.ribbon-command.legends-on{background:inherit;border-color:inherit;color:inherit;}
+.ribbon-command.legends-on svg{stroke:#0e7d93;}
+.ribbon-command.legends-on span{color:#0e7d93;}
+/* status strip can never collapse, even before pills dock */
+.status-strip{min-height:34px;}
