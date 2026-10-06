@@ -859,3 +859,9 @@ body{
 .ribbon-command.legends-on span{color:#0e7d93;}
 /* status strip can never collapse, even before pills dock */
 .status-strip{min-height:34px;}
+/* Phase-A marquee rubber band (Figma-style selection rect) */
+.marquee-rect{
+  position:absolute;z-index:60;pointer-events:none;
+  border:1.5px solid #2f6f9e;background:rgba(47,111,158,0.08);
+  box-shadow:0 0 0 1px rgba(255,255,255,0.5);
+}

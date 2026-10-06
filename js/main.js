@@ -24,7 +24,33 @@
     return NODE_MIN_SIZE[node.type] || NODE_MIN_SIZE.default;
   }
   let zoom = 1;
-  let selected = null; // {kind:'node'|'connector', id}
+  let selected = null; // {kind:'node'|'connector', id} — PRIMARY selection (compat: all legacy readers use this)
+  // Phase A multi-select: selectedSet holds the full set, primary first.
+  // selected is always selectedSet[0]||null. Readers keep working untouched.
+  let selectedSet = [];
+  function setSelection(list){
+    selectedSet=(list||[]).filter(Boolean).map(s=>({kind:s.kind,id:s.id}));
+    selected=selectedSet[0]||null;
+  }
+  function clearSel(){setSelection([]);}
+  function isSelected(kind,id){return selectedSet.some(s=>s.kind===kind&&String(s.id)===String(id));}
+  function addSelect(kind,id){
+    if(isSelected(kind,id))return;
+    setSelection([...selectedSet,{kind,id}]);
+  }
+  function toggleSelect(kind,id){
+    if(isSelected(kind,id))setSelection(selectedSet.filter(s=>!(s.kind===kind&&String(s.id)===String(id))));
+    else addSelect(kind,id);
+  }
+  function markSelectedNodes(){
+    if(!nodesEl)return;
+    nodesEl.querySelectorAll('.node.selected').forEach(x=>x.classList.remove('selected'));
+    selectedSet.forEach(s=>{
+      if(s.kind!=='node')return;
+      const el=nodesEl.querySelector('[data-id="'+String(s.id).replace(/"/g,'')+'"]');
+      if(el&&el.classList.contains('node'))el.classList.add('selected');
+    });
+  }
   let pendingConnection = null; // transient normal output→input connection preview; not persisted
   let connectorDrag = null;
     let state = {
@@ -90,6 +116,45 @@
     ensurePageModel(state);
     return state.pages.find(p => p.id === state.activePageId) || state.pages[0];
   }
+  // Auto-grow world (Visio-like pasteboard): per-page dims, default 2200x1400.
+  // Old files lack the fields — pageWorld() falls back, ensurePageWorld()
+  // backfills. Sheet frame / print / A4 model untouched.
+  function ensurePageWorld(p){
+    if(!p)return;
+    if(!Number.isFinite(p.worldW)||p.worldW<2200)p.worldW=2200;
+    if(!Number.isFinite(p.worldH)||p.worldH<1400)p.worldH=1400;
+  }
+  function pageWorld(p){
+    p=p||activePage();
+    return {w:(p&&Number.isFinite(p.worldW)&&p.worldW>=WORLD_W)?p.worldW:WORLD_W,
+            h:(p&&Number.isFinite(p.worldH)&&p.worldH>=WORLD_H)?p.worldH:WORLD_H};
+  }
+  // Shorthands for clamp sites (active page dims; consts are the defaults).
+  function WW(){return pageWorld().w;}
+  function WH(){return pageWorld().h;}
+  let _appliedWorldW=0,_appliedWorldH=0;
+  function applyWorldSize(){
+    const p=activePage();ensurePageWorld(p);
+    const d=pageWorld(p);
+    if(d.w===_appliedWorldW&&d.h===_appliedWorldH)return;
+    _appliedWorldW=d.w;_appliedWorldH=d.h;
+    if(world) {world.style.width=d.w+'px';world.style.height=d.h+'px';}
+    if(worldWrap){worldWrap.style.width=(d.w*zoom)+'px';worldWrap.style.height=(d.h*zoom)+'px';}
+    const wires=document.getElementById('wires');
+    if(wires){wires.setAttribute('viewBox','0 0 '+d.w+' '+d.h);wires.style.width=d.w+'px';wires.style.height=d.h+'px';}
+    const nds=document.getElementById('nodes');
+    if(nds){nds.style.width=d.w+'px';nds.style.height=d.h+'px';}
+  }
+  const WORLD_GROW_MARGIN=400, WORLD_GROW_MAX_W=8800, WORLD_GROW_MAX_H=5600;
+  function ensureWorldFits(x0,y0,x1,y1){
+    const p=activePage();ensurePageWorld(p);
+    let grew=false;
+    if(x1>p.worldW-WORLD_GROW_MARGIN){p.worldW=Math.min(WORLD_GROW_MAX_W,Math.max(p.worldW,Math.ceil(x1+WORLD_GROW_MARGIN)));grew=true;}
+    if(y1>p.worldH-WORLD_GROW_MARGIN){p.worldH=Math.min(WORLD_GROW_MAX_H,Math.max(p.worldH,Math.ceil(y1+WORLD_GROW_MARGIN)));grew=true;}
+    if(x0<0||y0<0){/* negative space not supported in this pass; clamped at 0 */}
+    if(grew)applyWorldSize();
+    return grew;
+  }
 
   function saveActivePageData() {
     if (!state.pages) return;
@@ -121,6 +186,8 @@
         zoom: 1,
         panX: 0,
         panY: 0,
+        worldW: 2200,
+        worldH: 1400,
         nodes: [],
         connectors: [],
         streams: []
@@ -196,6 +263,8 @@
         zoom: srcPage.zoom || 1,
         panX: srcPage.panX || 0,
         panY: srcPage.panY || 0,
+        worldW: (Number.isFinite(srcPage.worldW)&&srcPage.worldW>=2200)?srcPage.worldW:2200,
+        worldH: (Number.isFinite(srcPage.worldH)&&srcPage.worldH>=1400)?srcPage.worldH:1400,
         nodes: clonedNodes,
         connectors: clonedConnectors,
         streams: []
@@ -275,7 +344,7 @@
       state.connectors = target.connectors || [];
       target.nodes = state.nodes;
       target.connectors = state.connectors;
-      selected = null;
+      clearSel();
       pendingConnection = null;
       connectorDrag = null;
 
@@ -1700,7 +1769,7 @@
     state=prepareState(obj);
     schemeName.value=state.name||'Untitled Scheme';
     rehydrateCurrentState();
-    if(clearSelection)selected=null;
+    if(clearSelection)clearSel();
     pendingConnection=null;
     connectorDrag=null;
     clearNormalConnectionFeedback();
@@ -1893,10 +1962,11 @@
       stationNumber,
       stationTypeCode:stationTypeCode(type),
       equipmentTag:nextEquipmentTag(type,null,stationNumber),
-      x:Math.max(10,Math.min(WORLD_W-(type==='source'?180:210),x)),
-      y:Math.max(10,Math.min(WORLD_H-140,y)),
+      x:Math.max(10,Math.min(WW()-(type==='source'?180:210),x)),
+      y:Math.max(10,Math.min(WH()-140,y)),
       params:clone(def.defaults)
     };
+    { const _sz0=nodeVisualSize({type}); if(_sz0)ensureWorldFits(node.x,node.y,node.x+_sz0.w,node.y+_sz0.h); }
     // X-01: commit the visible default name to the model so the V-01 check
     // reads what the user sees (evaporator Station Name is required, ≤20).
     if(type==='evaporator'&&!String(node.params.stationName||'').trim()){
@@ -2165,6 +2235,9 @@
     return obj;
   }
   function renderAll(){
+    // Adopt legacy direct `selected=` writers into the set (single-select intent).
+    if(selected&&!isSelected(selected.kind,selected.id))setSelection([selected]);
+    applyWorldSize();
     renderNodes();
     renderWires();
     renderProps();
@@ -2204,7 +2277,7 @@
     state.nodes.forEach(node=>{
       const def=nodeDefs[node.type];
       const el=document.createElement('div');
-      el.className='node'+(node.type==='source'?' boundary-source':'')+(selected?.kind==='node'&&selected.id===node.id?' selected':'');
+      el.className='node'+(node.type==='source'?' boundary-source':'')+(isSelected('node',node.id)?' selected':'');
       el.dataset.id=node.id;
       el.style.left=node.x+'px';
       el.style.top=node.y+'px';
@@ -2250,9 +2323,12 @@
       }
       el.addEventListener('click',e=>{
         if(e.target.classList.contains('port')) return;
-        selected={kind:'node',id:node.id};
-        nodesEl.querySelectorAll('.node.selected').forEach(x=>x.classList.remove('selected'));
-        el.classList.add('selected');
+        // Deferred-toggle mouseup already handled this gesture: skip the echo.
+        if(el._suppressClickUntil&&Date.now()<el._suppressClickUntil){el._suppressClickUntil=0;return;}
+        if(e.ctrlKey||e.metaKey)toggleSelect('node',node.id);
+        else if(e.shiftKey)addSelect('node',node.id);
+        else setSelection([{kind:'node',id:node.id}]);
+        markSelectedNodes();
         clearAllNodeResizeHandles();
         setupNodeResize(el,node,def);
         renderWires();renderProps();
@@ -2809,39 +2885,109 @@
     });
   }
 
+  // Drag-loop hardening: a fault inside a per-frame wire refresh must never
+  // freeze arrowheads silently. Stations keep tracking (positions update
+  // first); the fault is named once via toast, every occurrence via console,
+  // and the next frame retries normally. The render path self-heals by
+  // construction (all reads re-glue live ports), so a persistent freeze
+  // always means a throw — now a visible one.
+  let _wireErrLast='';
+  function safeRenderWires(){
+    try{renderWires();}
+    catch(err){
+      const msg=String((err&&err.message)||err);
+      console.error('[wires] refresh failed:',err);
+      if(msg!==_wireErrLast){_wireErrLast=msg;try{toast('Wire refresh hit an error — see console (F12).');}catch(_){}}
+    }
+  }
   function setupNodeDrag(el,node,def){
-    const head=el.querySelector('.node-head') || el.querySelector('.boundary-card');
-    head.addEventListener('mousedown',e=>{
+    const head=el.querySelector('.node-head') || el.querySelector('.boundary-card');    head.addEventListener('mousedown',e=>{
       if(e.button!==0) return;
       e.preventDefault();
-      selected={kind:'node',id:node.id};
-      nodesEl.querySelectorAll('.node.selected').forEach(x=>x.classList.remove('selected'));
-      el.classList.add('selected');
+      // Ctrl: toggle deferred to mouseup-if-unmoved; crossing the move
+      // threshold with Ctrl held clones the set live instead (Visio copy).
+      // Plain drag on an outsider resets to it; on a member moves the set.
+      const ctrlHeld=!!(e.ctrlKey||e.metaKey);
+      let pendingToggle=(ctrlHeld&&!e.shiftKey)?{kind:'node',id:node.id}:null;
+      if(e.shiftKey&&!ctrlHeld)addSelect('node',node.id);
+      else if(!ctrlHeld&&!isSelected('node',node.id))setSelection([{kind:'node',id:node.id}]);
+      markSelectedNodes();
       clearAllNodeResizeHandles();
       setupNodeResize(el,node,def);
       renderWires();renderProps();
       const startX=e.clientX,startY=e.clientY;
-      const ox=node.x,oy=node.y;
-      let moved=false, histPushed=false;
+      let ox=node.x,oy=node.y;
+      let moved=false, histPushed=false, cloned=false;
+      let dragNode=node, dragEl=el;
+      // Move-all snapshot: every other set member follows the same delta.
+      let fellows=selectedSet.filter(s=>s.kind==='node'&&String(s.id)!==String(node.id))
+        .map(s=>getNode(s.id)).filter(n=>n).map(n=>({n,ox:n.x,oy:n.y}));
 
       function move(ev){
         const dx=(ev.clientX-startX)/zoom;
         const dy=(ev.clientY-startY)/zoom;
         if(Math.abs(dx)+Math.abs(dy)>2){
+          if(pendingToggle)pendingToggle=null; // movement wins over toggle
+          if(ctrlHeld&&!cloned){
+            // Live copy: duplicate dragged node + current set in place (no
+            // history), transfer selection, move the clones from here on.
+            cloned=true;
+            const union=[{kind:'node',id:dragNode.id}];
+            selectedSet.forEach(s=>{if(!union.some(u=>u.kind===s.kind&&String(u.id)===String(s.id)))union.push({kind:s.kind,id:s.id});});
+            setSelection(union);
+            const cb=snapshotSelectionSet();
+            if(cb){
+              const inst=instantiateClones(cb,cb.minX,cb.minY);
+              setSelection(inst.fresh);
+              const newId=inst.idMap[dragNode.id];
+              dragNode=getNode(newId)||dragNode;
+              renderNodes();
+              const rel=nodesEl.querySelector('[data-id="'+String(dragNode.id).replace(/"/g,'')+'"]');
+              if(rel)dragEl=rel;
+              ox=dragNode.x;oy=dragNode.y;
+              fellows=selectedSet.filter(s=>s.kind==='node'&&String(s.id)!==String(dragNode.id))
+                .map(s=>getNode(s.id)).filter(n=>n).map(n=>({n,ox:n.x,oy:n.y}));
+              setupNodeResize(dragEl,dragNode,def);
+              markSelectedNodes();renderWires();renderProps();
+            }
+          }
           moved=true;
           if(!histPushed){pushHistory();histPushed=true;}
         }
-        const _sz=nodeVisualSize(node);
-        node.x=Math.max(0,Math.min(WORLD_W-_sz.w,ox+dx));
-        node.y=Math.max(0,Math.min(WORLD_H-_sz.h,oy+dy));
-        el.style.left=node.x+'px';
-        el.style.top=node.y+'px';
-        renderWires();
+        const _sz=nodeVisualSize(dragNode);
+        // Auto-grow before clamping so content can push the pasteboard out.
+        ensureWorldFits(Math.min(ox+dx,ox),Math.min(oy+dy,oy),Math.max(ox+dx,ox)+_sz.w,Math.max(oy+dy,oy)+_sz.h);
+        dragNode.x=Math.max(0,Math.min(WW()-_sz.w,ox+dx));
+        dragNode.y=Math.max(0,Math.min(WH()-_sz.h,oy+dy));
+        dragEl.style.left=dragNode.x+'px';
+        dragEl.style.top=dragNode.y+'px';
+        fellows.forEach(f=>{
+          const s=nodeVisualSize(f.n);
+          const fx=f.ox+dx, fy=f.oy+dy;
+          ensureWorldFits(Math.min(fx,f.ox),Math.min(fy,f.oy),Math.max(fx,f.ox)+s.w,Math.max(fy,f.oy)+s.h);
+          f.n.x=Math.max(0,Math.min(WW()-s.w,fx));
+          f.n.y=Math.max(0,Math.min(WH()-s.h,fy));
+          const felt=nodesEl.querySelector('[data-id="'+String(f.n.id).replace(/"/g,'')+'"]');
+          if(felt){felt.style.left=f.n.x+'px';felt.style.top=f.n.y+'px';}
+        });
+        safeRenderWires();
       }
       function up(){
         document.removeEventListener('mousemove',move);
         document.removeEventListener('mouseup',up);
-        if(moved) markChanged();
+        if(pendingToggle){
+          // Unmoved Ctrl+click: apply the deferred toggle; suppress the
+          // click handler that fires right after mouseup.
+          toggleSelect(pendingToggle.kind,pendingToggle.id);
+          markSelectedNodes();renderWires();renderProps();
+          dragEl._suppressClickUntil=Date.now()+400;
+          pendingToggle=null;
+        }
+        if(moved){
+          // Post-drag click would collapse a multi-set back to one: suppress.
+          dragEl._suppressClickUntil=Date.now()+400;
+          markChanged();
+        }
       }
       document.addEventListener('mousemove',move);
       document.addEventListener('mouseup',up);
@@ -2905,6 +3051,10 @@
 
           nw=Math.max(min.w,nw);
           nh=Math.max(min.h,nh);
+          if(h.dx===-1)nx=ox+(ow-nw);
+          if(h.dy===-1)ny=oy+(oh-nh);
+          // Grow on the union of old + desired boxes, then clamp below.
+          ensureWorldFits(Math.min(ox,nx),Math.min(oy,ny),Math.max(ox+ow,nx+nw),Math.max(oy+oh,ny+nh));
 
           // Dragging a west/north handle moves the origin too — but only by
           // however much the size actually changed, so the box doesn't jump
@@ -2912,8 +3062,8 @@
           if(h.dx===-1) nx=ox+(ow-nw);
           if(h.dy===-1) ny=oy+(oh-nh);
 
-          nx=Math.max(0,Math.min(WORLD_W-nw,nx));
-          ny=Math.max(0,Math.min(WORLD_H-nh,ny));
+          nx=Math.max(0,Math.min(WW()-nw,nx));
+          ny=Math.max(0,Math.min(WH()-nh,ny));
 
           node.x=nx;node.y=ny;node.w=nw;node.h=nh;
           el.style.left=nx+'px';el.style.top=ny+'px';
@@ -2924,7 +3074,7 @@
           addPorts(portLayer,node,def.inputs,'in');
           addPorts(portLayer,node,def.outputs,'out');
 
-          renderWires();
+          safeRenderWires();
         }
         function up(){
           document.removeEventListener('mousemove',move);
@@ -2955,7 +3105,7 @@
   }
 
   function clampWorldPoint(p){
-    return {x:Math.max(0,Math.min(WORLD_W,p.x)),y:Math.max(0,Math.min(WORLD_H,p.y))};
+    return {x:Math.max(0,Math.min(WW(),p.x)),y:Math.max(0,Math.min(WH(),p.y))};
   }
 
   function resolveConnectorEndpoint(c,which){
@@ -3135,7 +3285,6 @@
     if(manual)return manual;
     return applyManualSegmentOffsets(c,routeOrthogonalBase(c));
   }
-
   function moveSegmentPerpendicular(base,index,delta){
     const v=base.map(p=>({...p}));
     const n=v.length;
@@ -3668,7 +3817,7 @@
     }
     state.connectors=activePage().connectors;
     state.flows=(state.flows||[]).filter(f=>f.id!==flowId);
-    selected=null;renderAll();markChanged();
+    clearSel();renderAll();markChanged();
     toast('Link pair and shared flow deleted.');
     return true;
   }
@@ -3844,8 +3993,8 @@
       const rawY=((vpRect.height/2)+viewport.scrollTop-(rect.top-vpRect.top+viewport.scrollTop))/zoom;
       const stagger=(linkPasteCount%7)*26;linkPasteCount++;
       return {
-        x:(Number.isFinite(rawX)&&rawX>60&&rawX<WORLD_W-100)?rawX+stagger:(420+stagger),
-        y:(Number.isFinite(rawY)&&rawY>60&&rawY<WORLD_H-100)?rawY+stagger:(260+stagger)
+        x:(Number.isFinite(rawX)&&rawX>60&&rawX<WW()-100)?rawX+stagger:(420+stagger),
+        y:(Number.isFinite(rawY)&&rawY>60&&rawY<WH()-100)?rawY+stagger:(260+stagger)
       };
     }catch(_){return {x:420,y:260};}
   }
@@ -3889,6 +4038,112 @@
     beginUniversalConnectionFromPort(nodeId,portId,dir,e);
   }
 
+
+  // Phase A+ model clipboard: copy/cut/paste the selection SET as-is elsewhere.
+  // Separate store from linkClipboard (halves only); timestamps decide V.
+  // Internal port endpoints remap to the cloned stations; external legs and
+  // link halves resolve to floating points / unlinked halves (never invent
+  // linkage). One history push per paste; cut reuses single-push delete.
+  let modelClipboard=null; // {nodes,connectors,minX,minY,w,h,at,pastes}
+  let lastViewportMouse=null;
+  viewport.addEventListener('mousemove',e=>{lastViewportMouse={x:e.clientX,y:e.clientY};});
+  // Pure snapshot of the current set (relative coords, deep clones). No store,
+  // no toast, no history — shared by copy and Ctrl+drag-clone.
+  function snapshotSelectionSet(){
+    const nodes=selectedSet.filter(s=>s.kind==='node').map(s=>getNode(s.id)).filter(Boolean);
+    const conns=selectedSet.filter(s=>s.kind==='connector'||s.kind==='stream').map(s=>getConnector(s.id)).filter(Boolean);
+    if(!nodes.length&&!conns.length)return null;
+    const xs=[],ys=[];
+    nodes.forEach(n=>{const s=nodeVisualSize(n);xs.push(n.x,n.x+s.w);ys.push(n.y,n.y+s.h);});
+    conns.forEach(c=>{try{
+      const a=resolveConnectorEndpoint(c,'source'),b=resolveConnectorEndpoint(c,'target');
+      xs.push(a.x,b.x);ys.push(a.y,b.y);
+    }catch(_){}});
+    const minX=Math.min(...xs),minY=Math.min(...ys);
+    return {nodes:nodes.map(clone),connectors:conns.map(clone),
+      minX,minY,w:Math.max(...xs)-minX,h:Math.max(...ys)-minY};
+  }
+  function copySelectionSet(){
+    if(!selectedSet.length){toast('Nothing is selected.');return false;}
+    const cb=snapshotSelectionSet();
+    if(!cb){toast('Selection is empty.');return false;}
+    cb.at=Date.now();cb.pastes=0;
+    modelClipboard=cb;
+    toast('Copied '+cb.nodes.length+' station(s), '+cb.connectors.length+' stream(s) — Ctrl+V pastes at cursor.');
+    return true;
+  }
+  function pasteSelectionSet(){
+    const cb=modelClipboard;
+    if(!cb||(!cb.nodes.length&&!cb.connectors.length)){return false;}
+    // Target: cursor world point, else staggered visible-center fallback.
+    let tx,ty;
+    if(lastViewportMouse){
+      try{
+        const wp=worldPointFromEvent({clientX:lastViewportMouse.x,clientY:lastViewportMouse.y});
+        tx=wp.x;ty=wp.y;
+      }catch(_){tx=null;}
+    }
+    if(!Number.isFinite(tx)){
+      const cx=(viewport.scrollLeft+viewport.clientWidth/2)/zoom;
+      const cy=(viewport.scrollTop+viewport.clientHeight/2)/zoom;
+      const st=35*((cb.pastes||0)+1);
+      tx=cx-cb.w/2+st;ty=cy-cb.h/2+st;
+    }
+    const dx=tx-cb.minX, dy=ty-cb.minY;
+    pushHistory();
+    const inst=instantiateClones(cb,tx,ty);
+    cb.pastes=(cb.pastes||0)+1;
+    setSelection(inst.fresh);
+    renderAll();markChanged();
+    toast('Pasted '+cb.nodes.length+' station(s), '+cb.connectors.length+' stream(s).'+(inst.halvesUnlinked?' Link halves pasted unlinked.':''));
+    return true;
+  }
+  // Shared instantiate: duplicates a snapshot at target min-corner (tx,ty).
+  // No history, no render, no selection here — callers own the gesture.
+  // Returns {fresh:[{kind,id}],halvesUnlinked}.
+  function instantiateClones(cb,tx,ty){
+    const dx=tx-cb.minX, dy=ty-cb.minY;
+    const idMap={}, fresh=[];
+    cb.nodes.forEach(n0=>{
+      const n=clone(n0), oldId=n.id;
+      n.id=uid('node');idMap[oldId]=n.id;
+      n.label=(n0.label||n0.type)+' Copy';
+      n.stationNumber=nextStationNumber(n.type);
+      n.stationTypeCode=stationTypeCode(n.type);
+      n.equipmentTag=nextEquipmentTag(n.type,null,n.stationNumber);
+      n.solveStatus='UNSOLVED';n.solverMessage='';n.stationResult=null;n.panResult=null;
+      n.x=n0.x+dx;n.y=n0.y+dy;
+      state.nodes.push(n);fresh.push({kind:'node',id:n.id});
+    });
+    let halvesUnlinked=0;
+    cb.connectors.forEach(c0=>{
+      const c=clone(c0);
+      c.id=uid('stream');
+      const mapEnd=(which)=>{
+        const ep=c[which];
+        if(ep&&connectorEndpointIsPort(ep)&&ep.station_id&&idMap[ep.station_id])
+          return {...ep,station_id:idMap[ep.station_id]};
+        if(ep&&connectorEndpointIsPort(ep)){
+          try{const p=resolveConnectorEndpoint(c0,which);return {type:'point',x:p.x+dx,y:p.y+dy};}
+          catch(_){return {type:'point',x:tx,y:ty};}
+        }
+        if(ep&&ep.type==='point')return {...ep,x:ep.x+dx,y:ep.y+dy};
+        return ep;
+      };
+      c.source=mapEnd('source');c.target=mapEnd('target');
+      if(c.linkHalf===true){c.flowId=null;c.linkRole=null;halvesUnlinked++;}
+      c.solveStatus='UNSOLVED';c.solverMessage='';
+      if(Array.isArray(c.vertices))c.vertices=c.vertices.map(v=>({...v,x:(Number.isFinite(v.x)?v.x:0)+dx,y:(Number.isFinite(v.y)?v.y:0)+dy}));
+      state.connectors.push(c);fresh.push({kind:'connector',id:c.id});
+    });
+    // Grow before clamping-free placement lands (coords are exact already).
+    if(fresh.length){
+      let gx1=-Infinity,gy1=-Infinity;
+      cb.nodes.forEach(n0=>{const s=nodeVisualSize(n0);gx1=Math.max(gx1,n0.x+dx+s.w);gy1=Math.max(gy1,n0.y+dy+s.h);});
+      ensureWorldFits(tx,ty,gx1,gy1);
+    }
+    return {fresh,halvesUnlinked,idMap};
+  }
 
   function ctrlDragMateFromHalf(c,e){
     // Helpbook Ctrl+drag: drag a copy of the half; dropping it glues the mate.
@@ -4210,7 +4465,7 @@
         if(drag.createdMateId){
           // Ctrl+click without a drag: remove the unmoved copy, no history entry.
           state.connectors=state.connectors.filter(x=>x.id!==drag.createdMateId);
-          selected=null;
+          clearSel();
           clearNormalConnectionFeedback();
           renderAll();
           return;
@@ -4234,10 +4489,10 @@
     }
     clearNormalConnectionFeedback();
     if((drag.type==='segment'||drag.type==='bend') && !drag.moved){
-      selected={kind:'connector',id:c.id};renderProps();return;
+      setSelection([{kind:'connector',id:c.id}]);renderProps();return;
     }
     markChanged();
-    selected={kind:'connector',id:c.id};
+    setSelection([{kind:'connector',id:c.id}]);
     renderAll();
   });
 
@@ -4329,12 +4584,15 @@
   }
 
   let connectorSingleClickTimer=null;
-  function scheduleConnectorSingleClick(c){
+  function scheduleConnectorSingleClick(c,mods){
+    const add=!!(mods&&mods.add), toggle=!!(mods&&mods.toggle);
     if(connectorSingleClickTimer)clearTimeout(connectorSingleClickTimer);
     connectorSingleClickTimer=setTimeout(()=>{
       connectorSingleClickTimer=null;
       if(!getConnector(c.id))return;
-      selected={kind:'connector',id:c.id};
+      if(toggle)toggleSelect('connector',c.id);
+      else if(add)addSelect('connector',c.id);
+      else setSelection([{kind:'connector',id:c.id}]);
       renderWires();
       renderProps();
     },230);
@@ -4345,7 +4603,7 @@
     if(connectorSingleClickTimer){clearTimeout(connectorSingleClickTimer);connectorSingleClickTimer=null;}
     if(!getConnector(c.id))return;
     if(c.linkHalf===true){openLinkFlowProperties(c);return;}
-    selected={kind:'connector',id:c.id};
+    setSelection([{kind:'connector',id:c.id}]);
     renderWires();
     renderProps();
     if(connectorSolverActive(c))openFlowProperties(c.id);
@@ -4367,7 +4625,7 @@
       if(e.button===0&&(e.ctrlKey||e.metaKey)&&c.linkHalf===true){ctrlDragMateFromHalf(c,e);return;}
       beginExistingEndpointDrag(c,which,e);
     });
-    hit.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c);});
+    hit.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c,{add:!!e.shiftKey,toggle:!!(e.ctrlKey||e.metaKey)});});
     hit.addEventListener('dblclick',e=>openConnectorPropertiesByDoubleClick(c,e));
     wireLayer.appendChild(hit);
 
@@ -4392,7 +4650,7 @@
     if(point || (selected?.id===c.id&&(selected.kind==='stream'||selected.kind==='connector'))){
       const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
       dot.setAttribute('cx',p.x);dot.setAttribute('cy',p.y);
-      const selectedHere=selected?.id===c.id&&(selected.kind==='stream'||selected.kind==='connector');
+      const selectedHere=selectedSet.some(s=>s.id===c.id&&(s.kind==='stream'||s.kind==='connector'));
       dot.setAttribute('r',(point?5:(selectedHere?4.6:3.5))/Math.max(zoom,.2));
       dot.setAttribute('class','connector-endpoint'+(point?' floating':'')+(selectedHere?' selected-handle':''));
       wireLayer.appendChild(dot);
@@ -4415,7 +4673,7 @@
       h.setAttribute('class','connector-route-handle segment '+(horizontal?'horizontal':'vertical'));
       h.setAttribute('data-segment-index',i);
       h.addEventListener('mousedown',e=>beginSegmentDrag(c,i,vertices,e));
-      h.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c);});
+      h.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c,{add:!!e.shiftKey,toggle:!!(e.ctrlKey||e.metaKey)});});
       h.addEventListener('dblclick',e=>openConnectorPropertiesByDoubleClick(c,e));
       wireLayer.appendChild(h);
     }
@@ -4428,7 +4686,7 @@
       h.setAttribute('rx',1.5*inv);h.setAttribute('class','connector-route-handle bend');
       h.setAttribute('data-bend-index',i);
       h.addEventListener('mousedown',e=>beginBendDrag(c,i,vertices,e));
-      h.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c);});
+      h.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c,{add:!!e.shiftKey,toggle:!!(e.ctrlKey||e.metaKey)});});
       h.addEventListener('dblclick',e=>openConnectorPropertiesByDoubleClick(c,e));
       wireLayer.appendChild(h);
     }
@@ -4776,7 +5034,7 @@
 
     records.forEach(({c,vertices})=>{
       const pathD=pathWithJumps(vertices,jumpMap.get(c.id),6);
-      const selectedHere=selected?.id===c.id&&(selected.kind==='stream'||selected.kind==='connector');
+      const selectedHere=selectedSet.some(s=>s.id===c.id&&(s.kind==='stream'||s.kind==='connector'));
       const linkComplete=c.linkHalf===true?halfLinkComplete(c,state.activePageId):false;
       const floating=c.linkHalf===true?!linkComplete:!connectorSolverActive(c);
 
@@ -4792,7 +5050,7 @@
         });
         hit.addEventListener('click',e=>{
           e.stopPropagation();
-          scheduleConnectorSingleClick(c);
+          scheduleConnectorSingleClick(c,{add:!!e.shiftKey,toggle:!!(e.ctrlKey||e.metaKey)});
         });
         hit.addEventListener('dblclick',e=>openConnectorPropertiesByDoubleClick(c,e));
         hit.addEventListener('contextmenu',e=>{
@@ -4825,7 +5083,7 @@
       if(c.linkHalf===true){
         label.textContent=linkMateLabel(c)||'unpaired link';
         label.setAttribute('class','wire-label link-half-label'+(linkComplete?' link-complete':' link-pending'));
-        label.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c);});
+        label.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c,{add:!!e.shiftKey,toggle:!!(e.ctrlKey||e.metaKey)});});
         label.addEventListener('dblclick',e=>{e.stopPropagation();openLinkFlowProperties(c);});
         label.addEventListener('contextmenu',e=>{
           e.preventDefault();e.stopPropagation();selectItem('connector',c.id);
@@ -4834,7 +5092,7 @@
       }else{
       label.setAttribute('class','wire-label');
       label.textContent=c.properties?.label||c.name||'Connector';
-      label.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c);});
+      label.addEventListener('click',e=>{e.stopPropagation();scheduleConnectorSingleClick(c,{add:!!e.shiftKey,toggle:!!(e.ctrlKey||e.metaKey)});});
       label.addEventListener('dblclick',e=>openConnectorPropertiesByDoubleClick(c,e));
       label.addEventListener('contextmenu',e=>{
         e.preventDefault();e.stopPropagation();selectItem('connector',c.id);
@@ -4965,7 +5223,7 @@
   function openStationProperties(nodeId){
     const n=getNode(nodeId);if(!n)return;
     if(!beginStationPropertyTransaction(nodeId))return;
-    editingStationId=nodeId;selected={kind:'node',id:nodeId};renderNodes();renderWires();renderProps();
+    editingStationId=nodeId;setSelection([{kind:'node',id:nodeId}]);renderNodes();renderWires();renderProps();
     const modernTypes = ['pan','evaporator','heater','injectionHeater','melter','flashTank','crystallizer','cooler','dryer','turbine','turboAlternator','pump','pressureReducer','contactCondenser','surfaceCondenser'];
     stationFloat.classList.toggle('pan-modern', modernTypes.includes(n.type));
     stationFloat.classList.toggle('centrifugal-modern', n.type==='centrifugal2'||n.type==='centrifugal3');
@@ -4983,7 +5241,7 @@
   makeFloatingDraggable(stationFloat,document.getElementById('stationFloatTitlebar'),'station');
 
   function selectItem(kind,id){
-    selected={kind,id};
+    setSelection([{kind,id}]);
     contextMenu.style.display='none';
     renderNodes();
     renderWires();
@@ -5010,9 +5268,13 @@
         const mate=flow?findLinkMate(s,state.activePageId):null;
         const label=linkMateLabel(s);
         propsContent.innerHTML=`<div class="selection-hint"><b>${s.linkKind==='onpage'?'On-page':'Cross-page'} link half</b><br>${label?`Mate: ${escapeHtml(label)}${mate?` (page ${escapeHtml(mate.page.name||mate.page.id)})`:''}`:'Unpaired — glue to a port and create its mate.'}<br><br>Double-click the link to open its shared flow properties.</div>`;
-        return;
+      }else{
+        propsContent.innerHTML=s?`<div class="selection-hint"><b>${escapeHtml(s.name||'Flow')}</b><br>${escapeHtml(streamBoundaryType(s))}<br><br>Double-click the flow line to open its floating Universal Flow property window.</div>`:'';
       }
-      propsContent.innerHTML=s?`<div class="selection-hint"><b>${escapeHtml(s.name||'Flow')}</b><br>${escapeHtml(streamBoundaryType(s))}<br><br>Double-click the flow line to open its floating Universal Flow property window.</div>`:'';
+    }
+    // Phase A: set count banner (primary shown; dialogs open for primary).
+    if(selectedSet.length>1&&propsContent){
+      propsContent.innerHTML='<div class="info"><b>'+selectedSet.length+' selected.</b> Primary shown; dialogs open for the primary.</div>'+propsContent.innerHTML;
     }
   }
 
@@ -8422,6 +8684,7 @@
     c.stationTypeCode=stationTypeCode(n.type);
     c.equipmentTag=nextEquipmentTag(n.type,null,c.stationNumber);
     c.x+=35;c.y+=35;
+    { const _sz=nodeVisualSize(c); ensureWorldFits(c.x,c.y,c.x+_sz.w,c.y+_sz.h); }
     state.nodes.push(c);renderAll();selectItem('node',c.id);markChanged();
   }
 
@@ -8448,7 +8711,7 @@
       }
     });
     state.nodes=state.nodes.filter(n=>n.id!==id);
-    selected=null;pendingConnection=null;renderAll();markChanged();
+    clearSel();pendingConnection=null;renderAll();markChanged();
   }
 
   function resetFlowValues(id){
@@ -8470,14 +8733,16 @@
     return true;
   }
 
-  function deleteStream(id){
+  function deleteStream(id,pairMode){
     const dead0=state.connectors.find(s=>s.id===id);
     if(dead0?.linkHalf===true&&dead0.flowId){
       // Spec §5.5: deleting one half asks about the pair. OK = delete both
       // halves and the shared flow (one undo step via deleteLinkPair);
       // Cancel = delete only this half, mate stays flagged as unpaired.
+      // Batch callers pass pairMode ('both'|'single') for one upfront decision.
       if(findLinkMateAnywhere(dead0)){
-        if(confirm('Delete both halves of this link?\n\nOK — delete both halves and the shared flow record.\nCancel — delete only this half; its mate stays flagged as unpaired.')){
+        if(pairMode==='both'){deleteLinkPair(dead0.flowId);return;}
+        else if(pairMode!=='single'&&confirm('Delete both halves of this link?\n\nOK — delete both halves and the shared flow record.\nCancel — delete only this half; its mate stays flagged as unpaired.')){
           deleteLinkPair(dead0.flowId);
           return;
         }
@@ -8492,18 +8757,36 @@
       if(f)clearFlowEndForHalf(f,dead);
     }
     state.connectors=state.connectors.filter(s=>s.id!==id);
-    selected=null;renderAll();markChanged();
+    clearSel();renderAll();markChanged();
   }
 
   // Selection-aware delete used by the contextual ribbon commands.
-  // deleteNode/deleteStream own pushHistory(), renderAll() and markChanged(),
-  // so callers must NOT push a second snapshot for the same gesture.
-  function deleteSelected(){
-    if(!selected){toast('Nothing is selected.');return false;}
-    if(selected.kind==='node'){deleteNode(selected.id);return true;}
-    if(selected.kind==='connector'||selected.kind==='stream'){deleteStream(selected.id);return true;}
-    selected=null;renderAll();
-    return false;
+  // Phase A: deletes the whole set with ONE undo snapshot. Link-half pairs
+  // get a single upfront decision instead of per-half confirms.
+  function deleteSelected(pairMode){
+    if(!selectedSet.length){toast('Nothing is selected.');return false;}
+    const items=[...selectedSet];
+    let mode=(pairMode===undefined||pairMode===null)?null:pairMode;
+    if(mode===null){
+      const paired=items.filter(s=>(s.kind==='connector'||s.kind==='stream')
+        &&(()=>{const d=state.connectors.find(x=>String(x.id)===String(s.id));return d?.linkHalf===true&&d.flowId&&findLinkMateAnywhere(d);})());
+      if(paired.length){
+        mode=confirm(paired.length+' link half/halve(s) have mates — delete the mates and shared flows too?\n\nOK — delete pairs.\nCancel — delete only the selected halves.')?'both':'single';
+      }else mode='single';
+    }
+    suppressHistory=true;
+    try{
+      items.forEach(s=>{
+        if(s.kind==='node'){if(getNode(s.id))deleteNode(s.id);}
+        else if(s.kind==='connector'||s.kind==='stream'){
+          const d=state.connectors.find(x=>String(x.id)===String(s.id));
+          if(d)deleteStream(s.id,mode);
+        }
+      });
+    }finally{suppressHistory=false;}
+    pushHistory();
+    clearSel();renderAll();markChanged();
+    return true;
   }
 
   function showNodeMenu(x,y,id){
@@ -8642,8 +8925,8 @@
       const rawX = ((vpRect.width / 2) + viewport.scrollLeft - (rect.left - vpRect.left + viewport.scrollLeft)) / zoom;
       const rawY = ((vpRect.height / 2) + viewport.scrollTop - (rect.top - vpRect.top + viewport.scrollTop)) / zoom;
       const stagger = ((state.nodes.length + 1) % 7) * 26;
-      x = (Number.isFinite(rawX) && rawX > 60 && rawX < WORLD_W - 100) ? rawX + stagger : (420 + stagger);
-      y = (Number.isFinite(rawY) && rawY > 60 && rawY < WORLD_H - 100) ? rawY + stagger : (260 + stagger);
+      x = (Number.isFinite(rawX) && rawX > 60 && rawX < WW() - 100) ? rawX + stagger : (420 + stagger);
+      y = (Number.isFinite(rawY) && rawY > 60 && rawY < WH() - 100) ? rawY + stagger : (260 + stagger);
     }
     if(type === 'universalFlow') createUniversalFlowStencil(x, y);
     else if(type === 'onpageLink') createLinkHalfStencil(x, y, 'onpage');
@@ -8716,18 +8999,81 @@
     }
   });
 
-  // click blank canvas clears selection/pending
+  // click blank canvas clears selection/pending; drag opens a Phase-A marquee.
+  // Marquee selects intersecting nodes + fully-enclosed connectors.
+  let marqueeCtl=null;
   viewport.addEventListener('mousedown',e=>{
-    if(!connectorDrag && (e.target===viewport || e.target===world || e.target===nodesEl || e.target===emptyState)){
-      selected=null;pendingConnection=null;renderAll();
+    if(connectorDrag)return;
+    if(!(e.target===viewport||e.target===world||e.target===nodesEl||e.target===emptyState))return;
+    // Non-left buttons keep legacy behaviour (clear, no marquee).
+    if(e.button!==0){clearSel();pendingConnection=null;renderAll();return;}
+    const sx=e.clientX, sy=e.clientY;
+    const mods={add:e.shiftKey,toggle:e.ctrlKey||e.metaKey};
+    let el=null, active=false, done=false;
+    const toWorld=(cx,cy)=>{const r=world.getBoundingClientRect();return {x:(cx-r.left)/zoom,y:(cy-r.top)/zoom};};
+    function cancel(){
+      if(done)return;done=true;
+      document.removeEventListener('mousemove',move);
+      document.removeEventListener('mouseup',up);
+      if(el&&el.parentElement)el.parentElement.removeChild(el);
+      if(marqueeCtl&&marqueeCtl.el===el)marqueeCtl=null;
     }
+    function move(ev){
+      if(done)return;
+      if(!active){
+        if(Math.hypot(ev.clientX-sx,ev.clientY-sy)<4)return;
+        active=true;
+        el=document.createElement('div');el.className='marquee-rect';
+        viewport.appendChild(el);
+        marqueeCtl={el,cancel};
+      }
+      const vp=viewport.getBoundingClientRect();
+      const x0=Math.min(sx,ev.clientX),y0=Math.min(sy,ev.clientY);
+      const x1=Math.max(sx,ev.clientX),y1=Math.max(sy,ev.clientY);
+      el.style.left=(x0-vp.left+viewport.scrollLeft)+'px';
+      el.style.top=(y0-vp.top+viewport.scrollTop)+'px';
+      el.style.width=Math.max(0,x1-x0)+'px';el.style.height=Math.max(0,y1-y0)+'px';
+      const a=toWorld(x0,y0),b=toWorld(x1,y1);
+      el._w={x0:Math.min(a.x,b.x),y0:Math.min(a.y,b.y),x1:Math.max(a.x,b.x),y1:Math.max(a.y,b.y)};
+    }
+    function up(){
+      if(done)return;done=true;
+      document.removeEventListener('mousemove',move);
+      document.removeEventListener('mouseup',up);
+      if(marqueeCtl&&marqueeCtl.el===el)marqueeCtl=null;
+      if(!active){
+        clearSel();pendingConnection=null;renderAll();
+        return;
+      }
+      const w=el._w;
+      if(el.parentElement)el.parentElement.removeChild(el);
+      if(!w)return;
+      const hits=[];
+      state.nodes.forEach(n=>{
+        const s=nodeVisualSize(n);
+        if(n.x<w.x1&&n.x+s.w>w.x0&&n.y<w.y1&&n.y+s.h>w.y0)hits.push({kind:'node',id:n.id});
+      });
+      state.connectors.forEach(c=>{
+        try{
+          const a=resolveConnectorEndpoint(c,'source'),b=resolveConnectorEndpoint(c,'target');
+          if(a.x>=w.x0&&a.x<=w.x1&&a.y>=w.y0&&a.y<=w.y1&&b.x>=w.x0&&b.x<=w.x1&&b.y>=w.y0&&b.y<=w.y1)
+            hits.push({kind:'connector',id:c.id});
+        }catch(_){}
+      });
+      if(mods.toggle)hits.forEach(h=>toggleSelect(h.kind,h.id));
+      else if(mods.add)hits.forEach(h=>addSelect(h.kind,h.id));
+      else setSelection(hits);
+      renderNodes();renderWires();renderProps();
+    }
+    document.addEventListener('mousemove',move);
+    document.addEventListener('mouseup',up);
   });
 
   function setZoom(z){
-    zoom=Math.max(.45,Math.min(1.55,z));
+    zoom=Math.max(.45,Math.min(3,z));
     world.style.transform=`scale(${zoom})`;
-    worldWrap.style.width=(WORLD_W*zoom)+'px';
-    worldWrap.style.height=(WORLD_H*zoom)+'px';
+    worldWrap.style.width=(WW()*zoom)+'px';
+    worldWrap.style.height=(WH()*zoom)+'px';
     // Figma grid: background cells track zoom (16/80px at 100%).
     viewport.style.setProperty('--grid-small',(16*zoom)+'px');
     viewport.style.setProperty('--grid-large',(80*zoom)+'px');
@@ -8735,6 +9081,24 @@
   }
   document.getElementById('zoomIn').onclick=()=>setZoom(zoom+.1);
   document.getElementById('zoomOut').onclick=()=>setZoom(zoom-.1);
+  // Ctrl/Cmd+wheel zooms at the cursor (Phase A+); plain wheel keeps native
+  // scroll. preventDefault kills browser page-zoom over the canvas.
+  function zoomAt(factor,clientX,clientY){
+    const r=world.getBoundingClientRect();
+    const wx=(clientX-r.left)/zoom, wy=(clientY-r.top)/zoom;
+    const z0=zoom;
+    setZoom(z0*factor);
+    if(zoom===z0)return;
+    viewport.scrollLeft+=wx*(zoom-z0);
+    viewport.scrollTop+=wy*(zoom-z0);
+  }
+  viewport.addEventListener('wheel',e=>{
+    if(!(e.ctrlKey||e.metaKey))return;
+    if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName))return;
+    e.preventDefault();
+    const unit=e.deltaMode===1?16:(e.deltaMode===2?400:1);
+    zoomAt(Math.pow(1.12,-e.deltaY*unit/100),e.clientX,e.clientY);
+  },{passive:false});
   { const cta=document.getElementById('emptyCta'); if(cta)cta.onclick=()=>toast('Drag a station from the palette onto the canvas to begin.'); }
   document.getElementById('zoomReset').onclick=()=>setZoom(1);
   document.getElementById('fitBtn').onclick=()=>{
@@ -14868,9 +15232,18 @@ action:n.type==='splitter'
 
   // Keyboard actions
   document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      if(marqueeCtl){marqueeCtl.cancel();e.preventDefault();return;}
+      if(selected||pendingConnection){clearSel();pendingConnection=null;renderAll();e.preventDefault();return;}
+    }
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)){
+      e.preventDefault();
+      setSelection([...state.nodes.map(n=>({kind:'node',id:n.id})),...state.connectors.map(c=>({kind:'connector',id:c.id}))]);
+      markSelectedNodes();renderWires();renderProps();
+      return;
+    }
     if((e.key==='Delete'||e.key==='Backspace') && !['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)){
-      if(selected?.kind==='node')deleteNode(selected.id);
-      else if(selected?.kind==='stream'||selected?.kind==='connector')deleteStream(selected.id);
+      if(selectedSet.length)deleteSelected();
     }
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();document.getElementById('undoBtn').click();}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();document.getElementById('redoBtn').click();}
@@ -14878,9 +15251,22 @@ action:n.type==='splitter'
     // typing in property fields never triggers a canvas paste.
     if((e.ctrlKey||e.metaKey) && !['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)){
       const k=e.key.toLowerCase();
-      if(k==='c'){e.preventDefault();copySelectedHalf(false);}
-      else if(k==='x'){e.preventDefault();copySelectedHalf(true);}
-      else if(k==='v'){e.preventDefault();pasteClipboardAsMate();}
+      // Link-half primary keeps the legacy halves clipboard; anything else
+      // uses the model set clipboard (behavior change is owner-directed).
+      const halfPrimary=(()=>{
+        const s=selected;
+        if(!(s&&(s.kind==='connector'||s.kind==='stream')))return null;
+        const d=state.connectors.find(c=>String(c.id)===String(s.id));
+        return (d&&d.linkHalf===true)?d:null;
+      })();
+      if(k==='c'){e.preventDefault();if(halfPrimary)copySelectedHalf(false);else copySelectionSet();}
+      else if(k==='x'){e.preventDefault();if(halfPrimary)copySelectedHalf(true);else if(copySelectionSet())deleteSelected();}
+      else if(k==='v'){
+        e.preventDefault();
+        const useModel=modelClipboard&&modelClipboard.at&&(!(linkClipboard&&linkClipboard.at)||modelClipboard.at>=linkClipboard.at);
+        if(useModel){if(!pasteSelectionSet())pasteClipboardAsMate();}
+        else pasteClipboardAsMate();
+      }
     }
   });
 

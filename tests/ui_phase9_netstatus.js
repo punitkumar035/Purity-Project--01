@@ -49,6 +49,28 @@ ok(/\.ribbon-command\.network-init svg\{stroke:#b45309/.test(glass), 'uninitiali
 // flow-legends state is icon-only (tile never goes green)
 ok(js.includes("classList.toggle('legends-on'"), 'legends toggle uses icon-only class');
 ok(/\.ribbon-command\.legends-on svg\{stroke:#0e7d93/.test(glass), 'legends-on recolors icon only');
+// phase-A multi-select: set model, marquee, modifiers, batch delete
+ok(js.includes("let selectedSet = []"), 'selection set model exists');
+ok(js.includes("marquee-rect") && glass.includes('.marquee-rect{'), 'marquee rubber band styled');
+ok(js.includes("toLowerCase()==='a'") && js.includes("e.key==='Escape'"), 'Ctrl+A and Escape wired');
+ok(js.includes("function deleteSelected(pairMode)") || js.includes("function deleteSelected("), 'batch delete entry exists');
+// ctrl+wheel zoom-at-cursor (Phase A+)
+ok(js.includes("addEventListener('wheel'") && js.includes("function zoomAt(factor,clientX,clientY)"), 'wheel zoom listener + anchor fn exist');
+ok(js.includes("viewport.scrollLeft+=wx*(zoom-z0)"), 'zoom anchor math present');
+ok(js.includes("Math.max(.45,Math.min(3,z))"), 'zoom bounds 45-300%');
+// auto-grow world (Visio pasteboard): per-page dims, growth helper, clamp shorthands
+ok(js.includes("function ensureWorldFits(") && js.includes("WORLD_GROW_MAX_W"), 'world growth helper with cap exists');
+ok(js.includes("function WW(){return pageWorld().w;}"), 'clamp shorthands read active page');
+// model clipboard: copy/cut/paste the selection set (link halves keep legacy path)
+ok(js.includes("let modelClipboard=null"), 'model clipboard store exists');
+ok(js.includes("function copySelectionSet(") && js.includes("function pasteSelectionSet("), 'set copy/paste exist');
+ok(js.includes("station_id:idMap[ep.station_id]"), 'internal endpoints remap on paste');
+// ctrl+drag live clone (Visio copy): deferred toggle + threshold instantiate
+ok(js.includes("pendingToggle") && js.includes("instantiateClones(cb,cb.minX,cb.minY)"), 'clone-drag defers toggle and clones in place');
+ok(js.includes("function instantiateClones(cb,tx,ty)"), 'shared instantiate routine exists');
+// drag-loop hardening: per-frame wire faults surface instead of freezing
+ok(js.includes("function safeRenderWires()"), 'guarded wire renderer exists');
+ok(js.includes("[wires] refresh failed"), 'wire faults named in console');
 // home button (standard tile; dark theme retired 2026-10-04) + layout diagnostic gate
 ok(js.includes("command('Home'") && js.includes("'home'") && !js.includes('home-dark'), 'Home command wired as standard tile (no dark class)');
 ok(!/\.ribbon-command\.home-dark\{/.test(glass), 'dark-button theme retired');

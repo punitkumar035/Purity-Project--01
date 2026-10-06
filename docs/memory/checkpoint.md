@@ -109,3 +109,9 @@ WITH OWNER FOR REVIEW before merge+tag (uei-006-density-harness).
 2026-10-04 canvas/props batch: watermark+CTA re-anchored to viewport, scheme default New Process Simulation, legend always-visible, dashboard empty state (counts/solver/attention/actions). Suite ALL PASS. Uncommitted; screenshot review then commit+push on sign-off.
 2026-10-04 void fix: 2-col grid override (4.8.4 removal honored), dashboard reverted, phase-9 grid assert updated. Suite ALL PASS. Uncommitted; screenshot review then commit+push on sign-off.
 2026-10-04 network tile: globe icon + display-only Network tile after Solver Audit, 3-state sync in setStatus (orange/green/red), phase-9 asserts. Suite ALL PASS. Uncommitted; screenshot review then commit+push on sign-off.
+2026-10-04 Phase A multi-select built (set model additive, marquee, Ctrl+A/Escape, modifiers, move-all, delete-all one-undo, count banner, phase-9 asserts). Suite ALL PASS. Uncommitted; manual QA + screenshot sign-off then commit+push.
+2026-10-04 ctrl+wheel zoom-at-cursor added (zoomAt anchor math, guards, phase-9 asserts). Suite ALL PASS. Batch uncommitted; QA + sign-off then commit+push.
+2026-10-04 auto-grow world built (per-page dims, ensureWorldFits on drag/drop/duplicate/resize, clamps retargeted, phase-9 asserts). Suite ALL PASS. Uncommitted; QA + sign-off then commit+push.
+2026-10-04 set clipboard built (copy/cut/paste set, internal rewire, external float, halves unlink, cursor+fallback paste, legacy halves path preserved). Suite ALL PASS. Uncommitted; QA + sign-off then commit+push.
+2026-10-04 ctrl+drag live clone built (deferred toggle, threshold instantiate, shared routine, post-drag click suppression). Suite ALL PASS. Uncommitted; QA + sign-off then commit+push.
+2026-10-04 wire-freeze hardening built (safeRenderWires on drag/resize paths, faults named once via toast + always via console). Suite ALL PASS. Uncommitted; QA + sign-off then commit+push.
